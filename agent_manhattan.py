@@ -116,8 +116,11 @@ def ship_stragegy(board):
     min_dist = 99999
     min_dist_yard = None
     for y in me.shipyards:
-      # TODO(wangfei): skip yard that going to spawn and dist == 1.
+      # Skip go-back to yard that going to spawn and dist == 1.
       d = manhattan_dist(ship.position, y.position, board.configuration.size)
+      if y.next_action == ShipyardAction.SPAWN and d == 1:
+        continue
+
       if d < min_dist:
         min_dist = d
         min_dist_yard = y
@@ -155,6 +158,8 @@ def ship_stragegy(board):
 
 def build_shipyard(board):
   """Builds shipyard with a random ship if we have enough halite and ships."""
+
+  # TODO: select a far-away ship to convert?
   me = board.current_player
   if me.halite <= MIN_HALITE_TO_BUILD_SHIPYARD or not me.ship_ids:
     return

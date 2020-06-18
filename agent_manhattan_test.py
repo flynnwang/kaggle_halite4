@@ -1,4 +1,4 @@
-from agent0 import *
+from agent_manhattan import *
 
 
 def test_manhatten_dist():
