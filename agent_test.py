@@ -41,3 +41,9 @@ def test_compute_next_move():
 
   b = Point(20, 2)
   assert compute_next_move(a, b) == Point(+1, 0)
+
+
+def test_compuet_next_moves():
+  a = Point(5, 2)
+  b = Point(3, 3)
+  assert compute_next_moves(a, b) == [Point(-1, 0), Point(0, +1)]

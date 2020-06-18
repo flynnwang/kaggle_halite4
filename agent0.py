@@ -37,6 +37,22 @@ def compute_next_move(source, target):
   return direction
 
 
+def compute_next_moves(source, target):
+  if source == target:
+    return
+
+  moves = []
+  offset = target - source
+  sign = np.sign(offset)
+
+  if offset[0] != 0:
+    moves.append(Point(sign[0], 0))
+
+  if offset[1] != 0:
+    moves.append(Point(0, sign[1]))
+  return moves
+
+
 def direction_to_ship_action(direction):
   if direction is None:
     return None
@@ -58,12 +74,25 @@ def mine_halite_plan(board):
 
   halite_cells = []
   for cell in board.cells.values():
+    cell.has_mining_plan = False
+    cell.has_ally_ship = False
     if cell.halite > MINING_CELL_MIN_HALITE:
       halite_cells.append(cell)
-      cell.has_mining_plan = None
 
+  # Init ship properties.
+  ships = me.ships
+  for ship in ships:
+    ship.is_stay = False
+
+  # Ship that going to stay and mine.
   for ship in me.ships:
-    if ship.next_action:
+    if ship.cell.halite > MINING_CELL_MIN_HALITE:
+      ship.next_action = None
+      ship.is_stay = True
+      ship.cell.has_ally_ship = True
+
+  for ship in ships:
+    if ship.next_action or ship.is_stay:
       continue
 
     min_dist = 99999
@@ -72,14 +101,30 @@ def mine_halite_plan(board):
       if cell.has_mining_plan:
         continue
 
+      # TODO(wangfei): use search.
+      # Manhattan move is short-sighted, since it will not get round blocking
+      # cells to move.
       d = manhattan_dist(ship.position, cell.position, board.configuration.size)
       if d < min_dist:
         min_dist = d
         min_dist_cell = cell
 
     if min_dist_cell:
-      direction = compute_next_move(ship.position, min_dist_cell.position)
-      ship.next_action = direction_to_ship_action(direction)
+      moves = compute_next_moves(ship.position, min_dist_cell.position)
+      for move in moves:
+        neighbour_cell = ship.cell.neighbor(move)
+        if neighbour_cell.has_ally_ship:
+          continue
+
+        ship.next_action = direction_to_ship_action(move)
+        min_dist_cell.has_mining_plan = True
+        neighbour_cell.has_ally_ship = True
+        continue
+
+    # Stay because of no valid move.
+    if not ship.next_action:
+      ship.is_stay = True
+      ship.cell.has_ally_ship = True
 
 
 def build_shipyard(board):
