@@ -1,11 +1,20 @@
 #!/usr/bin/env python
 
+import random
 from collections import deque
 
 import numpy as np
 from kaggle_environments.envs.halite.helpers import *
 
+# If less than this value, Give up mining more halite from this cell.
 MINING_CELL_MIN_HALITE = 10.0
+
+# If my halite is less than this, do not build ship or shipyard anymore.
+MIN_HALITE_TO_BUILD_SHIPYARD = 500
+MIN_HALITE_TO_BUILD_SHIP = 500
+
+# The factor is num_of_ships : num_of_shipyards
+SHIP_TO_SHIYARD_FACTOR = 10
 
 
 def manhattan_dist(a, b, size):
@@ -51,14 +60,17 @@ def mine_halite_plan(board):
   for cell in board.cells.values():
     if cell.halite > MINING_CELL_MIN_HALITE:
       halite_cells.append(cell)
-      # cell.has_mining_plan = None
+      cell.has_mining_plan = None
 
   for ship in me.ships:
+    if ship.next_action:
+      continue
+
     min_dist = 99999
     min_dist_cell = None
     for cell in halite_cells:
-      # if cell.has_mining_plan:
-      # continue
+      if cell.has_mining_plan:
+        continue
 
       d = manhattan_dist(ship.position, cell.position, board.configuration.size)
       if d < min_dist:
@@ -70,13 +82,52 @@ def mine_halite_plan(board):
       ship.next_action = direction_to_ship_action(direction)
 
 
+def build_shipyard(board):
+  """Builds shipyard with a random ship if we have enough halite and ships."""
+  me = board.current_player
+  if me.halite <= MIN_HALITE_TO_BUILD_SHIPYARD or not me.ship_ids:
+    return
+
+  # Keep balance for the number of ships and shipyards.
+  num_ships = len(me.ship_ids)
+  num_shipyards = len(me.shipyard_ids)
+  if num_shipyards * SHIP_TO_SHIYARD_FACTOR >= num_ships:
+    return
+
+  # Only build one shipyard at a time.
+  me._halite -= board.configuration.convert_cost
+  ship_id = random.sample(me.ship_ids, k=1)[0]
+  ship = board.ships[ship_id]
+  ship.next_action = ShipAction.CONVERT
+
+
+def spawn_ships(board):
+  """Spawns ships if we have enough money and no collision with my own ships."""
+  me = board.current_player
+
+  shipyards = me.shipyards
+  random.shuffle(shipyards)
+
+  for shipyard in shipyards:
+    # Do not spawn ship on a occupied shipyard (or cell).
+    if shipyard.cell.ship_id:
+      continue
+
+    if me.halite <= MIN_HALITE_TO_BUILD_SHIP:
+      continue
+
+    # NOET: do not move ship onto a spawning shipyard.
+    me._halite -= board.configuration.spawn_cost
+    shipyard.next_action = ShipyardAction.SPAWN
+
+
 def agent(obs, config):
   board = Board(obs, config)
 
+  spawn_ships(board)
+
+  build_shipyard(board)
+
   mine_halite_plan(board)
 
-  # Set actions for each shipyard
-  me = board.current_player
-  for shipyard in me.shipyards:
-    shipyard.next_action = None
-  return me.next_actions
+  return board.current_player.next_actions
