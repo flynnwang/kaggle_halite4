@@ -10,11 +10,13 @@ from kaggle_environments.envs.halite.helpers import *
 MINING_CELL_MIN_HALITE = 10.0
 
 # If my halite is less than this, do not build ship or shipyard anymore.
-MIN_HALITE_TO_BUILD_SHIPYARD = 500
-MIN_HALITE_TO_BUILD_SHIP = 500
+MIN_HALITE_TO_BUILD_SHIPYARD = 1000
+MIN_HALITE_TO_BUILD_SHIP = 1000
 
 # The factor is num_of_ships : num_of_shipyards
 SHIP_TO_SHIYARD_FACTOR = 10
+
+MIN_HALITE_BEFORE_HOME = 500
 
 
 def manhattan_dist(a, b, size):
@@ -68,7 +70,8 @@ def direction_to_ship_action(direction):
   assert False
 
 
-def mine_halite_plan(board):
+# TODO(wangfei): extract a class for this.
+def ship_stragegy(board):
   """Sends every ships to the nearest cell with halite."""
   me = board.current_player
 
@@ -84,42 +87,65 @@ def mine_halite_plan(board):
   for ship in ships:
     ship.is_stay = False
 
-  # Ship that going to stay and mine.
-  for ship in me.ships:
+  # Ship that stay on current haltie.
+  for ship in ships:
     if ship.cell.halite > MINING_CELL_MIN_HALITE:
       ship.next_action = None
       ship.is_stay = True
       ship.cell.has_ally_ship = True
 
+  def try_move(ship, target_cell):
+    """Move ship towards the target cell without collide with allies."""
+    moves = compute_next_moves(ship.position, target_cell.position)
+    for move in moves:
+      next_cell = ship.cell.neighbor(move)
+      if next_cell.has_ally_ship:
+        continue
+
+      ship.next_action = direction_to_ship_action(move)
+      target_cell.has_mining_plan = True
+      next_cell.has_ally_ship = True
+      return True
+    return False
+
+  # Ship goes back home.
+  for ship in ships:
+    if ship.next_action or ship.is_stay or ship.halite <= MIN_HALITE_BEFORE_HOME:
+      continue
+
+    min_dist = 99999
+    min_dist_yard = None
+    for y in me.shipyards:
+      # TODO(wangfei): skip yard that going to spawn and dist == 1.
+      d = manhattan_dist(ship.position, y.position, board.configuration.size)
+      if d < min_dist:
+        min_dist = d
+        min_dist_yard = y
+
+    if min_dist_yard:
+      try_move(ship, min_dist_yard.cell)
+
+  # Ship that goes to halite.
   for ship in ships:
     if ship.next_action or ship.is_stay:
       continue
 
     min_dist = 99999
     min_dist_cell = None
-    for cell in halite_cells:
-      if cell.has_mining_plan:
+    for c in halite_cells:
+      if c.has_mining_plan:
         continue
 
       # TODO(wangfei): use search.
       # Manhattan move is short-sighted, since it will not get round blocking
       # cells to move.
-      d = manhattan_dist(ship.position, cell.position, board.configuration.size)
+      d = manhattan_dist(ship.position, c.position, board.configuration.size)
       if d < min_dist:
         min_dist = d
-        min_dist_cell = cell
+        min_dist_cell = c
 
-    if min_dist_cell:
-      moves = compute_next_moves(ship.position, min_dist_cell.position)
-      for move in moves:
-        neighbour_cell = ship.cell.neighbor(move)
-        if neighbour_cell.has_ally_ship:
-          continue
-
-        ship.next_action = direction_to_ship_action(move)
-        min_dist_cell.has_mining_plan = True
-        neighbour_cell.has_ally_ship = True
-        continue
+    if min_dist_cell and try_move(ship, min_dist_cell):
+      continue
 
     # Stay because of no valid move.
     if not ship.next_action:
@@ -173,6 +199,6 @@ def agent(obs, config):
 
   build_shipyard(board)
 
-  mine_halite_plan(board)
+  ship_stragegy(board)
 
   return board.current_player.next_actions
