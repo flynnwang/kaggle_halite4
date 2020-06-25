@@ -247,10 +247,14 @@ def ship_stragegy(board):
 
 def build_shipyard(board):
   """Builds shipyard with a random ship if we have enough halite and ships."""
+  convert_cost = board.configuration.convert_cost
 
   # TODO: select a far-away ship to convert?
   me = board.current_player
-  if me.halite <= MIN_HALITE_TO_BUILD_SHIPYARD or not me.ship_ids:
+  if not me.ship_ids or me.halite < convert_cost:
+    return
+
+  if me.shipyards and me.halite < MIN_HALITE_TO_BUILD_SHIPYARD:
     return
 
   # Keep balance for the number of ships and shipyards.
@@ -260,7 +264,7 @@ def build_shipyard(board):
     return
 
   # Only build one shipyard at a time.
-  me._halite -= board.configuration.convert_cost
+  me._halite -= convert_cost
   ship_id = random.sample(me.ship_ids, k=1)[0]
   ship = board.ships[ship_id]
   ship.next_action = ShipAction.CONVERT
