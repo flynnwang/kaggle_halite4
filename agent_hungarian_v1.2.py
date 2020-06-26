@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 """Tests expect_return with halite growth.
 
+ACCEPTED.
+
+Total Matches: 141 | Matches Queued: 9
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+Hungarian v1.2                 | bHoZ3UZNq0SD   | 27.0110296      | μ=29.618, σ=0.869  | 74
+Hungarian v1                   | m0usb391ug9H   | 25.7703241      | μ=28.361, σ=0.864  | 74
+Hungarian v1.1                 | tmo024Tnqvva   | 25.7510054      | μ=28.345, σ=0.865  | 67
+swarm                          | VEdhOravyNCX   | 24.8444348      | μ=27.318, σ=0.825  | 78
+Manhattan                      | kZXLGgfVKGXh   | 16.5500997      | μ=18.983, σ=0.811  | 86
+somebot                        | FErt8IPHKdWh   | 14.4427869      | μ=16.893, σ=0.817  | 91
+stillbot                       | M2y9hkW0ChhZ   | 11.1102277      | μ=13.773, σ=0.888  | 94
 """
 
 import random
@@ -167,17 +178,19 @@ def ship_stragegy(board):
     return False
 
   def max_expected_return_cell(ship):
+    growth = board.configuration.regen_rate + 1.0
+
     max_cell = None
     max_expected_return = 0
     for c in halite_cells:
       if c.has_mining_plan and c.has_ally_ship:
         continue
 
-      stay_steps = 1
       move_steps = manhattan_dist(ship.position, c.position,
                                   board.configuration.size)
-      total_steps = stay_steps + move_steps
-      expect_return = c.halite / total_steps
+      total_steps = move_steps + 1
+      expected_halite = min(c.halite * (growth**move_steps), 500)
+      expect_return = expected_halite / total_steps
       if expect_return > max_expected_return:
         max_expected_return = expect_return
         max_cell = c
