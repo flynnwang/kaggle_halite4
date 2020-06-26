@@ -82,6 +82,7 @@ class ShipStrategy:
     |next_cell: next cell location of the ship.
     |has_assignment|: has already has task assignment for this ship.
     |target_cell|: send ship to this cell, may be the same of current cell, None by default.
+    |priority|: used to rank ship for moves.
   """
 
   def __init__(self, board):
@@ -98,8 +99,9 @@ class ShipStrategy:
     ships = self.me.ships
     for ship in ships:
       ship.has_assignment = False
-      ship.target_cell = None
-      ship.next_cell = None
+      ship.target_cell = ship.cell
+      ship.next_cell = ship.cell
+      ship.priority = 0
 
   @property
   def my_idle_ships(self):
@@ -119,7 +121,7 @@ class ShipStrategy:
   def ship_stay(ship):
     ship.next_action = None
     ship.next_cell = ship.cell
-    ship.next_cell.is_occupied = ship
+    ship.next_cell.is_occupied = True
     if ship.cell.halite > 0:
       ship.cell.is_targetd = True
 
@@ -266,7 +268,10 @@ class ShipStrategy:
 
     # Only build one shipyard at a time.
     me._halite -= convert_cost
+
     ship_id = random.sample(me.ship_ids, k=1)[0]
+    # ship_id = me.ship_ids[0]
+
     ship = self.board.ships[ship_id]
     ship.next_action = ShipAction.CONVERT
     ship.has_assignment = True
