@@ -14,15 +14,15 @@ MIN_HALITE_TO_BUILD_SHIPYARD = 1000
 MIN_HALITE_TO_BUILD_SHIP = 1000
 
 # The factor is num_of_ships : num_of_shipyards
-SHIP_TO_SHIYARD_FACTOR = 7
+SHIP_TO_SHIYARD_FACTOR = 8
 
 # TODO: estimate this value.
 MIN_HALITE_BEFORE_HOME = 300
 
-MAX_SHIP_NUM = 23
+MAX_SHIP_NUM = 17
 
 
-def manhattan_dist(a, b, size):
+def manhattan_dist(a: Point, b: Point, size):
 
   def dist(x, y):
     v = abs(x - y)
@@ -65,9 +65,9 @@ def mining_steps(h, collect_rate):
   return s
 
 
-P_RETURN_TO_YARD = 1000
-P_STAY_ON_HALITE = 500
-P_MOVE_TO_HALITE = 100
+P_STAY_ON_HALITE = 1000
+P_MOVE_TO_HALITE = 900
+P_RETURN_TO_YARD = 800
 
 
 class ShipStrategy:
@@ -101,20 +101,6 @@ class ShipStrategy:
       ship.target_cell = None
       ship.next_cell = None
 
-    # Compute min enemy distance
-    # ship.min_enemy_dist = 999
-    # if opponents:
-    # enemy_dists = [
-    # manhattan_dist(ship.position, enemy_ship.position,
-    # board.configuration.size)
-    # for e in opponents
-    # for enemy_ship in e.ships
-    # # TODO: this is not accurate
-    # if enemy_ship.halite < ship.halite
-    # ]
-    # if enemy_dists:
-    # ship.min_enemy_dist = min(enemy_dists)
-
   @property
   def my_idle_ships(self):
     for ship in self.me.ships:
@@ -137,14 +123,29 @@ class ShipStrategy:
     if ship.cell.halite > 0:
       ship.cell.is_targetd = True
 
-  def rank_next_moves(self, source, target):
-    assert source != target
-    board_size = self.board.configuration.size
+  def rank_next_moves(self, ship: Ship, target):
+    """Smaller values is better"""
+    source = ship.position
+
+    board = self.board
+    board_size = board.configuration.size
     moves = [Point(0, 0), Point(0, 1), Point(0, -1), Point(1, 0), Point(-1, 0)]
 
     def rank_func(m):
-      next_step = source + m
-      return manhattan_dist(next_step, target, board_size)
+      next_position = source + m
+      v = manhattan_dist(next_position, target, board_size)
+
+      # If there is an enemy in next_position or nearby with lower halite
+      next_cell = board[next_position]
+      neighbor_cells = [
+          next_cell, next_cell.north, next_cell.south, next_cell.east,
+          next_cell.west
+      ]
+      for i, nb_cell in enumerate(neighbor_cells):
+        if (has_enemy_ship(nb_cell, self.me) and
+            nb_cell.ship.halite < ship.halite):
+          v += 100
+      return v
 
     moves.sort(key=rank_func)
     return moves
@@ -152,12 +153,7 @@ class ShipStrategy:
   def take_move(self, ship):
     """Move ship towards the target cell without collide with allies.
     NOTE: can move far away to make room to other ship."""
-    # print('ship take move: ', ship.id, ship.position, ship.target_cell.position)
-    if ship.position == ship.target_cell.position:
-      self.ship_stay(ship)
-      return True
-
-    moves = self.rank_next_moves(ship.position, ship.target_cell.position)
+    moves = self.rank_next_moves(ship, ship.target_cell.position)
     # print('ranked_moves: ', moves)
     if not moves:
       return False
@@ -333,7 +329,5 @@ def agent(obs, config):
     cell.is_occupied = False
 
   spawn_ships(board)
-
   ShipStrategy(board).execute()
-
   return board.current_player.next_actions
