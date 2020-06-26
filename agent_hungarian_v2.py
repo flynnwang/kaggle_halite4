@@ -31,33 +31,6 @@ def manhattan_dist(a, b, size):
   return dist(a.x, b.x) + dist(a.y, b.y)
 
 
-def compute_next_move(source, target):
-  if source == target:
-    return
-
-  offset = target - source
-  idx = np.argmax(abs(offset))
-  sign = np.sign(offset)[idx]
-  direction = Point(sign, 0) if idx == 0 else Point(0, sign)
-  return direction
-
-
-def compute_next_moves(source, target):
-  if source == target:
-    return
-
-  moves = []
-  offset = target - source
-  sign = np.sign(offset)
-
-  if offset[0] != 0:
-    moves.append(Point(sign[0], 0))
-
-  if offset[1] != 0:
-    moves.append(Point(0, sign[1]))
-  return moves
-
-
 def has_enemy_ship(cell, me):
   if not cell.ship_id:
     return False
@@ -92,17 +65,23 @@ def mining_steps(h, collect_rate):
   return s
 
 
+P_RETURN_TO_YARD = 1000
+P_STAY_ON_HALITE = 500
+P_MOVE_TO_HALITE = 100
+
+
 class ShipStrategy:
   """Sends every ships to the nearest cell with halite.
 
 
   cell:
-    |has_mining_plan|: prevent more than 1 alley ships choose the same halite.
-    |has_ally_ship|: will has alley ship in the next round.
+    |is_targetd|: prevent more than 1 alley ships choose the same halite.
+    |is_occupied|: will has ship in the next round.
 
   ship:
     |next_cell: next cell location of the ship.
-    |is_stay|: will stay on the current cell.
+    |has_assignment|: has already has task assignment for this ship.
+    |target_cell|: send ship to this cell, may be the same of current cell, None by default.
   """
 
   def __init__(self, board):
@@ -115,11 +94,12 @@ class ShipStrategy:
       if cell.halite > MINING_CELL_MIN_HALITE:
         self.halite_cells.append(cell)
 
-    # Init ship properties.
+    # Default ship to stay on the same cell without assignment.
     ships = self.me.ships
     for ship in ships:
-      ship.is_stay = False
-      ship.next_cell = ship.cell
+      ship.has_assignment = False
+      ship.target_cell = None
+      ship.next_cell = None
 
     # Compute min enemy distance
     # ship.min_enemy_dist = 999
@@ -135,109 +115,121 @@ class ShipStrategy:
     # if enemy_dists:
     # ship.min_enemy_dist = min(enemy_dists)
 
-  @staticmethod
-  def is_ship_buzy(ship):
-    """My ship that has task assignment."""
-    return ship.next_action or ship.is_stay
-
   @property
   def my_idle_ships(self):
     for ship in self.me.ships:
-      if self.is_ship_buzy(ship):
+      if ship.next_action or ship.has_assignment:
         continue
       yield ship
 
   @staticmethod
+  def ship_move_task(ship, target_cell: Cell, priority=0):
+    ship.has_assignment = True
+    ship.target_cell = target_cell
+    ship.target_cell.is_targetd = True
+    ship.priority = priority
+
+  @staticmethod
   def ship_stay(ship):
     ship.next_action = None
-    ship.cell.has_ally_ship = ship
-    ship.is_stay = True
     ship.next_cell = ship.cell
+    ship.next_cell.is_occupied = ship
+    if ship.cell.halite > 0:
+      ship.cell.is_targetd = True
 
-  def try_move(self, ship, target_cell):
-    """Move ship towards the target cell without collide with allies."""
-    target_cell.has_mining_plan = True
+  def rank_next_moves(self, source, target):
+    assert source != target
+    board_size = self.board.configuration.size
+    moves = [Point(0, 0), Point(0, 1), Point(0, -1), Point(1, 0), Point(-1, 0)]
 
-    if ship.position == target_cell.position:
+    def rank_func(m):
+      next_step = source + m
+      return manhattan_dist(next_step, target, board_size)
+
+    moves.sort(key=rank_func)
+    return moves
+
+  def take_move(self, ship):
+    """Move ship towards the target cell without collide with allies.
+    NOTE: can move far away to make room to other ship."""
+    # print('ship take move: ', ship.id, ship.position, ship.target_cell.position)
+    if ship.position == ship.target_cell.position:
       self.ship_stay(ship)
       return True
 
-    moves = compute_next_moves(ship.position, target_cell.position)
+    moves = self.rank_next_moves(ship.position, ship.target_cell.position)
+    # print('ranked_moves: ', moves)
     if not moves:
       return False
 
     for move in moves:
       next_cell = ship.cell.neighbor(move)
-      if next_cell.has_ally_ship:
+      if next_cell.is_occupied:
         continue
 
       ship.next_action = direction_to_ship_action(move)
       ship.next_cell = next_cell
-      next_cell.has_ally_ship = ship
+      next_cell.is_occupied = True
       return True
     return False
 
   def max_expected_return_cell(self, ship):
+    growth = self.board.configuration.regen_rate + 1.0
+
     max_cell = None
     max_expected_return = 0
     for c in self.halite_cells:
-      if c.has_mining_plan or c.has_ally_ship or has_enemy_ship(c, self.me):
+      if c.is_targetd or has_enemy_ship(c, self.me):
         continue
 
-      # TODO(wangfei): use search.
-      # Manhattan move is short-sighted, since it will not get round blocking
-      # cells to move.
-      stay_steps = mining_steps(c.halite, self.board.configuration.collect_rate)
       move_steps = manhattan_dist(ship.position, c.position,
                                   self.board.configuration.size)
-      total_steps = stay_steps + move_steps
-      expect_return = c.halite / total_steps
+      expected_halite = min(c.halite * (growth**move_steps),
+                            self.board.configuration.max_cell_halite)
+      expect_return = expected_halite / (move_steps + 1)
       if expect_return > max_expected_return:
         max_cell = c
         max_expected_return = expect_return
-    return max_cell, max_expected_return
+    return max_expected_return, max_cell
+
+  def find_nearest_shipyard(self, ship):
+    min_dist = 99999
+    min_dist_yard = None
+    for y in self.me.shipyards:
+      d = manhattan_dist(ship.position, y.position,
+                         self.board.configuration.size)
+      if d < min_dist:
+        min_dist = d
+        min_dist_yard = y
+    return min_dist, min_dist_yard
 
   def continue_mine_halite(self):
-    """ Ship that stay on halite cell.
-    NOTE: this way make a ship stay on the way home."""
-
+    """ Ship that stay on halite cell."""
     for ship in self.my_idle_ships:
       # if ship.cell.halite > MINING_CELL_MIN_HALITE:
-      # ship.cell.has_mining_plan = True
-      # self.ship_stay(ship)
 
-      max_cell, _ = self.max_expected_return_cell(ship)
+      _, max_cell = self.max_expected_return_cell(ship)
       if max_cell and max_cell.position == ship.position:
-        ship.cell.has_mining_plan = True
-        self.ship_stay(ship)
+        self.ship_move_task(ship, max_cell, P_STAY_ON_HALITE)
 
-  def finish_mining_task(self):
-    """Ship goes back home."""
+  def send_ship_to_shipyard(self):
+    """Ship goes back home after collected enough halite."""
     for ship in self.my_idle_ships:
       # if ship.min_enemy_dist > 2 or ship.halite <= MIN_HALITE_BEFORE_HOME:
       if ship.halite <= MIN_HALITE_BEFORE_HOME:
         continue
 
-      min_dist = 99999
-      min_dist_yard = None
-      for y in self.me.shipyards:
-        d = manhattan_dist(ship.position, y.position,
-                           self.board.configuration.size)
-        if d < min_dist:
-          min_dist = d
-          min_dist_yard = y
-
-      if min_dist_yard and self.try_move(ship, min_dist_yard.cell):
-        continue
-      self.ship_stay(ship)
+      # TODO: if too many ships are home, shall we wait?
+      min_dist, min_dist_yard = self.find_nearest_shipyard(ship)
+      if min_dist_yard:
+        self.ship_move_task(ship, min_dist_yard.cell, P_RETURN_TO_YARD)
 
   def send_ship_to_halite(self):
     """Ship that goes to halite."""
     for ship in self.my_idle_ships:
-      max_cell, _ = self.max_expected_return_cell(ship)
-      if max_cell and self.try_move(ship, max_cell):
-        continue
-      self.ship_stay(ship)
+      _, max_cell = self.max_expected_return_cell(ship)
+      if max_cell:
+        self.ship_move_task(ship, max_cell, P_MOVE_TO_HALITE)
 
   def collision_avoid(self):
     ships = self.me.ships
@@ -249,10 +241,9 @@ class ShipStrategy:
         cell_ship_count[c] = cell_ship_count.get(c, 0) + 1
 
       for ship in ships:
-        if ship.is_stay or not ship.next_action:
+        if ship.next_cell == ship.cell:
           continue
         if cell_ship_count[ship.next_cell] > 1:
-          # print('Step ', board.step, 'Collision avoid to ship at ', ship.position)
           self.ship_stay(ship)
           found = True
 
@@ -282,14 +273,29 @@ class ShipStrategy:
     ship_id = random.sample(me.ship_ids, k=1)[0]
     ship = self.board.ships[ship_id]
     ship.next_action = ShipAction.CONVERT
-    ship.cell.has_mining_plan = True
-    ship.cell.has_ally_ship = True
+    ship.has_assignment = True
+    ship.cell.is_targetd = True
+    ship.cell.is_occupied = True
+
+  def compute_ship_moves(self):
+    """Computes ship moves to maximize the total score."""
+    # Skip only convert ships.
+    ships = [s for s in self.me.ships if not s.next_action]
+    ships.sort(key=lambda s: s.priority, reverse=True)
+
+    # print("move candidates: ", [s.id for s in ships])
+    for ship in ships:
+      self.take_move(ship)
 
   def execute(self):
     self.convert_to_shipyard()
+
     self.continue_mine_halite()
-    self.finish_mining_task()
+    self.send_ship_to_shipyard()
     self.send_ship_to_halite()
+    self.compute_ship_moves()
+
+    # TODO: maybe no longer need it?
     self.collision_avoid()
 
 
@@ -315,7 +321,7 @@ def spawn_ships(board):
     # NOET: do not move ship onto a spawning shipyard.
     me._halite -= board.configuration.spawn_cost
     shipyard.next_action = ShipyardAction.SPAWN
-    shipyard.cell.has_ally_ship = True
+    shipyard.cell.is_occupied = True
 
 
 def agent(obs, config):
@@ -323,8 +329,8 @@ def agent(obs, config):
 
   # Init
   for cell in board.cells.values():
-    cell.has_mining_plan = False
-    cell.has_ally_ship = None
+    cell.is_targetd = False
+    cell.is_occupied = False
 
   spawn_ships(board)
 
