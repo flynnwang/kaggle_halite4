@@ -58,6 +58,14 @@ def compute_next_moves(source, target):
   return moves
 
 
+def has_enemy_ship(cell, me):
+  if not cell.ship_id:
+    return False
+
+  ship = cell.ship
+  return ship.player_id != me.id
+
+
 def direction_to_ship_action(direction):
   if direction is None:
     return None
@@ -126,14 +134,6 @@ def ship_stragegy(board):
       if enemy_dists:
         ship.min_enemy_dist = min(enemy_dists)
 
-  # TODO(wangfei): may need to shift
-  # Ship that stay on current haltie.
-  # for ship in ships:
-  # if ship.cell.halite > MINING_CELL_MIN_HALITE:
-  # ship.next_action = None
-  # ship.is_stay = True
-  # ship.cell.has_ally_ship = True
-
   def ship_stay(ship):
     ship.next_action = None
     ship.cell.has_ally_ship = ship
@@ -167,7 +167,7 @@ def ship_stragegy(board):
     max_cell = None
     max_expected_return = 0
     for c in halite_cells:
-      if c.has_mining_plan and c.has_ally_ship:
+      if c.has_mining_plan or c.has_ally_ship or has_enemy_ship(c, me):
         continue
 
       # TODO(wangfei): use search.
@@ -179,8 +179,8 @@ def ship_stragegy(board):
       total_steps = stay_steps + move_steps
       expect_return = c.halite / total_steps
       if expect_return > max_expected_return:
-        max_expected_return = expect_return
         max_cell = c
+        max_expected_return = expect_return
     return max_cell, max_expected_return
 
   # Ship that stay on halite cell.
@@ -189,10 +189,14 @@ def ship_stragegy(board):
     if ship.next_action or ship.is_stay:
       continue
 
-    max_cell, _ = max_expected_return_cell(ship)
-    if max_cell and max_cell.position == ship.position:
-      max_cell.has_mining_plan = True
+    if ship.cell.halite > MINING_CELL_MIN_HALITE:
+      ship.cell.has_mining_plan = True
       ship_stay(ship)
+
+    # max_cell, _ = max_expected_return_cell(ship)
+    # if max_cell and max_cell.position == ship.position:
+    # max_cell.has_mining_plan = True
+    # ship_stay(ship)
 
   # Ship goes back home.
   for ship in ships:
