@@ -105,13 +105,13 @@ class ShipStrategy:
       ship.priority = 0
 
     # Statistics values
-    self.mean_halite_value = MIN_HALITE_BEFORE_HOME
-    self.max_player_halite = self.me.halite
-    self.max_halite_player_id = self.me.id
 
   def collect_game_info(self):
-    halite_values = [c.halite for c in self.halite_cells]
-    self.mean_halite_value = np.mean(halite_values)
+    # halite cells maybe empty.
+    self.mean_halite_value = MIN_HALITE_BEFORE_HOME
+    if self.halite_cells:
+      halite_values = [c.halite for c in self.halite_cells]
+      self.mean_halite_value = np.mean(halite_values)
 
     self.max_halite = self.me.halite
     self.max_halite_player_id = self.me.id

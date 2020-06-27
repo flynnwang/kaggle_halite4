@@ -132,8 +132,9 @@ class ShipStrategy:
     self.mean_halite_value = MIN_HALITE_BEFORE_HOME
 
   def data_analyis(self):
-    halite_values = [c.halite for c in self.halite_cells]
-    self.mean_halite_value = np.mean(halite_values)
+    if self.halite_cells:
+      halite_values = [c.halite for c in self.halite_cells]
+      self.mean_halite_value = np.mean(halite_values)
 
   @property
   def step(self):
