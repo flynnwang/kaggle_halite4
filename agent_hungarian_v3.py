@@ -2,9 +2,23 @@
 """
 Plans to add nuclear bomb: send ship to other's base.
 
+ACCEPTED.
+
+Total Matches: 2144 | Matches Queued: 67
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+v3                             | UeIQa2GkiI3c   | 34.7590134      | μ=37.404, σ=0.882  | 753
+v2.2.1                         | P6s5M7Qp8Qtt   | 31.1963826      | μ=33.689, σ=0.831  | 787
+v2.1                           | pk9GECCQ3yqA   | 29.1306246      | μ=31.455, σ=0.775  | 793
+swarm                          | VwivqL0M6uru   | 23.7057546      | μ=25.798, σ=0.697  | 951
+v1.2                           | TG7wUijCNh8B   | 20.5984458      | μ=22.709, σ=0.703  | 1071
+v1                             | v3H1eG4J9bpU   | 20.5781494      | μ=22.691, σ=0.704  | 1047
+manhattan                      | PqVN0OAHa8Ls   | 17.8620721      | μ=19.971, σ=0.703  | 1051
+stillbot-1                     | O5DIKidG5dDE   | 15.5985347      | μ=17.783, σ=0.728  | 1062
+somebot                        | 4UjbE5nRvVah   | 15.1290325      | μ=17.317, σ=0.729  | 1045
 """
 
 import random
+from enum import Enum, auto
 from collections import deque
 
 import numpy as np
@@ -23,7 +37,7 @@ SHIP_TO_SHIYARD_FACTOR = 8
 MIN_HALITE_BEFORE_HOME = 100
 MIN_HALITE_FACTOR = 3
 
-MAX_SHIP_NUM = 17
+MAX_FARMER_SHIP_NUM = 13
 
 
 def manhattan_dist(a: Point, b: Point, size):
@@ -66,9 +80,20 @@ def get_neighbor_cells(cell, include_self=False):
   return neighbor_cells
 
 
+class ShipType(Enum):
+  UNKNOWN_TYPE = auto()
+
+  # Ship that collect halite.
+  FARMER_TYPE = auto()
+
+  # Ship that bomb enemy's shipyard.
+  GHOST_TYPE = auto()
+
+
 P_STAY_ON_HALITE = 1000
 P_MOVE_TO_HALITE = 900
 P_RETURN_TO_YARD = 800
+P_DESTORY_ENEMY_YARD = 500
 
 
 class ShipStrategy:
@@ -86,6 +111,8 @@ class ShipStrategy:
     |priority|: used to rank ship for moves.
   """
 
+  SHIP_ID_TO_TYPE = {}
+
   def __init__(self, board):
     self.board = board
     self.me = board.current_player
@@ -97,12 +124,22 @@ class ShipStrategy:
         self.halite_cells.append(cell)
 
     # Default ship to stay on the same cell without assignment.
+    # print('#', self.step)
     ships = self.me.ships
+    has_enough_farmer = len(ships) > MAX_FARMER_SHIP_NUM
+
     for ship in ships:
       ship.has_assignment = False
       ship.target_cell = ship.cell
       ship.next_cell = ship.cell
       ship.priority = 0
+
+      # Assign ship type to new ship only.
+      if ship.id not in self.SHIP_ID_TO_TYPE:
+        self.SHIP_ID_TO_TYPE[ship.id] = ShipType.FARMER_TYPE
+        if has_enough_farmer and ship.halite == 0:
+          self.SHIP_ID_TO_TYPE[ship.id] = ShipType.GHOST_TYPE
+          # print('ghost ship: ', ship.id)
 
   def collect_game_info(self):
     self.mean_halite_value = MIN_HALITE_BEFORE_HOME
@@ -124,8 +161,12 @@ class ShipStrategy:
     return self.board.step
 
   @property
-  def my_idle_ships(self):
+  def my_idle_farmer_ships(self):
+    """All ships of type FARMER_TYPE and has no has_assignment."""
     for ship in self.me.ships:
+      if self.SHIP_ID_TO_TYPE[ship.id] != ShipType.FARMER_TYPE:
+        continue
+
       if ship.next_action or ship.has_assignment:
         continue
       yield ship
@@ -148,10 +189,13 @@ class ShipStrategy:
   def rank_next_moves(self, ship: Ship, target):
     """Smaller values is better"""
     source = ship.position
+    # TODO: consider friend ship.
 
     board = self.board
     board_size = board.configuration.size
     moves = [Point(0, 0), Point(0, 1), Point(0, -1), Point(1, 0), Point(-1, 0)]
+
+    is_ghost_ship = self.SHIP_ID_TO_TYPE[ship.id] == ShipType.GHOST_TYPE
 
     def rank_func(m):
       next_position = source + m
@@ -167,8 +211,9 @@ class ShipStrategy:
         if has_enemy_ship(nb_cell, self.me):
           if nb_cell.ship.halite < ship.halite:
             v += 1000
-          # if nb_cell.ship.halite == ship.halite:
-          # v += 20
+
+          if is_ghost_ship and nb_cell.ship.halite == ship.halite:
+            v += 50
       return v
 
     moves.sort(key=rank_func)
@@ -212,10 +257,10 @@ class ShipStrategy:
         max_expected_return = expect_return
     return max_expected_return, max_cell
 
-  def find_nearest_shipyard(self, ship):
+  def find_nearest_shipyard(self, ship, shipyards):
     min_dist = 99999
     min_dist_yard = None
-    for y in self.me.shipyards:
+    for y in shipyards:
       d = manhattan_dist(ship.position, y.position,
                          self.board.configuration.size)
       if d < min_dist:
@@ -225,7 +270,7 @@ class ShipStrategy:
 
   def continue_mine_halite(self):
     """ Ship that stay on halite cell."""
-    for ship in self.my_idle_ships:
+    for ship in self.my_idle_farmer_ships:
       # if ship.cell.halite > MINING_CELL_MIN_HALITE:
 
       _, max_cell = self.max_expected_return_cell(ship)
@@ -236,19 +281,66 @@ class ShipStrategy:
     """Ship goes back home after collected enough halite."""
     threshold = int(
         max(self.mean_halite_value * MIN_HALITE_FACTOR, MIN_HALITE_BEFORE_HOME))
-    for ship in self.my_idle_ships:
+    for ship in self.my_idle_farmer_ships:
       # if ship.halite <= MIN_HALITE_BEFORE_HOME:
       if ship.halite < threshold:
         continue
 
       # TODO: if too many ships are home, shall we wait?
-      min_dist, min_dist_yard = self.find_nearest_shipyard(ship)
+      _, min_dist_yard = self.find_nearest_shipyard(ship, self.me.shipyards)
       if min_dist_yard:
         self.ship_move_task(ship, min_dist_yard.cell, P_RETURN_TO_YARD)
 
+  @property
+  def my_ghost_ships(self):
+    for ship_id in self.me.ship_ids:
+      if self.SHIP_ID_TO_TYPE[ship_id] == ShipType.GHOST_TYPE:
+        yield self.board.ships[ship_id]
+
+  @property
+  def enemy_shipyards(self):
+    for e in self.board.opponents:
+      for y in e.shipyards:
+        yield y
+
+  def send_ship_to_enemy_shipyard(self):
+    """Having enough farmers, let's send ghost to enemy shipyard."""
+
+    def non_targeted_enemy_shipyards():
+      for y in self.enemy_shipyards:
+        if not y.cell.is_targetd:
+          yield y
+
+    do_print = False
+    if len(list(self.my_ghost_ships)) > len(
+        list(non_targeted_enemy_shipyards())):
+      do_print = True
+      print('board step', self.step)
+      print('num of ghost', len(list(self.my_ghost_ships)))
+      print('num of enemy_shipyards', len(list(self.enemy_shipyards)))
+      print('num of not target enemy_shipyards',
+            len(list(non_targeted_enemy_shipyards())))
+
+    for ship in self.my_ghost_ships:
+      found_enemy_yard = False
+      _, min_dist_yard = self.find_nearest_shipyard(
+          ship, non_targeted_enemy_shipyards())
+      if min_dist_yard:
+        self.ship_move_task(ship, min_dist_yard.cell, P_DESTORY_ENEMY_YARD)
+        found_enemy_yard = True
+        # print('sending ship', ship.id, "to", min_dist_yard.id, "at",
+        # min_dist_yard.cell.position)
+
+      # Convert ghost to farmer if no enemy shipyard found.
+      if not found_enemy_yard:
+        self.SHIP_ID_TO_TYPE[ship.id] = ShipType.FARMER_TYPE
+
+    if do_print:
+      print('num of ghost after', len(list(self.my_ghost_ships)))
+
   def send_ship_to_halite(self):
     """Ship that goes to halite."""
-    for ship in self.my_idle_ships:
+    for ship in self.my_idle_farmer_ships:
       _, max_cell = self.max_expected_return_cell(ship)
       if max_cell:
         self.ship_move_task(ship, max_cell, P_MOVE_TO_HALITE)
@@ -319,11 +411,6 @@ class ShipStrategy:
     for ship in ships:
       self.take_move(ship)
 
-  def send_ship_to_enemy_shipyard(self):
-    """Having enough farmers, let's send ghost to enemy shipyard."""
-
-    pass
-
   def execute(self):
     self.collect_game_info()
 
@@ -331,7 +418,7 @@ class ShipStrategy:
 
     self.spawn_ships()
 
-    # self.send_ship_to_enemy_shipyard()
+    self.send_ship_to_enemy_shipyard()
 
     # TODO(wangfei): merge it into send_ship_to_halite()
     self.continue_mine_halite()
@@ -351,7 +438,9 @@ class ShipStrategy:
     me = board.current_player
 
     num_ships = len(me.ship_ids)
-    if num_ships >= MAX_SHIP_NUM:
+    num_ghost_ships = len(list(self.my_ghost_ships))
+    num_enemy_yard = len(list(self.enemy_shipyards))
+    if num_ships >= MAX_FARMER_SHIP_NUM and num_ghost_ships >= num_enemy_yard:
       return
 
     shipyards = me.shipyards
@@ -380,9 +469,9 @@ class ShipStrategy:
       yard_cell.is_occupied = True
 
       # No more ships if it's enough.
-      num_ships += 1
-      if num_ships >= MAX_SHIP_NUM:
-        break
+      # num_ships += 1
+      # if num_ships >= MAX_FARMER_SHIP_NUM:
+      # break
 
 
 def agent(obs, config):
