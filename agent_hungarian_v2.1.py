@@ -13,6 +13,22 @@ Hungarian v1.2                 | 3n0iQmuEMY8z   | 23.0908455      | μ=25.457, �
 somebot                        | dmckJbTsARxx   | 19.1763477      | μ=21.475, σ=0.766  | 135
 Manhattan                      | 33bw4BL4Vof9   | 18.6508701      | μ=20.979, σ=0.776  | 154
 stillbot                       | 4oAH6h0HY6P0   | 13.7142322      | μ=16.348, σ=0.878  | 125
+
+
+benchmark 243
+Tournament - ID: O4cRnq, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: oCpEde, Name: Halite 4 Dimension
+Status: running | Competitors: 8 | Rank System: trueskill
+
+Total Matches: 283 | Matches Queued: 63
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+hungarian v2.1                 | wldZvrJjic6x   | 36.2468026      | μ=39.519, σ=1.091  | 115
+hungarian v2                   | lrUDSk9duwy6   | 34.7581093      | μ=37.860, σ=1.034  | 106
+swarm                          | XhjjH4Flgd5G   | 25.6263379      | μ=27.824, σ=0.733  | 140
+hungarian v1                   | vqIWgVZEqaYK   | 23.4918971      | μ=25.697, σ=0.735  | 140
+hungarian v1.2                 | 357jAdIApfmp   | 22.9723978      | μ=25.162, σ=0.730  | 135
+manhattan                      | SafwdEgAylcI   | 18.2174479      | μ=20.367, σ=0.716  | 155
+somebot                        | 5Lf1RV6kx51w   | 17.6665292      | μ=19.849, σ=0.727  | 165
+stillbot-1                     | yGdj0XoQgAWC   | 13.3028418      | μ=15.690, σ=0.796  | 156
 """
 
 import random
