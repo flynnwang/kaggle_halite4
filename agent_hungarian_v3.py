@@ -311,15 +311,15 @@ class ShipStrategy:
         if not y.cell.is_targetd:
           yield y
 
-    do_print = False
-    if len(list(self.my_ghost_ships)) > len(
-        list(non_targeted_enemy_shipyards())):
-      do_print = True
-      print('board step', self.step)
-      print('num of ghost', len(list(self.my_ghost_ships)))
-      print('num of enemy_shipyards', len(list(self.enemy_shipyards)))
-      print('num of not target enemy_shipyards',
-            len(list(non_targeted_enemy_shipyards())))
+    # do_print = False
+    # if len(list(self.my_ghost_ships)) > len(
+    # list(non_targeted_enemy_shipyards())):
+    # do_print = True
+    # print('board step', self.step)
+    # print('num of ghost', len(list(self.my_ghost_ships)))
+    # print('num of enemy_shipyards', len(list(self.enemy_shipyards)))
+    # print('num of not target enemy_shipyards',
+    # len(list(non_targeted_enemy_shipyards())))
 
     for ship in self.my_ghost_ships:
       found_enemy_yard = False
@@ -335,8 +335,8 @@ class ShipStrategy:
       if not found_enemy_yard:
         self.SHIP_ID_TO_TYPE[ship.id] = ShipType.FARMER_TYPE
 
-    if do_print:
-      print('num of ghost after', len(list(self.my_ghost_ships)))
+    # if do_print:
+    # print('num of ghost after', len(list(self.my_ghost_ships)))
 
   def send_ship_to_halite(self):
     """Ship that goes to halite."""
