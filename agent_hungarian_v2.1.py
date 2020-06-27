@@ -65,8 +65,14 @@ def mining_steps(h, collect_rate):
   return s
 
 
-P_STAY_ON_HALITE = 1000
-P_MOVE_TO_HALITE = 900
+def get_neighbor_cells(cell, include_self=False):
+  neighbor_cells = [cell] if include_self else []
+  neighbor_cells.extend([cell.north, cell.south, cell.east, cell.west])
+  return neighbor_cells
+
+
+P_MOVE_TO_HALITE = 1000
+P_STAY_ON_HALITE = 900
 P_RETURN_TO_YARD = 800
 
 
@@ -139,11 +145,7 @@ class ShipStrategy:
 
       # If there is an enemy in next_position or nearby with lower halite
       next_cell = board[next_position]
-      neighbor_cells = [
-          next_cell, next_cell.north, next_cell.south, next_cell.east,
-          next_cell.west
-      ]
-      for i, nb_cell in enumerate(neighbor_cells):
+      for i, nb_cell in enumerate(get_neighbor_cells(next_cell)):
         if (has_enemy_ship(nb_cell, self.me) and
             nb_cell.ship.halite < ship.halite):
           v += 100
@@ -254,6 +256,8 @@ class ShipStrategy:
 
     # TODO: select a far-away ship to convert?
     me = self.me
+
+    # No ship or money.
     if not me.ship_ids or me.halite < convert_cost:
       return
 
@@ -293,6 +297,8 @@ class ShipStrategy:
 
     self.continue_mine_halite()
     self.send_ship_to_shipyard()
+
+    # TODO: add priority for leaving if a ship is converted on yard.
     self.send_ship_to_halite()
     self.compute_ship_moves()
 
@@ -312,17 +318,27 @@ def spawn_ships(board):
   random.shuffle(shipyards)
 
   for shipyard in shipyards:
-    # Do not spawn ship on a occupied shipyard (or cell).
-    if shipyard.cell.ship_id:
-      continue
-
+    # Skip if no money.
     if me.halite <= MIN_HALITE_TO_BUILD_SHIP:
       continue
+
+    # If there is a ship on shipyard and no free neighbor cells.
+    yard_cell = shipyard.cell
+    if yard_cell.ship_id:
+      num_free_cells = sum(
+          1 for c in get_neighbor_cells(yard_cell) if c.ship_id is None)
+      if num_free_cells == 0:
+        continue
 
     # NOET: do not move ship onto a spawning shipyard.
     me._halite -= board.configuration.spawn_cost
     shipyard.next_action = ShipyardAction.SPAWN
-    shipyard.cell.is_occupied = True
+    yard_cell.is_occupied = True
+
+    # No more ships if it's enough.
+    num_ships += 1
+    if num_ships >= MAX_SHIP_NUM:
+      break
 
 
 def agent(obs, config):
