@@ -1,4 +1,19 @@
 #!/usr/bin/env python
+"""
+Tournament - ID: AIlvBx, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: Gzs4mr, Name: Halite 4 Dimension
+Status: running | Competitors: 8 | Rank System: trueskill
+
+Total Matches: 345 | Matches Queued: 11
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+Hungarian v2.1                 | wZfXUQ1YAynR   | 36.5582603      | μ=39.849, σ=1.097  | 108
+Hungarian v2                   | OICSyvaaUTPk   | 34.8042470      | μ=37.837, σ=1.011  | 120
+Hungarian v1                   | V6tdq9IZZ0W5   | 25.7132356      | μ=28.101, σ=0.796  | 133
+swarm                          | TGVsb5bZTRrz   | 24.8065793      | μ=27.225, σ=0.806  | 128
+Hungarian v1.2                 | 3n0iQmuEMY8z   | 23.0908455      | μ=25.457, σ=0.789  | 145
+somebot                        | dmckJbTsARxx   | 19.1763477      | μ=21.475, σ=0.766  | 135
+Manhattan                      | 33bw4BL4Vof9   | 18.6508701      | μ=20.979, σ=0.776  | 154
+stillbot                       | 4oAH6h0HY6P0   | 13.7142322      | μ=16.348, σ=0.878  | 125
+"""
 
 import random
 from collections import deque
