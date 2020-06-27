@@ -145,10 +145,16 @@ class ShipStrategy:
 
       # If there is an enemy in next_position or nearby with lower halite
       next_cell = board[next_position]
+      if has_enemy_ship(next_cell,
+                        self.me) and next_cell.ship.halite < ship.halite:
+        v += 1000
+
       for i, nb_cell in enumerate(get_neighbor_cells(next_cell)):
-        if (has_enemy_ship(nb_cell, self.me) and
-            nb_cell.ship.halite < ship.halite):
-          v += 100
+        if has_enemy_ship(nb_cell, self.me):
+          if nb_cell.ship.halite < ship.halite:
+            v += 1000
+          # if nb_cell.ship.halite == ship.halite:
+          # v += 20
       return v
 
     moves.sort(key=rank_func)
@@ -325,7 +331,7 @@ def spawn_ships(board):
     build_ship_threshold = MIN_HALITE_TO_BUILD_SHIP
     if board.step <= 40:
       build_ship_threshold = board.configuration.spawn_cost
-    if me.halite < build_ship_threshold:
+    if num_ships and me.halite < build_ship_threshold:
       continue
 
     # If there is a ship on shipyard and no free neighbor cells.
