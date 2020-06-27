@@ -71,8 +71,8 @@ def get_neighbor_cells(cell, include_self=False):
   return neighbor_cells
 
 
-P_MOVE_TO_HALITE = 1000
-P_STAY_ON_HALITE = 900
+P_STAY_ON_HALITE = 1000
+P_MOVE_TO_HALITE = 900
 P_RETURN_TO_YARD = 800
 
 
@@ -261,7 +261,11 @@ class ShipStrategy:
     if not me.ship_ids or me.halite < convert_cost:
       return
 
-    if me.shipyards and me.halite < MIN_HALITE_TO_BUILD_SHIPYARD:
+    # TODO: use function for this threshold
+    threshold = MIN_HALITE_TO_BUILD_SHIPYARD
+    if self.board.step <= 40:
+      threshold = convert_cost
+    if me.shipyards and me.halite < threshold:
       return
 
     # Keep balance for the number of ships and shipyards.
@@ -270,13 +274,14 @@ class ShipStrategy:
     if num_shipyards * SHIP_TO_SHIYARD_FACTOR >= num_ships:
       return
 
+    valid_ships = [s for s in me.ships if s.cell.shipyard_id is None]
+    if not valid_ships:
+      return
+
     # Only build one shipyard at a time.
     me._halite -= convert_cost
 
-    ship_id = random.sample(me.ship_ids, k=1)[0]
-    # ship_id = me.ship_ids[0]
-
-    ship = self.board.ships[ship_id]
+    ship = random.sample(valid_ships, k=1)[0]
     ship.next_action = ShipAction.CONVERT
     ship.has_assignment = True
     ship.cell.is_targetd = True
@@ -293,8 +298,6 @@ class ShipStrategy:
       self.take_move(ship)
 
   def execute(self):
-    self.convert_to_shipyard()
-
     self.continue_mine_halite()
     self.send_ship_to_shipyard()
 
@@ -318,8 +321,11 @@ def spawn_ships(board):
   random.shuffle(shipyards)
 
   for shipyard in shipyards:
-    # Skip if no money.
-    if me.halite <= MIN_HALITE_TO_BUILD_SHIP:
+    # Skip if not enough money.
+    build_ship_threshold = MIN_HALITE_TO_BUILD_SHIP
+    if board.step <= 40:
+      build_ship_threshold = board.configuration.spawn_cost
+    if me.halite < build_ship_threshold:
       continue
 
     # If there is a ship on shipyard and no free neighbor cells.
@@ -349,6 +355,10 @@ def agent(obs, config):
     cell.is_targetd = False
     cell.is_occupied = False
 
+  strategy = ShipStrategy(board)
+  strategy.convert_to_shipyard()
+
   spawn_ships(board)
-  ShipStrategy(board).execute()
+
+  strategy.execute()
   return board.current_player.next_actions
