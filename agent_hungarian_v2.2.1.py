@@ -2,22 +2,6 @@
 """
 Tests use mean halite value in cell as a trigger for return home.
 
-ACCEPTED.
-
-Tournament - ID: mN1WFt, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: pipIt6, Name: Halite 4 Dimension
-Status: running | Competitors: 9 | Rank System: trueskill
-
-Total Matches: 3005 | Matches Queued: 61
-Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
-hungarian v2.2                 | b4iPu5HJQdyJ   | 37.0251603      | μ=39.846, σ=0.940  | 1102
-hungarian v2.1                 | gmpjAUyAf8wq   | 31.7964190      | μ=34.227, σ=0.810  | 1103
-hungarian v2                   | ZE9zoBgw8ItD   | 31.3663609      | μ=33.736, σ=0.790  | 1058
-swarm                          | q2oMzXtuszW3   | 23.3463794      | μ=25.459, σ=0.704  | 1327
-hungarian v1                   | TuQctmopnt3V   | 21.1654487      | μ=23.327, σ=0.721  | 1473
-hungarian v1.2                 | tfMuYqIYnD5k   | 20.2444771      | μ=22.394, σ=0.716  | 1469
-manhattan                      | sgD3YXRz2kfU   | 17.6538227      | μ=19.763, σ=0.703  | 1444
-somebot                        | FYxDlvKmP6Lh   | 15.7972051      | μ=17.944, σ=0.716  | 1501
-stillbot-1                     | XdIuEDzZP6FN   | 14.0172679      | μ=16.254, σ=0.746  | 1495
 """
 
 import random
@@ -36,7 +20,8 @@ MIN_HALITE_TO_BUILD_SHIP = 1000
 # The factor is num_of_ships : num_of_shipyards
 SHIP_TO_SHIYARD_FACTOR = 8
 
-MIN_HALITE_BEFORE_HOME = 300
+MIN_HALITE_BEFORE_HOME = 100
+MIN_HALITE_FACTOR = 3
 
 MAX_SHIP_NUM = 17
 
@@ -73,15 +58,6 @@ def direction_to_ship_action(direction):
   if direction == Point(-1, 0):
     return ShipAction.WEST
   assert False
-
-
-def mining_steps(h, collect_rate):
-  # TODO(wangfei): cache f**s
-  f = 1.0 - collect_rate
-  for s in range(1, 20):
-    if h * (f**s) < MINING_CELL_MIN_HALITE:
-      break
-  return s
 
 
 def get_neighbor_cells(cell, include_self=False):
@@ -130,10 +106,21 @@ class ShipStrategy:
 
     # Statistics values
     self.mean_halite_value = MIN_HALITE_BEFORE_HOME
+    self.max_player_halite = self.me.halite
+    self.max_halite_player_id = self.me.id
 
-  def data_analyis(self):
+  def collect_game_info(self):
     halite_values = [c.halite for c in self.halite_cells]
     self.mean_halite_value = np.mean(halite_values)
+
+    self.max_halite = self.me.halite
+    self.max_halite_player_id = self.me.id
+    for p in self.board.opponents:
+      if p.halite >= self.max_halite:
+        self.max_halite = p.halite
+        self.max_halite_player_id = p.id
+    # print(self.max_halite, self.max_halite_player_id,
+    # self.max_halite_player_id == self.me.id)
 
   @property
   def step(self):
@@ -250,7 +237,8 @@ class ShipStrategy:
 
   def send_ship_to_shipyard(self):
     """Ship goes back home after collected enough halite."""
-    threshold = int(max(self.mean_halite_value * 3, 100))
+    threshold = int(
+        max(self.mean_halite_value * MIN_HALITE_FACTOR, MIN_HALITE_BEFORE_HOME))
     for ship in self.my_idle_ships:
       # if ship.halite <= MIN_HALITE_BEFORE_HOME:
       if ship.halite < threshold:
@@ -335,6 +323,10 @@ class ShipStrategy:
       self.take_move(ship)
 
   def execute(self):
+    self.collect_game_info()
+    self.convert_to_shipyard()
+    self.spawn_ships()
+
     self.continue_mine_halite()
     self.send_ship_to_shipyard()
 
@@ -345,43 +337,44 @@ class ShipStrategy:
     # TODO: maybe no longer need it?
     self.collision_avoid()
 
+  def spawn_ships(self):
+    """Spawns ships if we have enough money and no collision with my own ships."""
+    board = self.board
+    me = board.current_player
 
-def spawn_ships(board):
-  """Spawns ships if we have enough money and no collision with my own ships."""
-  me = board.current_player
+    num_ships = len(me.ship_ids)
+    if num_ships >= MAX_SHIP_NUM:
+      return
 
-  num_ships = len(me.ship_ids)
-  if num_ships >= MAX_SHIP_NUM:
-    return
+    shipyards = me.shipyards
+    random.shuffle(shipyards)
 
-  shipyards = me.shipyards
-  random.shuffle(shipyards)
+    for shipyard in shipyards:
+      # Skip if not enough money.
+      build_ship_threshold = MIN_HALITE_TO_BUILD_SHIP
+      if board.step <= 40:
+        build_ship_threshold = board.configuration.spawn_cost
 
-  for shipyard in shipyards:
-    # Skip if not enough money.
-    build_ship_threshold = MIN_HALITE_TO_BUILD_SHIP
-    if board.step <= 40:
-      build_ship_threshold = board.configuration.spawn_cost
-    if num_ships and me.halite < build_ship_threshold:
-      continue
-
-    # If there is a ship on shipyard and no free neighbor cells.
-    yard_cell = shipyard.cell
-    if yard_cell.ship_id:
-      num_free_cells = sum(
-          1 for c in get_neighbor_cells(yard_cell) if c.ship_id is None)
-      if num_free_cells == 0:
+      if num_ships and me.halite < build_ship_threshold:
         continue
 
-    # NOET: do not move ship onto a spawning shipyard.
-    me._halite -= board.configuration.spawn_cost
-    shipyard.next_action = ShipyardAction.SPAWN
-    yard_cell.is_occupied = True
+      # If there is a ship on shipyard and no free neighbor cells.
+      yard_cell = shipyard.cell
+      if yard_cell.ship_id:
+        num_free_cells = sum(
+            1 for c in get_neighbor_cells(yard_cell) if c.ship_id is None)
+        if num_free_cells == 0:
+          continue
 
-    # No more ships if it's enough.
-    num_ships += 1
-    if num_ships >= MAX_SHIP_NUM:
-      break
+      # NOET: do not move ship onto a spawning shipyard.
+      me._halite -= board.configuration.spawn_cost
+      shipyard.next_action = ShipyardAction.SPAWN
+      yard_cell.is_occupied = True
+
+      # No more ships if it's enough.
+      num_ships += 1
+      if num_ships >= MAX_SHIP_NUM:
+        break
 
 
 def agent(obs, config):
@@ -393,11 +386,5 @@ def agent(obs, config):
     cell.is_occupied = False
 
   strategy = ShipStrategy(board)
-  strategy.data_analyis()
-
-  strategy.convert_to_shipyard()
-
-  spawn_ships(board)
-
   strategy.execute()
   return board.current_player.next_actions
