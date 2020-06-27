@@ -1,5 +1,23 @@
 #!/usr/bin/env python
 """
+Tests use mean halite value in cell as a trigger for return home.
+
+ACCEPTED.
+
+Tournament - ID: mN1WFt, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: pipIt6, Name: Halite 4 Dimension
+Status: running | Competitors: 9 | Rank System: trueskill
+
+Total Matches: 3005 | Matches Queued: 61
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+hungarian v2.2                 | b4iPu5HJQdyJ   | 37.0251603      | μ=39.846, σ=0.940  | 1102
+hungarian v2.1                 | gmpjAUyAf8wq   | 31.7964190      | μ=34.227, σ=0.810  | 1103
+hungarian v2                   | ZE9zoBgw8ItD   | 31.3663609      | μ=33.736, σ=0.790  | 1058
+swarm                          | q2oMzXtuszW3   | 23.3463794      | μ=25.459, σ=0.704  | 1327
+hungarian v1                   | TuQctmopnt3V   | 21.1654487      | μ=23.327, σ=0.721  | 1473
+hungarian v1.2                 | tfMuYqIYnD5k   | 20.2444771      | μ=22.394, σ=0.716  | 1469
+manhattan                      | sgD3YXRz2kfU   | 17.6538227      | μ=19.763, σ=0.703  | 1444
+somebot                        | FYxDlvKmP6Lh   | 15.7972051      | μ=17.944, σ=0.716  | 1501
+stillbot-1                     | XdIuEDzZP6FN   | 14.0172679      | μ=16.254, σ=0.746  | 1495
 """
 
 import random
@@ -18,7 +36,6 @@ MIN_HALITE_TO_BUILD_SHIP = 1000
 # The factor is num_of_ships : num_of_shipyards
 SHIP_TO_SHIYARD_FACTOR = 8
 
-# TODO: estimate this value.
 MIN_HALITE_BEFORE_HOME = 300
 
 MAX_SHIP_NUM = 17
@@ -110,6 +127,17 @@ class ShipStrategy:
       ship.target_cell = ship.cell
       ship.next_cell = ship.cell
       ship.priority = 0
+
+    # Statistics values
+    self.mean_halite_value = MIN_HALITE_BEFORE_HOME
+
+  def data_analyis(self):
+    halite_values = [c.halite for c in self.halite_cells]
+    self.mean_halite_value = np.mean(halite_values)
+
+  @property
+  def step(self):
+    return self.board.step
 
   @property
   def my_idle_ships(self):
@@ -222,9 +250,10 @@ class ShipStrategy:
 
   def send_ship_to_shipyard(self):
     """Ship goes back home after collected enough halite."""
+    threshold = int(max(self.mean_halite_value * 3, 100))
     for ship in self.my_idle_ships:
-      # if ship.min_enemy_dist > 2 or ship.halite <= MIN_HALITE_BEFORE_HOME:
-      if ship.halite <= MIN_HALITE_BEFORE_HOME:
+      # if ship.halite <= MIN_HALITE_BEFORE_HOME:
+      if ship.halite < threshold:
         continue
 
       # TODO: if too many ships are home, shall we wait?
@@ -364,6 +393,8 @@ def agent(obs, config):
     cell.is_occupied = False
 
   strategy = ShipStrategy(board)
+  strategy.data_analyis()
+
   strategy.convert_to_shipyard()
 
   spawn_ships(board)
