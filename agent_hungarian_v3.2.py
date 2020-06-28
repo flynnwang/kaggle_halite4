@@ -1,7 +1,22 @@
 #!/usr/bin/env python
 """
-Plans to limit max ship number.
+Plans to rank moves considering next positions of ally ships.
 
+ACCEPTTED: very close, and non-conslusive, but still prefer to keep it.
+
+Total Matches: 924 | Matches Queued: 69
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+v3.2 yield                     | FbPHyAjqCLzL   | 31.3243151      | μ=33.568, σ=0.748  | 311
+v3.1                           | BaRJ7W5lA1FT   | 31.2524525      | μ=33.498, σ=0.748  | 285
+v3 ghost                       | kI3iycxYfb5T   | 30.9740284      | μ=33.199, σ=0.742  | 268
+v2.2.1                         | erFHjTyoO98j   | 28.3141455      | μ=30.479, σ=0.722  | 325
+v2.1                           | zhJzMxoGAacm   | 27.1427241      | μ=29.283, σ=0.713  | 359
+swarm                          | ggCLBqrcQeJQ   | 26.7319928      | μ=28.814, σ=0.694  | 344
+v1.2                           | UXmwVc6N4Cnz   | 19.9833281      | μ=22.146, σ=0.721  | 345
+v1                             | som43CbAfaWX   | 18.6066266      | μ=20.786, σ=0.726  | 364
+manhattan                      | F3GzfWXPwTkd   | 18.0045812      | μ=20.153, σ=0.716  | 354
+somebot                        | RlvtPTfXK0Ns   | 15.6984518      | μ=17.900, σ=0.734  | 350
+stillbot-1                     | hPOWdkgiYn71   | 14.9790747      | μ=17.211, σ=0.744  | 363
 
 """
 
@@ -175,9 +190,10 @@ class ShipStrategy:
     if ship.cell.halite > 0:
       ship.cell.is_targetd = True
 
-  def rank_next_moves(self, ship: Ship, target):
+  def rank_next_moves(self, ship: Ship, next_move_positions):
     """Smaller values is better"""
     source = ship.position
+    target = ship.target_cell.position
     # TODO: consider friend ship.
 
     board = self.board
@@ -189,6 +205,10 @@ class ShipStrategy:
     def rank_func(m):
       next_position = source + m
       v = manhattan_dist(next_position, target, board_size)
+
+      # If |next_position| has already taken by my other ships.
+      if next_position in next_move_positions:
+        v += 50
 
       # If there is an enemy in next_position or nearby with lower halite
       next_cell = board[next_position]
@@ -208,10 +228,10 @@ class ShipStrategy:
     moves.sort(key=rank_func)
     return moves
 
-  def take_move(self, ship):
+  def take_move(self, ship, next_move_positions):
     """Move ship towards the target cell without collide with allies.
     NOTE: can move far away to make room to other ship."""
-    moves = self.rank_next_moves(ship, ship.target_cell.position)
+    moves = self.rank_next_moves(ship, next_move_positions)
     # print('ranked_moves: ', moves)
     if not moves:
       return False
@@ -397,8 +417,10 @@ class ShipStrategy:
     ships.sort(key=lambda s: s.priority, reverse=True)
 
     # print("move candidates: ", [s.id for s in ships])
+    next_move_positions = set()
     for ship in ships:
-      self.take_move(ship)
+      self.take_move(ship, next_move_positions)
+      next_move_positions.add(ship.next_cell.position)
 
   def execute(self):
     self.collect_game_info()

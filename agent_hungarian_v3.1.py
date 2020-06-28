@@ -2,6 +2,23 @@
 """
 Plans to limit max ship number.
 
+ACCEPTED.
+
+Tournament - ID: NzCIyb, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: 06FA9M, Name: Halite 4 Dimension
+Status: running | Competitors: 10 | Rank System: trueskill
+
+Total Matches: 1233 | Matches Queued: 67
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+v3.1                           | Jy2qp2DeJ0XZ   | 34.2788031      | μ=36.633, σ=0.785  | 400
+v3 ghost                       | dLCviyMjfujT   | 32.7362758      | μ=35.023, σ=0.762  | 419
+v2.2.1                         | P9PcQMYRz8xM   | 30.6742114      | μ=32.896, σ=0.741  | 407
+v2.1                           | 3oVC38Ov61oF   | 28.1364989      | μ=30.322, σ=0.728  | 506
+swarm                          | mqPKZXdZbphz   | 28.0119147      | μ=30.089, σ=0.692  | 531
+v1.2                           | Gq9tvDDLAwt3   | 21.5271480      | μ=23.688, σ=0.720  | 528
+v1                             | M4e1fwRmguHy   | 21.1805419      | μ=23.326, σ=0.715  | 529
+manhattan                      | UBHRcKiVwHDN   | 18.5543323      | μ=20.722, σ=0.723  | 525
+somebot                        | IUlrQlMCOXV7   | 16.6628930      | μ=18.866, σ=0.734  | 504
+stillbot-1                     | IKc7otjWgwaZ   | 16.0455072      | μ=18.297, σ=0.751  | 527
 
 """
 
