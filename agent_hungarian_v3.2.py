@@ -4,6 +4,8 @@ Plans to rank moves considering next positions of ally ships.
 
 ACCEPTTED: very close, and non-conslusive, but still prefer to keep it.
 
+results with and without v3.1.
+
 Total Matches: 924 | Matches Queued: 69
 Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
 v3.2 yield                     | FbPHyAjqCLzL   | 31.3243151      | μ=33.568, σ=0.748  | 311
@@ -17,6 +19,25 @@ v1                             | som43CbAfaWX   | 18.6066266      | μ=20.786, �
 manhattan                      | F3GzfWXPwTkd   | 18.0045812      | μ=20.153, σ=0.716  | 354
 somebot                        | RlvtPTfXK0Ns   | 15.6984518      | μ=17.900, σ=0.734  | 350
 stillbot-1                     | hPOWdkgiYn71   | 14.9790747      | μ=17.211, σ=0.744  | 363
+
+
+-=-=-=-=-=-=-=-=-=-=-=-|  Your Halite 4 Trueskill Ladder |-=-=-=-=-=-=-=-=-=-=-=-
+
+Tournament - ID: yL9d42, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: hgScJN, Name: Halite 4 Dimension
+Status: running | Competitors: 10 | Rank System: trueskill
+
+Total Matches: 997 | Matches Queued: 63
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+v3.2 yield                     | FdlQCD1Q2iD2   | 31.9327472      | μ=34.338, σ=0.802  | 330
+v3 ghost                       | 84hMsWskOWB4   | 31.2606345      | μ=33.604, σ=0.781  | 305
+v2.2.1                         | yIWqkdyH1Nu7   | 27.9143551      | μ=30.110, σ=0.732  | 322
+v2.1                           | d0SlEmSM2Hba   | 27.1158648      | μ=29.313, σ=0.732  | 369
+swarm                          | XPEajRtWBkTY   | 25.5071317      | μ=27.595, σ=0.696  | 426
+v1.2                           | 63uSWP0VJT7j   | 20.4512841      | μ=22.586, σ=0.712  | 439
+v1                             | MW6mWI5yolYa   | 19.6973355      | μ=21.838, σ=0.714  | 437
+manhattan                      | glV2jlCjy6EU   | 17.4413623      | μ=19.576, σ=0.711  | 432
+somebot                        | dILtwb2v779l   | 14.6756746      | μ=16.902, σ=0.742  | 407
+stillbot-1                     | jPAt9mjTeo97   | 13.1713367      | μ=15.440, σ=0.756  | 465
 
 """
 
