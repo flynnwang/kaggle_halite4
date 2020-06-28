@@ -1,23 +1,29 @@
 #!/usr/bin/env python
 """
-Plans to add nuclear bomb: send ship to other's base.
+Plans to use match algorithm for assign halite collect task.
 
-ACCEPTED.
+FAILED
 
-Total Matches: 2144 | Matches Queued: 67
+Tournament - ID: lQWpYW, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: 8SeihN, Name: Halite 4 Dimension
+Status: running | Competitors: 10 | Rank System: trueskill
+
+Total Matches: 492 | Matches Queued: 66
 Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
-v3                             | UeIQa2GkiI3c   | 34.7590134      | μ=37.404, σ=0.882  | 753
-v2.2.1                         | P6s5M7Qp8Qtt   | 31.1963826      | μ=33.689, σ=0.831  | 787
-v2.1                           | pk9GECCQ3yqA   | 29.1306246      | μ=31.455, σ=0.775  | 793
-swarm                          | VwivqL0M6uru   | 23.7057546      | μ=25.798, σ=0.697  | 951
-v1.2                           | TG7wUijCNh8B   | 20.5984458      | μ=22.709, σ=0.703  | 1071
-v1                             | v3H1eG4J9bpU   | 20.5781494      | μ=22.691, σ=0.704  | 1047
-manhattan                      | PqVN0OAHa8Ls   | 17.8620721      | μ=19.971, σ=0.703  | 1051
-stillbot-1                     | O5DIKidG5dDE   | 15.5985347      | μ=17.783, σ=0.728  | 1062
-somebot                        | 4UjbE5nRvVah   | 15.1290325      | μ=17.317, σ=0.729  | 1045
+v3                             | r2EwJzd99Acg   | 32.3934443      | μ=34.757, σ=0.788  | 160
+v2.2.1                         | LscJ5iSxsplz   | 30.6249531      | μ=32.884, σ=0.753  | 173
+v4 nx-match                    | pWuCNKd6b9OO   | 29.5140258      | μ=31.695, σ=0.727  | 162
+v2.1                           | zX8MqN6i3S1X   | 28.4709376      | μ=30.660, σ=0.730  | 180
+swarm                          | 1fCXCJYRooT1   | 27.3600775      | μ=29.453, σ=0.698  | 194
+v1                             | mp8pknEvlCvu   | 22.1994817      | μ=24.315, σ=0.705  | 220
+v1.2                           | KbMuwilkbOiC   | 22.0665324      | μ=24.174, σ=0.703  | 210
+manhattan                      | Sx9A2iuMetmZ   | 19.1667891      | μ=21.308, σ=0.714  | 222
+somebot                        | jAto94vp84iq   | 16.3104348      | μ=18.554, σ=0.748  | 218
+stillbot-1                     | FOzkXidMKFAX   | 16.1722616      | μ=18.393, σ=0.740  | 221
 """
 
 import random
+import timeit
+import logging
 from enum import Enum, auto
 from collections import deque
 
@@ -39,6 +45,33 @@ MIN_HALITE_BEFORE_HOME = 100
 MIN_HALITE_FACTOR = 3
 
 MAX_FARMER_SHIP_NUM = 13
+
+# logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class Timer:
+
+  def __init__(self, logging_text=None):
+    self._logging_text = logging_text
+    self._start = None
+    self._end = None
+    self._interval = None
+
+  def __enter__(self):
+    self._start = timeit.default_timer()
+    return self
+
+  def __exit__(self, *args):
+    self._end = timeit.default_timer()
+    self._interval = self._end - self._start
+    if self._logging_text is not None:
+      logger.info("Took %.3f seconds for %s", self._interval,
+                  self._logging_text)
+
+  @property
+  def interval(self):
+    return self._interval
 
 
 def manhattan_dist(a: Point, b: Point, size):
@@ -239,6 +272,17 @@ class ShipStrategy:
       return True
     return False
 
+  def find_nearest_shipyard(self, ship, shipyards):
+    min_dist = 99999
+    min_dist_yard = None
+    for y in shipyards:
+      d = manhattan_dist(ship.position, y.position,
+                         self.board.configuration.size)
+      if d < min_dist:
+        min_dist = d
+        min_dist_yard = y
+    return min_dist, min_dist_yard
+
   def max_expected_return_cell(self, ship):
     growth = self.board.configuration.regen_rate + 1.0
 
@@ -258,22 +302,58 @@ class ShipStrategy:
         max_expected_return = expect_return
     return max_expected_return, max_cell
 
-  def find_nearest_shipyard(self, ship, shipyards):
-    min_dist = 99999
-    min_dist_yard = None
-    for y in shipyards:
-      d = manhattan_dist(ship.position, y.position,
-                         self.board.configuration.size)
-      if d < min_dist:
-        min_dist = d
-        min_dist_yard = y
-    return min_dist, min_dist_yard
+  def continue_mine_halite(self):
+    """ Ship that stay on halite cell."""
+    for ship in self.my_idle_farmer_ships:
+      _, max_cell = self.max_expected_return_cell(ship)
+      if max_cell and max_cell.position == ship.position:
+        self.ship_move_task(ship, max_cell, P_STAY_ON_HALITE)
 
   def send_ship_to_halite(self):
     """Ship that goes to halite."""
+    growth = self.board.configuration.regen_rate + 1.0
+    collect_rate = self.board.configuration.collect_rate
+
+    g = nx.Graph()
     for ship in self.my_idle_farmer_ships:
-      _, max_cell = self.max_expected_return_cell(ship)
-      if max_cell:
+      for c in self.halite_cells:
+        # May not be needed.
+        if c.is_targetd:
+          continue
+
+        if has_enemy_ship(c, self.me):
+          continue
+
+        dist = manhattan_dist(ship.position, c.position,
+                              self.board.configuration.size)
+
+        # if c.ship_id:
+        # # Halite will decrease if there is ship.
+        # expected_halite = c.halite * ((1 - collect_rate)**dist)
+
+        # # Give up if my ship has more halite then enemy.
+        # if has_enemy_ship(c, self.me):
+        # enemy_halite = c.ship.halite + (c.halite - expected_halite)
+        # if ship.halite >= enemy_halite:
+        # continue
+        # else:
+        # # TODO: My ship on the cells. Reach threshold then go home.
+        # pass
+        # else:
+        # Otherwise, halite will grow.
+        expected_halite = min(c.halite * (growth**dist),
+                              self.board.configuration.max_cell_halite)
+        expect_return = expected_halite / (dist + 1)
+        g.add_edge(ship.id, c.position, weight=int(expect_return * 100))
+
+      matches = nx.algorithms.max_weight_matching(g, weight='weight')
+      for ship_id, cell_pos in matches:
+        # Assume ship id is str.
+        if not isinstance(ship_id, str):
+          ship_id, cell_pos = cell_pos, ship_id
+
+        ship = self.board.ships[ship_id]
+        max_cell = self.board[cell_pos]
         priority = (P_STAY_ON_HALITE
                     if max_cell.position == ship.position else P_MOVE_TO_HALITE)
         self.ship_move_task(ship, max_cell, priority)
@@ -414,8 +494,11 @@ class ShipStrategy:
 
     self.send_ship_to_enemy_shipyard()
 
+    self.continue_mine_halite()
     self.send_ship_to_shipyard()
-    self.send_ship_to_halite()
+    with Timer("send_ship_to_halite at step %s" % self.step):
+      self.send_ship_to_halite()
+
     self.compute_ship_moves()
 
     # TODO: maybe no longer need it?
