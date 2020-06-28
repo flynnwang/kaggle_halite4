@@ -21,6 +21,7 @@ import random
 from enum import Enum, auto
 from collections import deque
 
+import networkx as nx
 import numpy as np
 from kaggle_environments.envs.halite.helpers import *
 
@@ -268,14 +269,14 @@ class ShipStrategy:
         min_dist_yard = y
     return min_dist, min_dist_yard
 
-  def continue_mine_halite(self):
-    """ Ship that stay on halite cell."""
+  def send_ship_to_halite(self):
+    """Ship that goes to halite."""
     for ship in self.my_idle_farmer_ships:
-      # if ship.cell.halite > MINING_CELL_MIN_HALITE:
-
       _, max_cell = self.max_expected_return_cell(ship)
-      if max_cell and max_cell.position == ship.position:
-        self.ship_move_task(ship, max_cell, P_STAY_ON_HALITE)
+      if max_cell:
+        priority = (P_STAY_ON_HALITE
+                    if max_cell.position == ship.position else P_MOVE_TO_HALITE)
+        self.ship_move_task(ship, max_cell, priority)
 
   def send_ship_to_shipyard(self):
     """Ship goes back home after collected enough halite."""
@@ -337,13 +338,6 @@ class ShipStrategy:
 
     # if do_print:
     # print('num of ghost after', len(list(self.my_ghost_ships)))
-
-  def send_ship_to_halite(self):
-    """Ship that goes to halite."""
-    for ship in self.my_idle_farmer_ships:
-      _, max_cell = self.max_expected_return_cell(ship)
-      if max_cell:
-        self.ship_move_task(ship, max_cell, P_MOVE_TO_HALITE)
 
   def collision_avoid(self):
     ships = self.me.ships
@@ -420,11 +414,7 @@ class ShipStrategy:
 
     self.send_ship_to_enemy_shipyard()
 
-    # TODO(wangfei): merge it into send_ship_to_halite()
-    self.continue_mine_halite()
     self.send_ship_to_shipyard()
-
-    # TODO: add priority for leaving if a ship is converted on yard.
     self.send_ship_to_halite()
     self.compute_ship_moves()
 
