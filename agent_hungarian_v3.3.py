@@ -1,43 +1,7 @@
 #!/usr/bin/env python
 """
-Plans to rank moves considering next positions of ally ships.
+Plans to remove min halite threshold.
 
-ACCEPTTED: very close, and non-conslusive, but still prefer to keep it.
-
-results with and without v3.1.
-
-Total Matches: 924 | Matches Queued: 69
-Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
-v3.2 yield                     | FbPHyAjqCLzL   | 31.3243151      | μ=33.568, σ=0.748  | 311
-v3.1                           | BaRJ7W5lA1FT   | 31.2524525      | μ=33.498, σ=0.748  | 285
-v3 ghost                       | kI3iycxYfb5T   | 30.9740284      | μ=33.199, σ=0.742  | 268
-v2.2.1                         | erFHjTyoO98j   | 28.3141455      | μ=30.479, σ=0.722  | 325
-v2.1                           | zhJzMxoGAacm   | 27.1427241      | μ=29.283, σ=0.713  | 359
-swarm                          | ggCLBqrcQeJQ   | 26.7319928      | μ=28.814, σ=0.694  | 344
-v1.2                           | UXmwVc6N4Cnz   | 19.9833281      | μ=22.146, σ=0.721  | 345
-v1                             | som43CbAfaWX   | 18.6066266      | μ=20.786, σ=0.726  | 364
-manhattan                      | F3GzfWXPwTkd   | 18.0045812      | μ=20.153, σ=0.716  | 354
-somebot                        | RlvtPTfXK0Ns   | 15.6984518      | μ=17.900, σ=0.734  | 350
-stillbot-1                     | hPOWdkgiYn71   | 14.9790747      | μ=17.211, σ=0.744  | 363
-
-
--=-=-=-=-=-=-=-=-=-=-=-|  Your Halite 4 Trueskill Ladder |-=-=-=-=-=-=-=-=-=-=-=-
-
-Tournament - ID: yL9d42, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: hgScJN, Name: Halite 4 Dimension
-Status: running | Competitors: 10 | Rank System: trueskill
-
-Total Matches: 997 | Matches Queued: 63
-Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
-v3.2 yield                     | FdlQCD1Q2iD2   | 31.9327472      | μ=34.338, σ=0.802  | 330
-v3 ghost                       | 84hMsWskOWB4   | 31.2606345      | μ=33.604, σ=0.781  | 305
-v2.2.1                         | yIWqkdyH1Nu7   | 27.9143551      | μ=30.110, σ=0.732  | 322
-v2.1                           | d0SlEmSM2Hba   | 27.1158648      | μ=29.313, σ=0.732  | 369
-swarm                          | XPEajRtWBkTY   | 25.5071317      | μ=27.595, σ=0.696  | 426
-v1.2                           | 63uSWP0VJT7j   | 20.4512841      | μ=22.586, σ=0.712  | 439
-v1                             | MW6mWI5yolYa   | 19.6973355      | μ=21.838, σ=0.714  | 437
-manhattan                      | glV2jlCjy6EU   | 17.4413623      | μ=19.576, σ=0.711  | 432
-somebot                        | dILtwb2v779l   | 14.6756746      | μ=16.902, σ=0.742  | 407
-stillbot-1                     | jPAt9mjTeo97   | 13.1713367      | μ=15.440, σ=0.756  | 465
 
 """
 
@@ -49,7 +13,7 @@ import numpy as np
 from kaggle_environments.envs.halite.helpers import *
 
 # If less than this value, Give up mining more halite from this cell.
-MINING_CELL_MIN_HALITE = 30.0
+MINING_CELL_MIN_HALITE = 0.0
 
 # If my halite is less than this, do not build ship or shipyard anymore.
 MIN_HALITE_TO_BUILD_SHIPYARD = 1000
@@ -301,8 +265,6 @@ class ShipStrategy:
   def continue_mine_halite(self):
     """ Ship that stay on halite cell."""
     for ship in self.my_idle_farmer_ships:
-      # if ship.cell.halite > MINING_CELL_MIN_HALITE:
-
       _, max_cell = self.max_expected_return_cell(ship)
       if max_cell and max_cell.position == ship.position:
         self.ship_move_task(ship, max_cell, P_STAY_ON_HALITE)
