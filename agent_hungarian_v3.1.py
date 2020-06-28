@@ -1,20 +1,8 @@
 #!/usr/bin/env python
 """
-Plans to add nuclear bomb: send ship to other's base.
+Plans to limit max ship number.
 
-ACCEPTED.
 
-Total Matches: 2144 | Matches Queued: 67
-Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
-v3                             | UeIQa2GkiI3c   | 34.7590134      | μ=37.404, σ=0.882  | 753
-v2.2.1                         | P6s5M7Qp8Qtt   | 31.1963826      | μ=33.689, σ=0.831  | 787
-v2.1                           | pk9GECCQ3yqA   | 29.1306246      | μ=31.455, σ=0.775  | 793
-swarm                          | VwivqL0M6uru   | 23.7057546      | μ=25.798, σ=0.697  | 951
-v1.2                           | TG7wUijCNh8B   | 20.5984458      | μ=22.709, σ=0.703  | 1071
-v1                             | v3H1eG4J9bpU   | 20.5781494      | μ=22.691, σ=0.704  | 1047
-manhattan                      | PqVN0OAHa8Ls   | 17.8620721      | μ=19.971, σ=0.703  | 1051
-stillbot-1                     | O5DIKidG5dDE   | 15.5985347      | μ=17.783, σ=0.728  | 1062
-somebot                        | 4UjbE5nRvVah   | 15.1290325      | μ=17.317, σ=0.729  | 1045
 """
 
 import random
@@ -38,6 +26,7 @@ MIN_HALITE_BEFORE_HOME = 100
 MIN_HALITE_FACTOR = 3
 
 MAX_FARMER_SHIP_NUM = 13
+MAX_SHIP_NUM = 20
 
 
 def manhattan_dist(a: Point, b: Point, size):
@@ -438,6 +427,9 @@ class ShipStrategy:
     me = board.current_player
 
     num_ships = len(me.ship_ids)
+    if num_ships >= MAX_SHIP_NUM:
+      return
+
     num_ghost_ships = len(list(self.my_ghost_ships))
     num_enemy_yard = len(list(self.enemy_shipyards))
     if num_ships >= MAX_FARMER_SHIP_NUM and num_ghost_ships >= num_enemy_yard:
