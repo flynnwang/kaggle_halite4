@@ -9,6 +9,7 @@ import random
 from enum import Enum, auto
 from collections import deque
 
+import networkx as nx
 import numpy as np
 from kaggle_environments.envs.halite.helpers import *
 
@@ -283,6 +284,47 @@ class ShipStrategy:
       if min_dist_yard:
         self.ship_move_task(ship, min_dist_yard.cell, P_RETURN_TO_YARD)
 
+  def send_ship_to_halite(self):
+    """Ship that goes to halite."""
+    growth = self.board.configuration.regen_rate + 1.0
+    collect_rate = self.board.configuration.collect_rate
+
+    g = nx.Graph()
+    for ship in self.my_idle_farmer_ships:
+      for c in self.halite_cells:
+        # May not be needed.
+        if c.is_targetd:
+          continue
+
+        dist = manhattan_dist(ship.position, c.position,
+                              self.board.configuration.size)
+        if c.ship_id:
+          # Halite will decrease if there is ship.
+          expected_halite = c.halite * ((1 - collect_rate)**dist)
+
+          # Give up if my ship has more halite then enemy.
+          if has_enemy_ship(c, self.me):
+            enemy_halite = c.ship.halite + (c.halite - expected_halite)
+            if ship.halite >= enemy_halite:
+              continue
+        else:
+          # Otherwise, halite will grow.
+          expected_halite = min(c.halite * (growth**dist),
+                                self.board.configuration.max_cell_halite)
+
+        expect_return = expected_halite / (dist + 1)
+        g.add_edge(ship.id, c.position, weight=int(expect_return * 100))
+
+    matches = nx.algorithms.max_weight_matching(g, weight='weight')
+    for ship_id, cell_pos in matches:
+      # Assume ship id is str.
+      if not isinstance(ship_id, str):
+        ship_id, cell_pos = cell_pos, ship_id
+
+      ship = self.board.ships[ship_id]
+      max_cell = self.board[cell_pos]
+      self.ship_move_task(ship, max_cell, P_MOVE_TO_HALITE)
+
   @property
   def my_ghost_ships(self):
     for ship_id in self.me.ship_ids:
@@ -330,12 +372,12 @@ class ShipStrategy:
     # if do_print:
     # print('num of ghost after', len(list(self.my_ghost_ships)))
 
-  def send_ship_to_halite(self):
-    """Ship that goes to halite."""
-    for ship in self.my_idle_farmer_ships:
-      _, max_cell = self.max_expected_return_cell(ship)
-      if max_cell:
-        self.ship_move_task(ship, max_cell, P_MOVE_TO_HALITE)
+  # def send_ship_to_halite(self):
+  # """Ship that goes to halite."""
+  # for ship in self.my_idle_farmer_ships:
+  # _, max_cell = self.max_expected_return_cell(ship)
+  # if max_cell:
+  # self.ship_move_task(ship, max_cell, P_MOVE_TO_HALITE)
 
   def collision_avoid(self):
     ships = self.me.ships

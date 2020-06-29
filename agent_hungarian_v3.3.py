@@ -2,6 +2,26 @@
 """
 Plans to remove min halite threshold.
 
+ACCEPTED.
+
+-=-=-=-=-=-=-=-=-=-=-=-|  Your Halite 4 Trueskill Ladder |-=-=-=-=-=-=-=-=-=-=-=-
+
+Tournament - ID: RVGcMV, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: M4twhG, Name: Halite 4 Dimension
+Status: running | Competitors: 11 | Rank System: trueskill
+
+Total Matches: 706 | Matches Queued: 67
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+v3.3 no min halite             | LZxXUALbXWo9   | 31.2623540      | μ=33.556, σ=0.765  | 216
+v3 ghost                       | wprnyR65WNnQ   | 30.5124029      | μ=32.776, σ=0.755  | 208
+v3.2 yield                     | vNDF3UvrCMMb   | 30.1198406      | μ=32.389, σ=0.756  | 196
+v2.2.1                         | v6BLsoA9mrIO   | 27.7501136      | μ=29.922, σ=0.724  | 256
+v2.1                           | lNQ4FWt2d1ry   | 25.6874985      | μ=27.828, σ=0.714  | 271
+swarm                          | jOvx5JekCwGS   | 25.4489304      | μ=27.530, σ=0.694  | 265
+v1.2                           | umVlsgXrXx3g   | 19.7268570      | μ=21.848, σ=0.707  | 264
+v1                             | 3ohbyoZbnmpK   | 18.8615405      | μ=21.017, σ=0.718  | 262
+manhattan                      | rb7eZhVBDEe5   | 15.4508144      | μ=17.637, σ=0.729  | 294
+somebot                        | 7tLKHAYMAfzH   | 14.7076806      | μ=16.949, σ=0.747  | 265
+stillbot-1                     | 9SIwWh6k4I5h   | 14.1004570      | μ=16.327, σ=0.742  | 283
 
 """
 
