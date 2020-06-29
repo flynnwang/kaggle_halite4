@@ -1,8 +1,20 @@
 #!/usr/bin/env python
 """
-Plans to remove min halite threshold.
+Plans to use match for mining task ship assignment.
 
+ACCEPTED.
 
+-=-=-=-=-=-=-=-=-=-=-=-|  Your Halite 4 Trueskill Ladder |-=-=-=-=-=-=-=-=-=-=-=-
+
+Tournament - ID: SIYpct, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: 8KOpKN, Name: Halite 4 Dimension
+Status: running | Competitors: 4 | Rank System: trueskill
+
+Total Matches: 754 | Matches Queued: 60
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+v4.1 match                     | gaB50su2XSTf   | 25.8303896      | μ=27.864, σ=0.678  | 753
+swarm                          | 7hLquzwX39NA   | 23.2030264      | μ=25.221, σ=0.673  | 753
+v3.3 no min halite             | jGvupSy3pPFu   | 22.9533767      | μ=24.967, σ=0.671  | 753
+v2.2.1                         | 1UxxI9Kd93tr   | 21.2622147      | μ=23.288, σ=0.675  | 753
 """
 
 import random
