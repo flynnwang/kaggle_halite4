@@ -732,10 +732,13 @@ class ShipStrategy:
           dist = manhattan_dist(ship.position, yard.position, self.c.size)
           yield dist, ship, yard
 
-    if not self.me.shipyard_ids or not self.me.ship_ids:
+    if not self.me.shipyard_ids:
       return
 
     ship_dists = list(ship_and_dist_to_yard())
+    if not ship_dists:
+      return
+
     max_dist = max(max(d for d, _1, _2 in ship_dists), len(self.me.ship_ids))
     if self.step + max_dist + MARGIN_STEPS < self.c.episode_steps:
       return
