@@ -641,10 +641,10 @@ class ShipStrategy:
         g, maxcardinality=True, weight='weight')
     assert len(matches) == len(ships)
 
-    print('#', self.board.step, 'ships=', len(ships),
-          'halite=', self.me.halite, 'cargo=',
-          sum([s.halite for s in self.me.ships], 0), 'max(enemy halite)=',
-          max(e.halite for e in self.board.opponents))
+    # print('#', self.board.step, 'ships=', len(ships),
+    # 'halite=', self.me.halite, 'cargo=',
+    # sum([s.halite for s in self.me.ships], 0), 'max(enemy halite)=',
+    # max(e.halite for e in self.board.opponents))
     for ship_id, position in matches:
       # Assume ship id is str.
       if not isinstance(ship_id, str):
