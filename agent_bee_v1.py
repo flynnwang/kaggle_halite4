@@ -34,7 +34,7 @@ MIN_WEIGHT = -99999
 BEGINNING_PHRASE_END_STEP = 40
 
 # If less than this value, Give up mining more halite from this cell.
-CELL_STOP_COLLECTING_HALITE = 200.0
+CELL_STOP_COLLECTING_HALITE = 150.0
 CELL_START_COLLECTING_HALITE = 300.0
 
 # If my halite is less than this, do not build ship or shipyard anymore.
@@ -190,7 +190,6 @@ class ShipStrategy:
 
   def collect_game_info(self):
     self.mean_halite_value = MIN_HALITE_BEFORE_HOME
-    # TODO(wangfei): censored
     if self.halite_cells:
       halite_values = [c.halite for c in self.halite_cells]
       self.mean_halite_value = np.mean(halite_values)
@@ -379,9 +378,6 @@ class ShipStrategy:
     """Having enough farmers, let's send ghost to enemy shipyard."""
     board_size = self.board.configuration.size
 
-    if self.step <= BEGINNING_PHRASE_END_STEP * 2:
-      return
-
     def is_near_my_shipyard(enemy_yard):
       for yard in self.me.shipyards:
         dist = manhattan_dist(yard.position, enemy_yard.position, board_size)
@@ -416,13 +412,10 @@ class ShipStrategy:
 
   def send_ship_to_enemy(self):
     """Send ship to enemy to protect my shipyard."""
-    if self.step <= BEGINNING_PHRASE_END_STEP * 2:
-      return
-
     board_size = self.c.size
-    MAX_DEFEND_SHIPS = 14
+    MAX_DEFEND_SHIPS = 12
     TIGHT_ENEMY_SHIP_DEFEND_DIST = 4
-    LOOSE_ENEMY_SHIP_DEFEND_DIST = 8
+    LOOSE_ENEMY_SHIP_DEFEND_DIST = 7
 
     def all_enemy_ships(defend_distance):
       for e in self.board.opponents:
@@ -432,7 +425,7 @@ class ShipStrategy:
             yield s, min_dist, min_yard
 
     enemy_ships = list(all_enemy_ships(LOOSE_ENEMY_SHIP_DEFEND_DIST))
-    enemy_ships.sort(key=lambda x: x[1])
+    enemy_ships.sort(key=lambda x: (x[1], -x[0].halite))
 
     ship_budget = MAX_DEFEND_SHIPS
     for enemy, enemy_to_defend_yard_dist, defend_yard in enemy_ships:
@@ -443,8 +436,8 @@ class ShipStrategy:
       def dist_to_defend_yard(ship):
         return manhattan_dist(ship.position, defend_yard.position, board_size)
 
-      # TODO: limit dist
-      if enemy_to_defend_yard_dist <= TIGHT_ENEMY_SHIP_DEFEND_DIST:
+      if (ship_budget > 0 and
+          enemy_to_defend_yard_dist <= TIGHT_ENEMY_SHIP_DEFEND_DIST):
         ships = [
             s for s in self.my_idle_ships
             if (s.halite < enemy.halite and
@@ -455,7 +448,7 @@ class ShipStrategy:
           self.add_ship_task(ship, enemy.cell, ShipTask.DESTORY_ENEMY_TASK)
           ship_budget -= 1
 
-      if (self.step > BEGINNING_PHRASE_END_STEP * 2 and ship_budget > 0 and
+      if (ship_budget > 0 and
           enemy_to_defend_yard_dist <= LOOSE_ENEMY_SHIP_DEFEND_DIST):
         ships = [
             s for s in self.my_idle_ships
@@ -463,19 +456,21 @@ class ShipStrategy:
                 dist_to_defend_yard(s) >= enemy_to_defend_yard_dist)
         ]
         ships.sort(key=dist_to_enemy)
-        for ship in ships[:min(ship_budget, 1)]:
+        for ship in ships[:min(ship_budget, 3)]:
           self.add_ship_task(ship, enemy.cell, ShipTask.DESTORY_ENEMY_TASK)
           ship_budget -= 1
 
   def collision_check(self):
-    ship_positions = {ship.next_cell.position for ship in self.me.ships}
-    if len(ship_positions) != len(self.me.ships):
+    ships = [
+        ship for ship in self.me.ships if ship.next_action != ShipAction.CONVERT
+    ]
+    ship_positions = {ship.next_cell.position for ship in ships}
+    if len(ship_positions) != len(ships):
       print('Total ships', len(self.me.ships), 'step', self.board.step)
       for ship in self.me.ships:
         print(ship.id, 'at', ship.position, 'action', ship.next_action,
               'next_cell', ship.next_cell.position, 'task', ship.task_type)
-
-    assert len(ship_positions) == len(self.me.ships)
+    assert len(ship_positions) == len(ships)
 
   def convert_to_shipyard(self):
     """Builds shipyard with a random ship if we have enough halite and ships."""
@@ -544,7 +539,6 @@ class ShipStrategy:
     Maximize total expected value.
     * prefer the move to the target (distance is shorter)
     * not prefer move into enemy with lower halite (or equal)
-    * TODO: prefer cell which is near ally ships 
     """
     board_size = self.board.configuration.size
     spawn_cost = self.board.configuration.spawn_cost
@@ -612,13 +606,6 @@ class ShipStrategy:
                nb_cell.ship.halite == ship.halite) or
               nb_cell.ship.halite < ship.halite):
             wt -= spawn_cost
-
-      # To stay connected.
-      if wt == 0:
-        wt -= 0.01
-      assert wt != 0, (
-          "weight for moving should not be zero: wt= %s, type=%s, target halite=%s, exp_ret=%s"
-          % (wt, ship.task_type, target_cell.halite, expect_return))
       return wt
 
     g = nx.Graph()
@@ -630,13 +617,17 @@ class ShipStrategy:
           continue
         # print('   ship ', ship.id, 'to', next_position, 'target',
         # ship.target_cell.position, 'wt=', wt)
-        g.add_edge(ship.id, next_position, weight=int(wt * 100))
+        wt = int(wt * 100)
+        if wt == 0:
+          wt -= 1
+        g.add_edge(ship.id, next_position, weight=wt)
 
     matches = nx.algorithms.max_weight_matching(
         g, maxcardinality=True, weight='weight')
     assert len(matches) == len(ships)
 
-    print('move ships=', len(ships), self.board.step)
+    print('#', self.board.step, 'ships=', len(ships), 'halite=', self.me.halite,
+          'max enemy halite=', max(e.halite for e in self.board.opponents))
     for ship_id, position in matches:
       # Assume ship id is str.
       if not isinstance(ship_id, str):
@@ -698,8 +689,9 @@ class ShipStrategy:
 
     self.spawn_ships()
 
-    self.send_ship_to_enemy_shipyard()
-    self.send_ship_to_enemy()
+    if self.step > BEGINNING_PHRASE_END_STEP * 2:
+      self.send_ship_to_enemy_shipyard()
+      self.send_ship_to_enemy()
 
     self.continue_mine_halite()
     self.send_ship_to_shipyard()
