@@ -3,6 +3,21 @@
 Plans to use match for ship next move assignment.
 
 
+2. After various improvement
+
+Tournament - ID: NlxZrk, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: AUdLUh, Name: Halite 4 Dimension
+Status: running | Competitors: 7 | Rank System: trueskill
+
+Total Matches: 1048 | Matches Queued: 63
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v1                         | 01qOwmyEoRN1   | 34.7715006      | μ=37.344, σ=0.858  | 513
+v3.1                           | wUOxyJUA35kP   | 28.3615378      | μ=30.563, σ=0.734  | 527
+v3.3 no min                    | NXDuZ16rewuJ   | 28.0063233      | μ=30.207, σ=0.734  | 523
+swarm                          | MGQjYzxH89Lz   | 26.3849793      | μ=28.542, σ=0.719  | 557
+v2.2.1                         | 75ihZjmfyBt7   | 24.6548042      | μ=26.825, σ=0.723  | 676
+v1.2                           | v5CVq2I4kXdN   | 13.0567333      | μ=15.479, σ=0.808  | 697
+manhattan                      | gsOKt26v20mp   | 12.9742732      | μ=15.352, σ=0.793  | 683
+
 
 1. Just finish using match for move.
 Total Matches: 123 | Matches Queued: 64
