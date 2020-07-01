@@ -34,7 +34,7 @@ MIN_WEIGHT = -99999
 BEGINNING_PHRASE_END_STEP = 40
 
 # If less than this value, Give up mining more halite from this cell.
-CELL_STOP_COLLECTING_HALITE = 150.0
+CELL_STOP_COLLECTING_HALITE = 200.0
 CELL_START_COLLECTING_HALITE = 300.0
 
 # If my halite is less than this, do not build ship or shipyard anymore.
@@ -141,7 +141,8 @@ class ShipTask(Enum):
   COLLECT_HALITE_TASK = auto()
   RETURN_TO_SHIPYARD_TASK = auto()
   DESTORY_ENEMY_YARD_TASK = auto()
-  DESTORY_ENEMY_TASK = auto()
+  DESTORY_ENEMY_TASK_INNER = auto()
+  DESTORY_ENEMY_TASK_OUTER = auto()
 
 
 P_DESTORY_ENEMY_YARD = 500
@@ -253,6 +254,9 @@ class ShipStrategy:
       stop_threshold = FAR_AWAY_SHIP_STOP_COLLECTING_THRESHOLD
       if is_home_grown_halite_cells(ship, c):
         stop_threshold = CELL_STOP_COLLECTING_HALITE
+        # if len(self.me.ship_ids) < MAX_SHIP_NUM:
+        # stop_threshold = CELL_STOP_COLLECTING_HALITE // 2
+
       if c.halite < stop_threshold:
         continue
 
@@ -374,7 +378,7 @@ class ShipStrategy:
       for y in e.shipyards:
         yield y
 
-  def send_ship_to_enemy_shipyard(self):
+  def attack_enemy_yard(self):
     """Having enough farmers, let's send ghost to enemy shipyard."""
     board_size = self.board.configuration.size
 
@@ -410,7 +414,7 @@ class ShipStrategy:
       if min_dist_ship:
         self.add_ship_task(ship, y.cell, ShipTask.DESTORY_ENEMY_YARD_TASK)
 
-  def send_ship_to_enemy(self):
+  def attack_enemy_ship(self):
     """Send ship to enemy to protect my shipyard."""
     board_size = self.c.size
     MAX_DEFEND_SHIPS = 12
@@ -445,19 +449,21 @@ class ShipStrategy:
         ]
         ships.sort(key=dist_to_enemy)
         for ship in ships[:min(3, ship_budget)]:
-          self.add_ship_task(ship, enemy.cell, ShipTask.DESTORY_ENEMY_TASK)
+          self.add_ship_task(ship, enemy.cell,
+                             ShipTask.DESTORY_ENEMY_TASK_INNER)
           ship_budget -= 1
 
       if (ship_budget > 0 and
           enemy_to_defend_yard_dist <= LOOSE_ENEMY_SHIP_DEFEND_DIST):
         ships = [
             s for s in self.my_idle_ships
-            if (s.halite < max(enemy.halite, 0) and
-                dist_to_defend_yard(s) >= enemy_to_defend_yard_dist)
+            if (s.halite < enemy.halite and
+                dist_to_defend_yard(s) > enemy_to_defend_yard_dist)
         ]
         ships.sort(key=dist_to_enemy)
         for ship in ships[:min(ship_budget, 3)]:
-          self.add_ship_task(ship, enemy.cell, ShipTask.DESTORY_ENEMY_TASK)
+          self.add_ship_task(ship, enemy.cell,
+                             ShipTask.DESTORY_ENEMY_TASK_OUTER)
           ship_budget -= 1
 
   def collision_check(self):
@@ -510,8 +516,7 @@ class ShipStrategy:
         else:
           return -1
 
-      # if no nearby yard or having valid dist yard.
-      # count number of halite cells around.
+      # Maximize the total halite when converting ship.
       for cell in self.board.cells.values():
         dist = manhattan_dist(ship.position, cell.position, self.c.size)
         if dist <= NEARBY_HALITE_CELLS_DIST:
@@ -590,8 +595,18 @@ class ShipStrategy:
         # TODO: use what value as weight for destory enemy yard?
         wt += convert_cost / (dist + 1)
 
-      if ship.task_type == ShipTask.DESTORY_ENEMY_TASK:
-        wt += (convert_cost + target_cell.ship.halite) / (dist + 1)
+      if (ship.task_type == ShipTask.DESTORY_ENEMY_TASK_INNER or
+          ship.task_type == ShipTask.DESTORY_ENEMY_TASK_OUTER):
+        enemy = target_cell.ship
+        wt += (convert_cost + enemy.halite) / (dist + 1)
+        _, defend_yard = self.find_nearest_shipyard(enemy, self.me.shipyards)
+        if defend_yard:
+          dist_to_yard = manhattan_dist(next_position, defend_yard.position,
+                                        self.c.size)
+          if ship.task_type == ShipTask.DESTORY_ENEMY_TASK_INNER:
+            wt += enemy.halite / (dist_to_yard + 1)
+          if ship.task_type == ShipTask.DESTORY_ENEMY_TASK_OUTER:
+            wt -= enemy.halite / (dist_to_yard + 1)
 
       # If next move to alley SPAWNING shipyard, skip
       yard = next_cell.shipyard
@@ -626,8 +641,10 @@ class ShipStrategy:
         g, maxcardinality=True, weight='weight')
     assert len(matches) == len(ships)
 
-    print('#', self.board.step, 'ships=', len(ships), 'halite=', self.me.halite,
-          'max enemy halite=', max(e.halite for e in self.board.opponents))
+    print('#', self.board.step, 'ships=', len(ships),
+          'halite=', self.me.halite, 'cargo=',
+          sum([s.halite for s in self.me.ships], 0), 'max(enemy halite)=',
+          max(e.halite for e in self.board.opponents))
     for ship_id, position in matches:
       # Assume ship id is str.
       if not isinstance(ship_id, str):
@@ -649,53 +666,87 @@ class ShipStrategy:
     me = board.current_player
 
     def max_ship_num():
-      return MAX_SHIP_NUM + max(0, (self.me.halite - 4000) // 3000)
+      return MAX_SHIP_NUM + max(0, (self.me.halite - 4000) // 2000)
 
+    def is_shipyard_in_danger(yard):
+      # If there is one of my ship on yard, it's safe.
+      if yard.cell.ship_id and yard.cell.ship.player_id == self.me.id:
+        return False
+      for nb_cell in get_neighbor_cells(yard.cell):
+        if has_enemy_ship(nb_cell, self.me):
+          return True
+      return False
+
+    def spawn(yard):
+      me._halite -= board.configuration.spawn_cost
+      yard.next_action = ShipyardAction.SPAWN
+      yard.cell.is_occupied = True
+
+    # Spawn ship if yard is in danger.
+    shipyards = me.shipyards
+    if len(shipyards) <= 1:
+      for y in shipyards:
+        if is_shipyard_in_danger(y) and me.halite >= self.c.spawn_cost:
+          spawn(y)
+
+    # Too many ships.
     num_ships = len(me.ship_ids)
     if num_ships >= max_ship_num():
       return
 
-    shipyards = me.shipyards
     random.shuffle(shipyards)
-
     for shipyard in shipyards:
       # print('shipyard', shipyard.id, 'at', shipyard.position)
 
-      # Skip if not enough money.
-      build_ship_threshold = MIN_HALITE_TO_BUILD_SHIP
+      # Skip if not pass threshold if any ship is alive.
+      spawn_threshold = MIN_HALITE_TO_BUILD_SHIP
       if board.step <= BEGINNING_PHRASE_END_STEP:
-        build_ship_threshold = board.configuration.spawn_cost
-
-      if num_ships and me.halite < build_ship_threshold:
+        spawn_threshold = self.c.spawn_cost
+      if num_ships and me.halite < spawn_threshold:
         continue
 
-      # If there is a ship on shipyard and no free neighbor cells.
-      yard_cell = shipyard.cell
-      if yard_cell.ship_id:
-        num_free_cells = sum(
-            1 for c in get_neighbor_cells(yard_cell) if c.ship_id is None)
-        if num_free_cells == 0:
-          continue
+      spawn(shipyard)
 
-      # NOET: do not move ship onto a spawning shipyard.
-      me._halite -= board.configuration.spawn_cost
-      shipyard.next_action = ShipyardAction.SPAWN
-      yard_cell.is_occupied = True
+  def final_stage_back_to_shipyard(self):
+    MARGIN_STEPS = 10
+
+    def ship_and_dist_to_yard():
+      for ship in self.my_idle_ships:
+        _, yard = self.find_nearest_shipyard(ship, self.me.shipyards)
+        if yard:
+          dist = manhattan_dist(ship.position, yard.position, self.c.size)
+          yield dist, ship, yard
+
+    if not self.me.shipyard_ids or not self.me.ship_ids:
+      return
+
+    ship_dists = list(ship_and_dist_to_yard())
+    max_dist = max(max(d for d, _1, _2 in ship_dists), len(self.me.ship_ids))
+    if self.step + max_dist + MARGIN_STEPS < self.c.episode_steps:
+      return
+
+    for _, ship, min_dist_yard in ship_dists:
+      if ship.halite > 0:
+        self.add_ship_task(ship, min_dist_yard.cell,
+                           ShipTask.RETURN_TO_SHIPYARD_TASK)
 
   def execute(self):
     self.collect_game_info()
 
     self.convert_to_shipyard()
-
     self.spawn_ships()
 
-    if self.step > BEGINNING_PHRASE_END_STEP * 2:
-      self.send_ship_to_enemy_shipyard()
-      self.send_ship_to_enemy()
+    if (self.step > BEGINNING_PHRASE_END_STEP * 2 or
+        len(self.me.ship_ids) >= MAX_SHIP_NUM):
+      self.attack_enemy_yard()
+      self.attack_enemy_ship()
 
+    self.final_stage_back_to_shipyard()
     self.continue_mine_halite()
     self.send_ship_to_shipyard()
     self.send_ship_to_halite()
+
+    # TODO: add backup mining strategy without limit.
     self.compute_ship_moves()
     self.collision_check()
 
