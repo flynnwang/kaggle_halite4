@@ -32,7 +32,7 @@ from kaggle_environments.envs.halite.helpers import *
 
 MIN_WEIGHT = -99999
 
-BEGINNING_PHRASE_END_STEP = 50
+BEGINNING_PHRASE_END_STEP = 40
 ENDING_PHRASE_STEP = 320
 
 # If less than this value, Give up mining more halite from this cell.
@@ -416,7 +416,7 @@ class ShipStrategy:
     """Send ship to enemy to protect my shipyard."""
     board_size = self.c.size
     MAX_DEFEND_SHIPS = 12
-    TIGHT_ENEMY_SHIP_DEFEND_DIST = 5
+    TIGHT_ENEMY_SHIP_DEFEND_DIST = 6
     LOOSE_ENEMY_SHIP_DEFEND_DIST = 7
 
     def all_enemy_ships(defend_distance):
@@ -467,10 +467,8 @@ class ShipStrategy:
         ]
         ships.sort(key=dist_to_enemy)
         for ship in ships[:min(ship_budget, 3)]:
-          target_cell = enemy.cell
-          if enemy_to_defend_yard_dist >= TIGHT_ENEMY_SHIP_DEFEND_DIST:
-            target_cell = get_outer_target_cell(
-                ship, enemy, enemy_to_defend_yard_dist, defend_yard)
+          target_cell = get_outer_target_cell(
+              ship, enemy, enemy_to_defend_yard_dist, defend_yard)
           self.add_ship_task(ship, target_cell,
                              ShipTask.DESTORY_ENEMY_TASK_OUTER)
           ship_budget -= 1
