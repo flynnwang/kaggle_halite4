@@ -1,7 +1,22 @@
 #!/usr/bin/env python
 """
-Plans to keep some ships as farmer.
+Minor updates on inner threshold.
 
+Tournament - ID: JmlvWv, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: zw11bN, Name: Halite 4 Dimension
+Status: running | Competitors: 10 | Rank System: trueskill
+
+Total Matches: 664 | Matches Queued: 66
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v1.2                       | ggDpRcfQgHJy   | 37.3484692      | μ=39.855, σ=0.836  | 230
+bee v1.1                       | 7lJV8EvN8boq   | 35.6702857      | μ=38.059, σ=0.796  | 210
+bee v1                         | Ut8gw1XhTjWW   | 34.3086623      | μ=36.636, σ=0.776  | 219
+swarm                          | chhsg1G2NhQz   | 27.7623202      | μ=29.961, σ=0.733  | 266
+v3.3 no min                    | FyacWxbuwTLz   | 27.7488973      | μ=29.935, σ=0.729  | 277
+v3.1                           | YIn1H2lkJWsn   | 26.5949948      | μ=28.788, σ=0.731  | 283
+v2.2.1                         | R3Hw25uHx9td   | 25.0505816      | μ=27.210, σ=0.720  | 291
+v1.2                           | 16ghcfZFrSXe   | 15.2313432      | μ=17.612, σ=0.793  | 304
+manhattan                      | jRMAWR5KKZwu   | 14.2316007      | μ=16.610, σ=0.793  | 297
+v1                             | xrkb5eLs18cx   | 12.7387609      | μ=15.189, σ=0.817  | 279
 
 """
 
@@ -458,9 +473,9 @@ class ShipStrategy:
           ship_budget -= 1
           has_outer_ship = True
 
-      # if (ship_budget > 0 and
-      # enemy_to_defend_yard_dist <= TIGHT_ENEMY_SHIP_DEFEND_DIST):
-      if ship_budget > 0:
+      if (ship_budget > 0 and
+          enemy_to_defend_yard_dist <= TIGHT_ENEMY_SHIP_DEFEND_DIST):
+        # if ship_budget > 0:
         ships = [
             s for s in self.my_idle_ships
             if (s.halite < enemy.halite and
