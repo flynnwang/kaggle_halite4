@@ -42,7 +42,7 @@ LOOSE_ENEMY_SHIP_DEFEND_DIST = 7
 MIN_ENEMY_YARD_TO_MY_YARD = 7
 
 # Threshold used to estimate best cell for shipyard.
-NEARBY_HALITE_CELLS_DIST = 10
+NEARBY_HALITE_CELLS_DIST = 5
 
 logging.basicConfig(level=logging.INFO)
 # logging.basicConfig(level=logging.ERROR)
@@ -125,6 +125,8 @@ class ShipTask(Enum):
   DESTORY_ENEMY_YARD_TASK = auto()
   DESTORY_ENEMY_TASK_INNER = auto()
   DESTORY_ENEMY_TASK_OUTER = auto()
+
+  GOTO_INITIAL_YARD_POS_TASK = auto()
 
 
 P_DESTORY_ENEMY_YARD = 500
@@ -382,7 +384,7 @@ class ShipStrategy:
       for y in self.enemy_shipyards:
         if y.cell.is_targetd:
           continue
-        if is_near_my_shipyard(y):
+        if not is_near_my_shipyard(y):
           continue
         yield y
 
@@ -431,7 +433,9 @@ class ShipStrategy:
 
     num_ships = len(self.me.ship_ids)
     if num_ships <= 10:
-      ratio = 0.2
+      ratio = 0.3
+    elif num_ships <= 12:
+      ratio = 0.4
     elif num_ships <= 16:
       ratio = 0.5
     else:
@@ -445,22 +449,6 @@ class ShipStrategy:
       def dist_to_defend_yard(ship):
         return manhattan_dist(ship.position, defend_yard.position, board_size)
 
-      has_outer_ship = False
-      if ship_budget > 0:
-        ships = [
-            s for s in self.my_idle_ships
-            if (s.halite < enemy.halite and
-                dist_to_defend_yard(s) >= enemy_to_defend_yard_dist)
-        ]
-        ships.sort(key=dist_to_enemy)
-        for ship in ships[:min(ship_budget, 3)]:
-          target_cell = get_outer_target_cell(
-              ship, enemy, enemy_to_defend_yard_dist, defend_yard)
-          self.add_ship_task(ship, target_cell,
-                             ShipTask.DESTORY_ENEMY_TASK_OUTER)
-          ship_budget -= 1
-          has_outer_ship = True
-
       if (ship_budget > 0 and
           enemy_to_defend_yard_dist <= TIGHT_ENEMY_SHIP_DEFEND_DIST):
         # if ship_budget > 0:
@@ -470,9 +458,23 @@ class ShipStrategy:
                 dist_to_defend_yard(s) <= enemy_to_defend_yard_dist)
         ]
         ships.sort(key=dist_to_enemy)
-        for ship in ships[:min(has_outer_ship and 3 or 1, ship_budget)]:
-          self.add_ship_task(ship, enemy.cell,
+        for ship in ships[:min(3, ship_budget)]:
+          target_cell = get_outer_target_cell(
+              ship, enemy, enemy_to_defend_yard_dist, defend_yard)
+          self.add_ship_task(ship, target_cell,
                              ShipTask.DESTORY_ENEMY_TASK_INNER)
+          ship_budget -= 1
+
+      if ship_budget > 0:
+        ships = [
+            s for s in self.my_idle_ships
+            if (s.halite < enemy.halite and
+                dist_to_defend_yard(s) >= enemy_to_defend_yard_dist)
+        ]
+        ships.sort(key=dist_to_enemy)
+        for ship in ships[:min(ship_budget, 3)]:
+          self.add_ship_task(ship, enemy.cell,
+                             ShipTask.DESTORY_ENEMY_TASK_OUTER)
           ship_budget -= 1
 
   def collision_check(self):
@@ -528,7 +530,7 @@ class ShipStrategy:
       for cell in self.board.cells.values():
         dist = manhattan_dist(ship.position, cell.position, self.c.size)
         if dist <= NEARBY_HALITE_CELLS_DIST:
-          val += cell.halite
+          val += int(cell.halite > 0)
       return val
 
     ship_scores = [(select_ship(ship), ship) for ship in me.ships]
@@ -603,17 +605,16 @@ class ShipStrategy:
         # TODO: use what value as weight for destory enemy yard?
         wt += convert_cost / (dist + 1)
 
-      if ship.task_type == ShipTask.DESTORY_ENEMY_TASK_INNER:
+      if ship.task_type == ShipTask.DESTORY_ENEMY_TASK_OUTER:
         enemy = target_cell.ship
         wt += (convert_cost + enemy.halite) / (dist + 1)
         _, defend_yard = self.find_nearest_shipyard(enemy, self.me.shipyards)
         if defend_yard:
           dist_to_yard = manhattan_dist(next_position, defend_yard.position,
                                         self.c.size)
-          if ship.task_type == ShipTask.DESTORY_ENEMY_TASK_INNER:
-            wt += enemy.halite / (dist_to_yard + 1)
+          wt += -enemy.halite / (dist_to_yard + 1)
 
-      if ship.task_type == ShipTask.DESTORY_ENEMY_TASK_OUTER:
+      if ship.task_type == ShipTask.DESTORY_ENEMY_TASK_INNER:
         wt += convert_cost / (dist + 1)
 
       # If next move to alley SPAWNING shipyard, skip
@@ -743,21 +744,80 @@ class ShipStrategy:
         self.add_ship_task(ship, min_dist_yard.cell,
                            ShipTask.RETURN_TO_SHIPYARD_TASK)
 
+  initial_shipyard_set = False
+  initial_yard_position = None
+  initial_ship_position = None
+
+  def convert_first_shipyard(self):
+    """Strategy for convert the first ship yard."""
+    MAX_MOVE_TO_INITIAL_POSITION = 5
+    ESTIMATE_CELL_DIST = 4
+
+    assert self.num_ships == 1
+    ship = self.me.ships[0]
+
+    if not self.initial_ship_position:
+      ShipStrategy.initial_ship_position = ship.position
+
+    def estimate_cell(candidate_cell):
+      num = 0
+      halite = 0
+      for cell in self.board.cells.values():
+        dist = manhattan_dist(candidate_cell.position, cell.position,
+                              self.c.size)
+        if (dist <= ESTIMATE_CELL_DIST and
+            cell.position != candidate_cell.position):
+          num += int(cell.halite > 0)
+          halite += cell.halite
+      return num, halite, candidate_cell
+
+    def select_initial_cell():
+      for cell in self.board.cells.values():
+        dist = manhattan_dist(self.initial_ship_position, cell.position,
+                              self.c.size)
+        if dist <= MAX_MOVE_TO_INITIAL_POSITION:
+          yield estimate_cell(cell)
+
+    if not self.initial_yard_position:
+      candidate_cells = list(select_initial_cell())
+      if candidate_cells:
+        candidate_cells.sort(key=lambda x: (-x[0], -x[1]))
+        num, halite, yard_cell = candidate_cells[0]
+        ShipStrategy.initial_yard_position = yard_cell.position
+        print("Ship initial:", self.initial_ship_position, 'dist=',
+              manhattan_dist(self.initial_ship_position,
+                             self.initial_yard_position, self.c.size),
+              'selected yard position:', self.initial_yard_position, 'num=',
+              num, 'halite=', halite)
+
+    if ship.position == self.initial_yard_position:
+      ShipStrategy.initial_shipyard_set = True
+      ship.next_action = ShipAction.CONVERT
+      ship.has_assignment = True
+      ship.cell.is_targetd = True
+      ship.cell.is_occupied = True
+    else:
+      self.add_ship_task(ship, self.board[self.initial_yard_position],
+                         ShipTask.GOTO_INITIAL_YARD_POS_TASK)
+
   def execute(self):
     self.collect_game_info()
 
-    self.convert_to_shipyard()
-    self.spawn_ships()
+    if self.initial_shipyard_set:
+      self.convert_to_shipyard()
+      self.spawn_ships()
 
-    if (self.step > BEGINNING_PHRASE_END_STEP or
-        len(self.me.ship_ids) >= MAX_SHIP_NUM):
-      self.attack_enemy_yard()
-      self.attack_enemy_ship()
+      if (self.step > BEGINNING_PHRASE_END_STEP or
+          len(self.me.ship_ids) >= MAX_SHIP_NUM):
+        self.attack_enemy_yard()
+        self.attack_enemy_ship()
 
-    self.final_stage_back_to_shipyard()
-    self.continue_mine_halite()
-    self.send_ship_to_shipyard()
-    self.send_ship_to_halite()
+      self.final_stage_back_to_shipyard()
+      self.continue_mine_halite()
+      self.send_ship_to_shipyard()
+      self.send_ship_to_halite()
+    else:
+      self.convert_first_shipyard()
 
     # TODO: add backup mining strategy without limit.
     self.compute_ship_moves()
