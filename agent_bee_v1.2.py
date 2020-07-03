@@ -32,7 +32,7 @@ from kaggle_environments.envs.halite.helpers import *
 
 MIN_WEIGHT = -99999
 
-BEGINNING_PHRASE_END_STEP = 40
+BEGINNING_PHRASE_END_STEP = 50
 ENDING_PHRASE_STEP = 320
 
 # If less than this value, Give up mining more halite from this cell.
@@ -376,7 +376,8 @@ class ShipStrategy:
     board_size = self.board.configuration.size
 
     def max_bomb_dist():
-      if len(self.me.ship_ids) == MAX_SHIP_NUM:
+      if (len(self.me.ship_ids) == MAX_SHIP_NUM and
+          self.me.halite > self.max_halite):
         return 999
       return MIN_ENEMY_YARD_TO_MY_YARD
 
@@ -415,7 +416,7 @@ class ShipStrategy:
     """Send ship to enemy to protect my shipyard."""
     board_size = self.c.size
     MAX_DEFEND_SHIPS = 12
-    TIGHT_ENEMY_SHIP_DEFEND_DIST = 6
+    TIGHT_ENEMY_SHIP_DEFEND_DIST = 5
     LOOSE_ENEMY_SHIP_DEFEND_DIST = 7
 
     def all_enemy_ships(defend_distance):
@@ -466,8 +467,10 @@ class ShipStrategy:
         ]
         ships.sort(key=dist_to_enemy)
         for ship in ships[:min(ship_budget, 3)]:
-          target_cell = get_outer_target_cell(
-              ship, enemy, enemy_to_defend_yard_dist, defend_yard)
+          target_cell = enemy.cell
+          if enemy_to_defend_yard_dist >= TIGHT_ENEMY_SHIP_DEFEND_DIST:
+            target_cell = get_outer_target_cell(
+                ship, enemy, enemy_to_defend_yard_dist, defend_yard)
           self.add_ship_task(ship, target_cell,
                              ShipTask.DESTORY_ENEMY_TASK_OUTER)
           ship_budget -= 1
@@ -767,7 +770,7 @@ class ShipStrategy:
     self.convert_to_shipyard()
     self.spawn_ships()
 
-    if (self.step > BEGINNING_PHRASE_END_STEP * 2 or
+    if (self.step > BEGINNING_PHRASE_END_STEP or
         len(self.me.ship_ids) >= MAX_SHIP_NUM):
       self.attack_enemy_yard()
       self.attack_enemy_ship()
