@@ -368,7 +368,7 @@ class ShipStrategy:
       if self.num_ships < 10:
         return 0
 
-      if (len(self.me.ship_ids) == MAX_SHIP_NUM and
+      if (len(self.me.ship_ids) >= MAX_SHIP_NUM and
           self.me.halite > self.max_halite):
         return 999
       return MIN_ENEMY_YARD_TO_MY_YARD
