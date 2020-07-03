@@ -35,7 +35,7 @@ MAX_SHIP_NUM = 21
 MAX_DEFEND_SHIPS = 12
 
 # Threshold for attack enemy nearby my shipyard
-TIGHT_ENEMY_SHIP_DEFEND_DIST = 6
+TIGHT_ENEMY_SHIP_DEFEND_DIST = 5
 LOOSE_ENEMY_SHIP_DEFEND_DIST = 7
 
 # Threshod used to send bomb to enemy shipyard
@@ -115,16 +115,6 @@ def get_neighbor_cells(cell, include_self=False):
   return neighbor_cells
 
 
-class ShipType(Enum):
-  UNKNOWN_TYPE = auto()
-
-  # Ship that collect halite.
-  FARMER_TYPE = auto()
-
-  # Ship that bomb enemy's shipyard.
-  GHOST_TYPE = auto()
-
-
 class ShipTask(Enum):
 
   UNKNOWN_TASK = auto()
@@ -154,8 +144,6 @@ class ShipStrategy:
     |target_cell|: send ship to this cell, may be the same of current cell, None by default.
     |task_type|: used to rank ship for moves.
   """
-
-  SHIP_ID_TO_TYPE = {}
 
   def __init__(self, board):
     self.board = board
@@ -635,15 +623,10 @@ class ShipStrategy:
         return MIN_WEIGHT
 
       # If there is an enemy in next_position with lower halite
-      shy_ship_types = [
-          ShipTask.DESTORY_ENEMY_YARD_TASK, ShipTask.RETURN_TO_SHIPYARD_TASK
-      ]
       for nb_cell in get_neighbor_cells(next_cell, include_self=True):
         if has_enemy_ship(nb_cell, self.me):
-          if ((ship.task_type in shy_ship_types and
-               nb_cell.ship.halite == ship.halite) or
-              nb_cell.ship.halite < ship.halite):
-            wt -= spawn_cost
+          if nb_cell.ship.halite <= ship.halite:
+            wt -= (spawn_cost + ship.halite)
       return wt
 
     g = nx.Graph()
