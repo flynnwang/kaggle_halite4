@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """
+Use cross stragegy for to attack enemy.
 
 """
 
@@ -33,8 +34,8 @@ MAX_SHIP_NUM = 23
 MAX_DEFEND_SHIPS = 14
 
 # Threshold for attack enemy nearby my shipyard
-TIGHT_ENEMY_SHIP_DEFEND_DIST = 5
-LOOSE_ENEMY_SHIP_DEFEND_DIST = 7
+TIGHT_ENEMY_SHIP_DEFEND_DIST = 4
+LOOSE_ENEMY_SHIP_DEFEND_DIST = 6
 
 # Threshod used to send bomb to enemy shipyard
 MIN_ENEMY_YARD_TO_MY_YARD = 7
@@ -211,12 +212,13 @@ class ShipStrategy:
         yield y
 
   @staticmethod
-  def assign_task(ship, target_cell: Cell, task_type: ShipTask):
+  def assign_task(ship, target_cell: Cell, task_type: ShipTask, enemy=None):
     """Add a task to a ship."""
     ship.has_assignment = True
     ship.target_cell = target_cell
     ship.task_type = task_type
     ship.target_cell.is_targetd = True
+    ship.target_enemy = enemy
 
   def collect_game_info(self):
     self.mean_halite_value = MIN_HALITE_BEFORE_HOME
@@ -232,7 +234,7 @@ class ShipStrategy:
         self.max_enemy_id = p.id
 
   def max_expected_return_cell(self, ship):
-    HOME_GROWN_CELL_DIST = 6
+    HOME_GROWN_CELL_DIST = 4
     MIN_STOP_COLLECTIONG_THRESHOLD = 10.0
 
     # If less than this value, Give up mining more halite from this cell.
@@ -251,9 +253,9 @@ class ShipStrategy:
     def stop_threshold(cell):
       threshold = MIN_STOP_COLLECTIONG_THRESHOLD
       if is_home_grown_halite_cell(cell):
-        threshold = CELL_STOP_COLLECTING_HALITE / 2
+        threshold = 100
         if (BEGINNING_PHRASE_END_STEP < self.step < ENDING_PHRASE_STEP and
-            self.num_ships >= 10):
+            self.num_ships >= 16):
           threshold = CELL_STOP_COLLECTING_HALITE
       return threshold
 
@@ -436,19 +438,6 @@ class ShipStrategy:
           if min_yard and min_dist <= defend_distance:
             yield s, min_dist, min_yard
 
-    def get_outer_target_cell(ship, enemy, defend_yard_dist, defend_yard):
-      min_dist = 999
-      min_dist_cell = None
-      for cell in get_neighbor_cells(enemy.cell):
-        dist = manhattan_dist(cell.position, defend_yard.position, self.c.size)
-        if dist == defend_yard_dist + 1:
-          d = manhattan_dist(ship.position, cell.position, self.c.size)
-          if d < min_dist:
-            min_dist = d
-            min_dist_cell = cell
-      assert min_dist_cell
-      return min_dist_cell
-
     def defend_ship_ratio():
       if self.num_ships <= 10:
         ratio = 0.3
@@ -472,6 +461,20 @@ class ShipStrategy:
       def dist_to_defend_yard(ship):
         return manhattan_dist(ship.position, defend_yard.position, self.c.size)
 
+      def get_target_cell(ship, offset_dist):
+        min_dist = 999
+        min_dist_cell = None
+        for cell in get_neighbor_cells(enemy.cell):
+          dist = manhattan_dist(cell.position, defend_yard.position,
+                                self.c.size)
+          if dist == enemy_to_defend_yard_dist + offset_dist:
+            d = manhattan_dist(ship.position, cell.position, self.c.size)
+            if d < min_dist:
+              min_dist = d
+              min_dist_cell = cell
+        assert min_dist_cell
+        return min_dist_cell
+
       if (ship_budget > 0 and
           enemy_to_defend_yard_dist <= TIGHT_ENEMY_SHIP_DEFEND_DIST):
         ships = [
@@ -481,9 +484,9 @@ class ShipStrategy:
         ]
         ships.sort(key=dist_to_enemy)
         for ship in ships[:min(3, ship_budget)]:
-          target_cell = get_outer_target_cell(
-              ship, enemy, enemy_to_defend_yard_dist, defend_yard)
-          self.assign_task(ship, target_cell, ShipTask.DESTORY_ENEMY_TASK_INNER)
+          target_cell = get_target_cell(ship, offset_dist=1)
+          self.assign_task(ship, target_cell, ShipTask.DESTORY_ENEMY_TASK_INNER,
+                           enemy)
           ship_budget -= 1
 
       if ship_budget > 0:
@@ -494,7 +497,9 @@ class ShipStrategy:
         ]
         ships.sort(key=dist_to_enemy)
         for ship in ships[:min(ship_budget, 3)]:
-          self.assign_task(ship, enemy.cell, ShipTask.DESTORY_ENEMY_TASK_OUTER)
+          target_cell = get_target_cell(ship, offset_dist=-1)
+          self.assign_task(ship, target_cell, ShipTask.DESTORY_ENEMY_TASK_OUTER,
+                           enemy)
           ship_budget -= 1
 
   def collision_check(self):
@@ -619,19 +624,12 @@ class ShipStrategy:
         # TODO: use what value as weight for destory enemy yard?
         wt += convert_cost / (dist + 1)
 
-      if ship.task_type == ShipTask.DESTORY_ENEMY_TASK_OUTER:
-        enemy = target_cell.ship
-        wt += (convert_cost + enemy.halite) / (dist + 1)
-
-        # TODO(wangfei): think again
-        _, defend_yard = self.find_nearest_shipyard(enemy, self.me.shipyards)
-        if defend_yard:
-          dist_to_yard = manhattan_dist(next_position, defend_yard.position,
-                                        self.c.size)
-          wt += -enemy.halite / (dist_to_yard + 1)
-
-      if ship.task_type == ShipTask.DESTORY_ENEMY_TASK_INNER:
+      if (ship.task_type == ShipTask.DESTORY_ENEMY_TASK_OUTER or
+          ship.task_type == ShipTask.DESTORY_ENEMY_TASK_INNER):
         wt += convert_cost / (dist + 1)
+        enemy = ship.target_enemy
+        enemy_dist = manhattan_dist(next_position, enemy.position, self.c.size)
+        wt += enemy.halite / (enemy_dist + 1)
 
       # If there is an enemy in next_position with lower halite
       for nb_cell in get_neighbor_cells(next_cell, include_self=True):
@@ -756,7 +754,7 @@ class ShipStrategy:
 
   def convert_first_shipyard(self):
     """Strategy for convert the first ship yard."""
-    MAX_MOVE_TO_INITIAL_POSITION = 3
+    MAX_MOVE_TO_INITIAL_POSITION = 4
     ESTIMATE_CELL_DIST = 4
 
     assert self.num_ships == 1, self.num_ships
