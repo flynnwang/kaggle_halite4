@@ -2,6 +2,19 @@
 """
 1. Fix send bomb when I have only a few ships.
 
+Tournament - ID: Ki5jnE, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: bq5kgn, Name: Halite 4 Dimension
+Status: running | Competitors: 8 | Rank System: trueskill
+
+Total Matches: 684 | Matches Queued: 62
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v1.4                       | AKSI4CRQduly   | 38.8734341      | μ=41.590, σ=0.906  | 288
+bee v1.3                       | hmzmPDJBbjrh   | 36.7828514      | μ=39.280, σ=0.832  | 274
+swarm                          | ivIufMVdUC96   | 29.5216172      | μ=31.671, σ=0.716  | 297
+v3.3 no min                    | JNx5yecvaHFH   | 28.6792750      | μ=30.841, σ=0.721  | 325
+v3.1                           | x2JUzNPqFDy6   | 27.7322780      | μ=29.897, σ=0.722  | 362
+v2.2.1                         | UN7SNKKVzyYW   | 24.4781455      | μ=26.623, σ=0.715  | 390
+manhattan                      | s8U447capUik   | 17.1213816      | μ=19.472, σ=0.784  | 415
+v1.2                           | MiSa2eusdnUa   | 15.2531972      | μ=17.676, σ=0.808  | 385
 """
 
 import random
