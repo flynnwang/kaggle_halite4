@@ -2,6 +2,20 @@
 """
 Move to corner to reduce competition with neighbour enemies.
 
+Tournament - ID: kaLg2V, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: 6zHxVd, Name: Halite 4 Dimension
+Status: running | Competitors: 9 | Rank System: trueskill
+
+Total Matches: 11297 | Matches Queued: 67
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v1.4                       | GY5nMPa7dE5C   | 42.1702887      | μ=45.434, σ=1.088  | 4158
+bee v1.6 hide                  | 03ehhUBfX3UW   | 36.5591796      | μ=39.124, σ=0.855  | 4077
+v3.3 no min                    | yBo4ED5OmF7R   | 28.6728209      | μ=30.874, σ=0.734  | 4449
+swarm                          | VS7DRszKvKsb   | 27.8954150      | μ=30.074, σ=0.726  | 5011
+v3.1                           | wwUdgtJpNIhI   | 27.2581914      | μ=29.466, σ=0.736  | 5295
+v2.2.1                         | rBzqUUmaP0XM   | 24.5200392      | μ=26.698, σ=0.726  | 5540
+pirate                         | 811ckYf86Yjm   | 17.0771431      | μ=19.321, σ=0.748  | 5569
+v1.2                           | 7s2rP4nRkLKx   | 16.5784247      | μ=18.856, σ=0.759  | 5483
+manhattan                      | ehObsBo7bl6g   | 16.2753512      | μ=18.493, σ=0.739  | 5606
 """
 
 import random
