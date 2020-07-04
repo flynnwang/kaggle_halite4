@@ -1,22 +1,7 @@
 #!/usr/bin/env python
 """
-Use cross stragegy for to attack enemy.
+Move to corner to reduce competition with neighbour enemies.
 
-
-Tournament - ID: CgXUCJ, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: 1S7keL, Name: Halite 4 Dimension
-Status: running | Competitors: 9 | Rank System: trueskill
-
-Total Matches: 8182 | Matches Queued: 59
-Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
-bee v1.5 cross                 | wVmPsqsy8mM3   | 36.3731586      | μ=38.920, σ=0.849  | 3052
-bee v1.3                       | UjBDIkFXDBRa   | 36.2197141      | μ=38.751, σ=0.844  | 2990
-swarm                          | oFSQX9dsXJi7   | 27.4672906      | μ=29.611, σ=0.715  | 3941
-v3.3 no min                    | gd9KTGFgMxcb   | 26.9312451      | μ=29.088, σ=0.719  | 3091
-v3.1                           | ESidX7h9ILCX   | 26.7006759      | μ=28.864, σ=0.721  | 3673
-v2.2.1                         | iMP1YYzdxkvw   | 24.8859555      | μ=27.022, σ=0.712  | 3980
-pirate                         | fK5O3PumXQwm   | 16.4256621      | μ=18.706, σ=0.760  | 4020
-manhattan                      | 8ggf4gZezaWE   | 15.3706061      | μ=17.660, σ=0.763  | 3994
-v1.2                           | xSzwIDlXGDHm   | 14.2874320      | μ=16.617, σ=0.776  | 3979
 """
 
 import random
@@ -45,8 +30,8 @@ MIN_HALITE_BEFORE_HOME = 100
 MIN_HALITE_FACTOR = 3
 
 # Controls the number of ships.
-MAX_SHIP_NUM = 23
-MAX_DEFEND_SHIPS = 14
+MAX_SHIP_NUM = 25
+MAX_DEFEND_SHIPS = 16
 
 # Threshold for attack enemy nearby my shipyard
 TIGHT_ENEMY_SHIP_DEFEND_DIST = 4
@@ -769,8 +754,7 @@ class ShipStrategy:
 
   def convert_first_shipyard(self):
     """Strategy for convert the first ship yard."""
-    MAX_MOVE_TO_INITIAL_POSITION = 4
-    ESTIMATE_CELL_DIST = 4
+    ESTIMATE_CELL_DIST = TIGHT_ENEMY_SHIP_DEFEND_DIST
 
     assert self.num_ships == 1, self.num_ships
     ship = self.me.ships[0]
@@ -790,11 +774,20 @@ class ShipStrategy:
           halite += cell.halite
       return num, halite, candidate_cell
 
+    def get_coord_range(v):
+      if v == 5:
+        v_min, v_max = 0, 5
+      else:
+        v_min, v_max = 15, 20
+      return v_min, v_max
+
     def select_initial_cell():
+      position = ship.position
+      x_min, x_max = get_coord_range(position.x)
+      y_min, y_max = get_coord_range(position.y)
       for cell in self.board.cells.values():
-        dist = manhattan_dist(self.initial_ship_position, cell.position,
-                              self.c.size)
-        if dist <= MAX_MOVE_TO_INITIAL_POSITION:
+        cell_pos = cell.position
+        if (x_min <= cell_pos.x <= x_max and y_min <= cell_pos.y <= y_max):
           yield estimate_cell(cell)
 
     if not self.initial_yard_position:
