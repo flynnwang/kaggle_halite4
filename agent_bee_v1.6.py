@@ -253,6 +253,12 @@ class ShipStrategy:
     def stop_threshold(cell):
       threshold = MIN_STOP_COLLECTIONG_THRESHOLD
       if is_home_grown_halite_cell(cell):
+        # threshold = 100
+        # if self.step > BEGINNING_PHRASE_END_STEP and self.num_ships >= 16:
+        # threshold = CELL_STOP_COLLECTING_HALITE
+        # if self.step >= ENDING_PHRASE_STEP:
+        # threshold = MIN_STOP_COLLECTIONG_THRESHOLD
+
         threshold = 100
         if (BEGINNING_PHRASE_END_STEP < self.step < ENDING_PHRASE_STEP and
             self.num_ships >= 16):
@@ -406,24 +412,22 @@ class ShipStrategy:
 
     def select_bomb_ship(enemy_yard):
       min_dist = 99999
-      min_dist_ship = None
+      bomb_ship = None
       for ship in self.my_idle_ships:
         # Don't send halite to enemy.
-        if ship.halite > 10:
+        if ship.halite > 0:
           continue
-
         dist = manhattan_dist(enemy_yard.position, ship.position, self.c.size)
         if dist < min_dist:
           min_dist = dist
-          min_dist_ship = ship
-      return min_dist, min_dist_ship
+          bomb_ship = ship
+      return min_dist, bomb_ship
 
     # TODO: sort enemy shipyard?
     for y in non_targeted_enemy_shipyards():
-      _, min_dist_ship = select_bomb_ship(y)
-      if min_dist_ship:
-        self.assign_task(min_dist_ship, y.cell,
-                         ShipTask.DESTORY_ENEMY_YARD_TASK)
+      _, bomb_ship = select_bomb_ship(y)
+      if bomb_ship:
+        self.assign_task(bomb_ship, y.cell, ShipTask.DESTORY_ENEMY_YARD_TASK)
 
         # One bomb at a time
         break
@@ -632,7 +636,16 @@ class ShipStrategy:
         wt += enemy.halite / (enemy_dist + 1)
 
       # If there is an enemy in next_position with lower halite
-      for nb_cell in get_neighbor_cells(next_cell, include_self=True):
+      if has_enemy_ship(next_cell, self.me):
+        # If there is an enemy sitting on its shipyard, collide with him.
+        if (ship.task_type == ShipTask.DESTORY_ENEMY_YARD_TASK and
+            next_cell.position == target_cell.position):
+          pass
+        elif next_cell.ship.halite <= ship.halite:
+          wt -= (spawn_cost + ship.halite)
+
+      # If there is an enemy in neighbor next_position with lower halite
+      for nb_cell in get_neighbor_cells(next_cell):
         if (has_enemy_ship(nb_cell, self.me) and
             nb_cell.ship.halite <= ship.halite):
           wt -= (spawn_cost + ship.halite)
