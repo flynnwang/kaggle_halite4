@@ -2,17 +2,6 @@
 """
 Fine tune based on bee v1.4 parameters.
 
-Total Matches: 695 | Matches Queued: 67
-Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
-bee v1.4                       | AgF70DPhV6Ed   | 39.4676118      | μ=42.247, σ=0.926  | 254
-bee v1.7 offset+1              | x3bBW3HCOOMe   | 36.8897397      | μ=39.361, σ=0.824  | 257
-v3.3 no min                    | Qb4S0rDW6cNb   | 28.9324058      | μ=31.089, σ=0.719  | 281
-swarm                          | 8XbJrYbze7x9   | 28.8505233      | μ=30.984, σ=0.711  | 282
-v3.1                           | 4NWY2edZ6c5J   | 28.0280123      | μ=30.224, σ=0.732  | 335
-v2.2.1                         | r3GQMow540dD   | 26.2414183      | μ=28.364, σ=0.707  | 353
-pirate                         | lBnCQuStRvdL   | 18.5136529      | μ=20.721, σ=0.736  | 338
-manhattan                      | 20q6NsANAtvl   | 17.6978109      | μ=19.929, σ=0.744  | 335
-v1.2                           | 6EOEd6FU8kVo   | 16.0389609      | μ=18.413, σ=0.791  | 345
 """
 
 import random
