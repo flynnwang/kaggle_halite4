@@ -1,21 +1,7 @@
 #!/usr/bin/env python
 """
-Move to corner to reduce competition with neighbour enemies.
+Fine tune based on bee v1.4 parameters.
 
-Tournament - ID: kaLg2V, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: 6zHxVd, Name: Halite 4 Dimension
-Status: running | Competitors: 9 | Rank System: trueskill
-
-Total Matches: 11297 | Matches Queued: 67
-Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
-bee v1.4                       | GY5nMPa7dE5C   | 42.1702887      | μ=45.434, σ=1.088  | 4158
-bee v1.6 hide                  | 03ehhUBfX3UW   | 36.5591796      | μ=39.124, σ=0.855  | 4077
-v3.3 no min                    | yBo4ED5OmF7R   | 28.6728209      | μ=30.874, σ=0.734  | 4449
-swarm                          | VS7DRszKvKsb   | 27.8954150      | μ=30.074, σ=0.726  | 5011
-v3.1                           | wwUdgtJpNIhI   | 27.2581914      | μ=29.466, σ=0.736  | 5295
-v2.2.1                         | rBzqUUmaP0XM   | 24.5200392      | μ=26.698, σ=0.726  | 5540
-pirate                         | 811ckYf86Yjm   | 17.0771431      | μ=19.321, σ=0.748  | 5569
-v1.2                           | 7s2rP4nRkLKx   | 16.5784247      | μ=18.856, σ=0.759  | 5483
-manhattan                      | ehObsBo7bl6g   | 16.2753512      | μ=18.493, σ=0.739  | 5606
 """
 
 import random
@@ -39,23 +25,22 @@ MIN_HALITE_TO_BUILD_SHIP = 1000
 # The factor is num_of_ships : num_of_shipyards
 SHIP_TO_SHIYARD_FACTOR = 100
 
-# To control the mining behaviour
-MIN_HALITE_BEFORE_HOME = 100
-MIN_HALITE_FACTOR = 3
-
 # Controls the number of ships.
 MAX_SHIP_NUM = 25
 MAX_DEFEND_SHIPS = 16
 
 # Threshold for attack enemy nearby my shipyard
-TIGHT_ENEMY_SHIP_DEFEND_DIST = 4
-LOOSE_ENEMY_SHIP_DEFEND_DIST = 6
+TIGHT_ENEMY_SHIP_DEFEND_DIST = 5
+LOOSE_ENEMY_SHIP_DEFEND_DIST = 7
+
+# To control the mining behaviour
+HOME_GROWN_CELL_DIST = 6
+ESTIMATE_CELL_DIST = TIGHT_ENEMY_SHIP_DEFEND_DIST
+MIN_HALITE_BEFORE_HOME = 100
+MIN_HALITE_FACTOR = 3
 
 # Threshod used to send bomb to enemy shipyard
 MIN_ENEMY_YARD_TO_MY_YARD = 7
-
-# Threshold used to estimate best cell for shipyard.
-NEARBY_HALITE_CELLS_DIST = 5
 
 POSSIBLE_MOVES = [
     Point(0, 0),
@@ -248,7 +233,6 @@ class ShipStrategy:
         self.max_enemy_id = p.id
 
   def max_expected_return_cell(self, ship):
-    HOME_GROWN_CELL_DIST = 4
     MIN_STOP_COLLECTIONG_THRESHOLD = 10.0
 
     # If less than this value, Give up mining more halite from this cell.
@@ -319,10 +303,16 @@ class ShipStrategy:
 
   def send_ship_to_home_yard(self):
     """Ship goes back home after collected enough halite."""
-    threshold = int(
-        max(self.mean_halite_value * MIN_HALITE_FACTOR, MIN_HALITE_BEFORE_HOME))
+
+    def min_halite_threshold():
+      factor = (MIN_HALITE_FACTOR
+                if self.step <= BEGINNING_PHRASE_END_STEP else 1)
+      threshold = int(
+          max(self.mean_halite_value * factor, MIN_HALITE_BEFORE_HOME))
+      return threshold
+
     for ship in self.my_idle_ships:
-      if ship.halite < threshold:
+      if ship.halite < min_halite_threshold():
         continue
 
       _, min_dist_yard = self.find_nearest_shipyard(ship, self.me.shipyards)
@@ -515,7 +505,7 @@ class ShipStrategy:
         ]
         ships.sort(key=dist_to_enemy)
         for ship in ships[:min(ship_budget, 3)]:
-          target_cell = get_target_cell(ship, offset_dist=-1)
+          target_cell = get_target_cell(ship, offset_dist=+1)
           self.assign_task(ship, target_cell, ShipTask.DESTORY_ENEMY_TASK_OUTER,
                            enemy)
           ship_budget -= 1
@@ -571,7 +561,7 @@ class ShipStrategy:
       # Maximize the total number of halite cells when converting ship.
       for cell in self.board.cells.values():
         dist = manhattan_dist(ship.position, cell.position, self.c.size)
-        if (dist <= NEARBY_HALITE_CELLS_DIST and cell.halite > 0 and
+        if (dist <= TIGHT_ENEMY_SHIP_DEFEND_DIST and cell.halite > 0 and
             cell.position != ship.position):
           val += 1
       return val
@@ -679,11 +669,6 @@ class ShipStrategy:
         g, maxcardinality=True, weight='weight')
     assert len(matches) == len(ships)
 
-    # PRINT_ME
-    print('#', self.board.step, 'ships=', len(ships),
-          'halite=', self.me.halite, 'cargo=',
-          sum([s.halite for s in self.me.ships], 0), 'max(enemy halite)=',
-          max(e.halite for e in self.board.opponents))
     for ship_id, next_position in matches:
       # Assume ship id is str.
       if not isinstance(ship_id, str):
@@ -734,7 +719,8 @@ class ShipStrategy:
     if num_ships >= max_ship_num():
       return
 
-    if num_ships >= 2 and self.step >= ENDING_PHRASE_STEP:
+    # No more ships after ending.
+    if num_ships >= 3 and self.step >= ENDING_PHRASE_STEP:
       return
 
     random.shuffle(shipyards)
@@ -781,7 +767,6 @@ class ShipStrategy:
 
   def convert_first_shipyard(self):
     """Strategy for convert the first ship yard."""
-    ESTIMATE_CELL_DIST = TIGHT_ENEMY_SHIP_DEFEND_DIST
 
     assert self.num_ships == 1, self.num_ships
     ship = self.me.ships[0]
@@ -860,6 +845,23 @@ class ShipStrategy:
     # TODO: add backup mining strategy without limit.
     self.compute_ship_moves()
     self.collision_check()
+
+    # PRINT_ME
+    def cargo(player):
+      return sum([s.halite for s in player.ships], 0)
+
+    def mean_cargo(player):
+      num_ships = len(player.ship_ids)
+      if num_ships == 0:
+        return 0
+      return int(cargo(player) / num_ships)
+
+    o = sorted(self.board.opponents, key=lambda x: -(x.halite + cargo(x)))[0]
+    print('#', self.board.step, 'mean halite', int(self.mean_halite_value),
+          'me(s=%s, h=%s, c=%s, mc=%s)' % (len(self.me.ships), self.me.halite,
+                                           cargo(self.me), mean_cargo(self.me)),
+          'e[%s](s=%s, h=%s, c=%s, mc=%s)' % (o.id, len(o.ships), o.halite,
+                                              cargo(o), mean_cargo(o)))
 
 
 def agent(obs, config):
