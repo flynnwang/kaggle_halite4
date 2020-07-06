@@ -526,8 +526,7 @@ class ShipStrategy:
         ]
         ships.sort(key=dist_to_enemy)
         for ship in ships[:min(ship_budget, 3)]:
-          # TODO(wangfei): should i use this value?
-          target_cell = get_target_cell(ship, offset_dist=+1)
+          target_cell = get_target_cell(ship, offset_dist=-1)
           self.assign_task(ship, target_cell, ShipTask.DESTORY_ENEMY_TASK_OUTER,
                            enemy)
           ship_budget -= 1
