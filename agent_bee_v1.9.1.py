@@ -1,19 +1,7 @@
 #!/usr/bin/env python
 """
-1. Optimize the first shipyard position.
-2. Optimize home grown halite cell threshold.
+1. DELTA == 0
 
-Total Matches: 343 | Matches Queued: 59
-Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
-bee v1.4                       | hjjpS9FD0xGl   | 36.7622794      | μ=39.516, σ=0.918  | 123
-bee v1.9 init yard+            | RAlGwUqgq3LB   | 35.7998670      | μ=38.537, σ=0.912  | 122
-v3.3 no min                    | neLZCgO4iFUp   | 28.2127124      | μ=30.432, σ=0.740  | 134
-swarm                          | b6OhXq09CkJ6   | 27.7004220      | μ=29.855, σ=0.718  | 141
-v3.1                           | Vn5Jvd7iB9rO   | 27.6499246      | μ=29.818, σ=0.723  | 172
-v2.2.1                         | qS8i9hEG1EHS   | 25.6030023      | μ=27.728, σ=0.708  | 175
-pirate                         | aSYm7QDR1Prx   | 18.1295159      | μ=20.371, σ=0.747  | 174
-manhattan                      | QAffQALKkp0h   | 17.9376943      | μ=20.146, σ=0.736  | 170
-v1.2                           | N6l4jPciWL6x   | 17.8402418      | μ=20.066, σ=0.742  | 161
 """
 
 import random
@@ -805,7 +793,7 @@ class ShipStrategy:
       return (FUTURE_RATIO * expected_halite +
               (1 - FUTURE_RATIO) * current_halite)
 
-    DELTA = 2
+    DELTA = 0
 
     def get_coord_range(v):
       if v == 5:
