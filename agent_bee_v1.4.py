@@ -804,11 +804,11 @@ class ShipStrategy:
         candidate_cells.sort(key=lambda x: (-x[0], -x[1]))
         num, halite, yard_cell = candidate_cells[0]
         ShipStrategy.initial_yard_position = yard_cell.position
-        print("Ship initial:", self.initial_ship_position, 'dist=',
-              manhattan_dist(self.initial_ship_position,
-                             self.initial_yard_position, self.c.size),
-              'selected yard position:', self.initial_yard_position, 'num=',
-              num, 'halite=', halite)
+        # print("Ship initial:", self.initial_ship_position, 'dist=',
+        # manhattan_dist(self.initial_ship_position,
+        # self.initial_yard_position, self.c.size),
+        # 'selected yard position:', self.initial_yard_position, 'num=',
+        # num, 'halite=', halite)
 
     if ship.position == self.initial_yard_position:
       ShipStrategy.initial_shipyard_set = True

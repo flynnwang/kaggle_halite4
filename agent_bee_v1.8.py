@@ -822,11 +822,11 @@ class ShipStrategy:
         candidate_cells.sort(key=lambda x: (-x[0], -x[1]))
         num, halite, yard_cell = candidate_cells[0]
         ShipStrategy.initial_yard_position = yard_cell.position
-        print("Ship initial:", self.initial_ship_position, 'dist=',
-              manhattan_dist(self.initial_ship_position,
-                             self.initial_yard_position, self.c.size),
-              'selected yard position:', self.initial_yard_position, 'num=',
-              num, 'halite=', halite)
+        # print("Ship initial:", self.initial_ship_position, 'dist=',
+        # manhattan_dist(self.initial_ship_position,
+        # self.initial_yard_position, self.c.size),
+        # 'selected yard position:', self.initial_yard_position, 'num=',
+        # num, 'halite=', halite)
 
     if ship.position == self.initial_yard_position:
       ShipStrategy.initial_shipyard_set = True
@@ -863,7 +863,7 @@ class ShipStrategy:
       # Skip shipyard already has action.
       if yard.next_action:
         continue
-      print('y=', yard.position, 'in_danger=', is_shipyard_in_danger(yard))
+      # print('y=', yard.position, 'in_danger=', is_shipyard_in_danger(yard))
       if is_shipyard_in_danger(yard) and self.me.halite >= self.c.spawn_cost:
         spawn(yard)
 
@@ -902,13 +902,13 @@ class ShipStrategy:
       return int(cargo(player) / num_ships)
 
     o = sorted(self.board.opponents, key=lambda x: -(x.halite + cargo(x)))[0]
-    print('#', self.board.step, 'mh', int(self.mean_halite_value),
-          'me(s=%s, y=%s, h=%s, c=%s, mc=%s)' % (self.num_ships,
-                                                 len(self.me.shipyard_ids),
-                                                 self.me.halite, cargo(self.me),
-                                                 mean_cargo(self.me)),
-          'e[%s](s=%s, h=%s, c=%s, mc=%s)' % (o.id, len(o.ships), o.halite,
-                                              cargo(o), mean_cargo(o)))
+    # print('#', self.board.step, 'mh', int(self.mean_halite_value),
+    # 'me(s=%s, y=%s, h=%s, c=%s, mc=%s)' % (self.num_ships,
+    # len(self.me.shipyard_ids),
+    # self.me.halite, cargo(self.me),
+    # mean_cargo(self.me)),
+    # 'e[%s](s=%s, h=%s, c=%s, mc=%s)' % (o.id, len(o.ships), o.halite,
+    # cargo(o), mean_cargo(o)))
 
 
 def agent(obs, config):
