@@ -5,6 +5,23 @@
 2. *Do not move into enemy shipyard for halite
 3. Dynamic tight enemy dist.
 
+
+Tournament - ID: beqxXx, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: wNpZeI, Name: Halite 4 Dimension
+Status: running | Competitors: 11 | Rank System: trueskill
+
+Total Matches: 410 | Matches Queued: 66
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v1.10                      | 06OIZqLAADO3   | 36.2729191      | μ=38.823, σ=0.850  | 129
+bee v1.4                       | cnNJ3p7KQGWm   | 34.9632789      | μ=37.597, σ=0.878  | 119
+bee v1.8                       | bpkxJtuWZLv4   | 34.6781525      | μ=37.375, σ=0.899  | 99
+c40                            | kmsOgrcJO5O9   | 30.1001588      | μ=32.343, σ=0.748  | 149
+v3.1                           | sjWctkMZ6JOK   | 27.3009389      | μ=29.478, σ=0.726  | 160
+v3.3 no min                    | knNNaiPfcUMm   | 25.2616679      | μ=27.433, σ=0.724  | 165
+swarm                          | WkK6dQ9owMfj   | 24.1387721      | μ=26.305, σ=0.722  | 163
+v2.2.1                         | U6cNlVndny3M   | 23.8341829      | μ=26.016, σ=0.727  | 165
+pirate                         | T1JQ8xW0MgYs   | 16.9821005      | μ=19.255, σ=0.758  | 156
+v1.2                           | 0HKEDUL5s7Tr   | 14.7719651      | μ=17.165, σ=0.798  | 172
+manhattan                      | WQjdp57zL0eJ   | 14.3851950      | μ=16.768, σ=0.794  | 163
 """
 
 import random
