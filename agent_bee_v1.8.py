@@ -506,7 +506,7 @@ class ShipStrategy:
         for ship in ships[:min(1, ship_budget)]:
           self.assign_task(ship, defend_yard.cell, ShipTask.GUARD_SHIPYARD_TASK,
                            enemy)
-          print('guide task: ', ship.position, defend_yard.position)
+          # print('guide task: ', ship.position, defend_yard.position)
           ship_budget -= 1
 
       # TODO: filter on dist to enemy?
