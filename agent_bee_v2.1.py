@@ -2,6 +2,8 @@
 """
 bee v2 + outer offset=1.
 
+* fix max shipyard num
+
 """
 
 import random
@@ -658,7 +660,7 @@ class ShipStrategy:
         return 1
       if self.num_ships < 24:
         return 2
-      if self.num_ships <= 28 or self.me.halite >= 3000:
+      if self.num_ships <= 28:
         return 3
       return min(3 + max((self.num_ships - 28) // 5, 0), MAX_SHIPYARD_NUM)
 
