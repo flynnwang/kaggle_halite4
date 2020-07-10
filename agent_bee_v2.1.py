@@ -424,7 +424,7 @@ class ShipStrategy:
       else:
         self.assign_task(ship, max_cell, ShipTask.GOTO_HALITE_TASK)
 
-  def attack_enemy_yard(self):
+  def bomb_enemy_shipyard(self):
     """Having enough farmers, let's send ghost to enemy shipyard."""
 
     def max_bomb_dist():
@@ -601,7 +601,7 @@ class ShipStrategy:
         ships = [
             s for s in self.my_idle_ships
             if ((enemy.halite > 0 and s.halite < enemy.halite or
-                 enemy.halite == 0 and s.halite <= enemy.halite) and
+                 enemy.halite == 0 and s.halite == 0) and
                 dist_to_defend_yard(s) <= enemy_to_defend_yard_dist)
         ]
         ships = sorted(ships, key=dist_to_enemy)
@@ -784,24 +784,29 @@ class ShipStrategy:
         wt += 1 / (dist + 1)
         ignore_neighbour_cell_enemy = True
 
+      def move_away_from_enemy(enemy, ship):
+        """Only collide with enemy if my ship does not have any cargo."""
+        if ship.halite > enemy.halite:
+          return True
+        # when <= enemy.halite
+        if ship.halite > 0 and enemy.halite == ship.halite:
+          return True
+        return random.random() < AVOID_COLLIDE_RATIO
+
       # If there is an enemy in next_position with lower halite
       if has_enemy_ship(next_cell, self.me):
         # If there is an enemy sitting on its shipyard, collide with him.
         if (ship.task_type == ShipTask.DESTORY_ENEMY_YARD_TASK and
             next_cell.position == target_cell.position):
           pass
-        elif (next_cell.ship.halite < ship.halite or
-              next_cell.ship.halite == ship.halite and
-              random.random() < AVOID_COLLIDE_RATIO):
+        elif move_away_from_enemy(nb_cell.ship, ship):
           wt -= (spawn_cost + ship.halite)
 
       # If there is an enemy in neighbor next_position with lower halite
       if not ignore_neighbour_cell_enemy:
         for nb_cell in get_neighbor_cells(next_cell):
           if has_enemy_ship(nb_cell, self.me):
-            if (nb_cell.ship.halite < ship.halite or
-                nb_cell.ship.halite == ship.halite and
-                random.random() < AVOID_COLLIDE_RATIO):
+            if move_away_from_enemy(nb_cell.ship, ship):
               wt -= (spawn_cost + ship.halite)
       return wt
 
@@ -998,7 +1003,7 @@ class ShipStrategy:
       self.convert_to_shipyard()
       self.spawn_ships()
 
-      self.attack_enemy_yard()
+      self.bomb_enemy_shipyard()
       self.attack_enemy_ship()
 
       self.final_stage_back_to_shipyard()
