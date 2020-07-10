@@ -796,10 +796,7 @@ class ShipStrategy:
         if ship.halite > 0 and enemy.halite == ship.halite:
           return True
         # enemy.halite == ship.halite
-        if self.num_ships <= MAX_SHIP_NUM:
-          return True
         return random.random() < AVOID_COLLIDE_RATIO
-        # return False
 
       # If there is an enemy in next_position with lower halite
       if has_enemy_ship(next_cell, self.me):
