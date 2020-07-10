@@ -798,8 +798,8 @@ class ShipStrategy:
         # enemy.halite == ship.halite
         if self.num_ships <= MAX_SHIP_NUM:
           return True
-        # return random.random() < AVOID_COLLIDE_RATIO
-        return False
+        return random.random() < AVOID_COLLIDE_RATIO
+        # return False
 
       # If there is an enemy in next_position with lower halite
       if has_enemy_ship(next_cell, self.me):
@@ -807,7 +807,7 @@ class ShipStrategy:
         if (ship.task_type == ShipTask.DESTORY_ENEMY_YARD_TASK and
             next_cell.position == target_cell.position):
           pass
-        elif move_away_from_enemy(nb_cell.ship, ship):
+        elif move_away_from_enemy(next_cell.ship, ship):
           wt -= (spawn_cost + ship.halite)
 
       # If there is an enemy in neighbor next_position with lower halite
