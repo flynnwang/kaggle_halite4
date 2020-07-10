@@ -1,28 +1,6 @@
 #!/usr/bin/env python
 """
-* Multiple shipyard strategy optimization.
-1. MAX_SHIPYARD_NUM = 5
-2. convert shipyard to maximize the total number of halite covered.
-3. Fix "do not go into enemy yard cell"
-
-
-Before optimization.
-Tournament - ID: 3nSKDg, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: DO6hK4, Name: Halite 4 Dimension
-Status: running | Competitors: 11 | Rank System: trueskill
-
-Total Matches: 364 | Matches Queued: 68
-Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
-bee v1.8                       | y7lScNqwboBm   | 34.2610995      | μ=36.704, σ=0.814  | 116
-bee v1.4                       | QNrlPwR9NpBk   | 34.1720068      | μ=36.685, σ=0.838  | 112
-bee v2                         | KpgztDJ1YVSD   | 33.8075960      | μ=36.255, σ=0.816  | 108
-c40                            | 7pL3SaNm90Wx   | 30.7694968      | μ=33.019, σ=0.750  | 129
-v3.3 no min                    | KLY7LbPrfpQn   | 27.5109575      | μ=29.715, σ=0.735  | 129
-v3.1                           | BGUpjAPouQKb   | 25.9667800      | μ=28.127, σ=0.720  | 143
-swarm                          | fOUt9pxVWqxL   | 25.1916438      | μ=27.333, σ=0.714  | 151
-v2.2.1                         | rTxGC1YW7gAN   | 24.7785086      | μ=26.947, σ=0.723  | 142
-pirate                         | NemCttnmLUfb   | 18.5188447      | μ=20.786, σ=0.756  | 152
-manhattan                      | czBoNRww1MoF   | 15.7216672      | μ=18.177, σ=0.818  | 135
-v1.2                           | hO0jqWxU8SPi   | 15.4813828      | μ=17.934, σ=0.818  | 135
+bee v2 + outer offset=1.
 
 """
 
@@ -640,7 +618,7 @@ class ShipStrategy:
         ]
         ships.sort(key=dist_to_enemy)
         for ship in ships[:min(ship_budget, max_defend_ship_num())]:
-          target_cell = get_target_cell(ship, offset_dist=-1)
+          target_cell = get_target_cell(ship, offset_dist=+1)
           self.assign_task(ship, target_cell, ShipTask.DESTORY_ENEMY_TASK_OUTER,
                            enemy)
           ship_budget -= 1
