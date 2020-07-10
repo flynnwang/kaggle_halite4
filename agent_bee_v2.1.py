@@ -3,6 +3,8 @@
 bee v2 + outer offset=1.
 
 * fix max shipyard num
+* do not collide with enemy (of equal halite) if have halite
+* Collect all halite within home dist
 
 """
 
@@ -315,6 +317,8 @@ class ShipStrategy:
         ally_yard_dist, alley_yard = self.find_nearest_shipyard(
             cell, self.me.shipyards)
         if (alley_yard and enemy_yard_dist < ally_yard_dist):
+          continue
+        if alley_yard and ally_yard_dist <= self.home_grown_cell_dist:
           continue
 
       expected_return = self.compute_expect_halite_return(
@@ -791,7 +795,11 @@ class ShipStrategy:
         # when <= enemy.halite
         if ship.halite > 0 and enemy.halite == ship.halite:
           return True
-        return random.random() < AVOID_COLLIDE_RATIO
+        # enemy.halite == ship.halite
+        if self.num_ships <= MAX_SHIP_NUM:
+          return True
+        # return random.random() < AVOID_COLLIDE_RATIO
+        return False
 
       # If there is an enemy in next_position with lower halite
       if has_enemy_ship(next_cell, self.me):
