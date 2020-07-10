@@ -6,6 +6,9 @@ bee v2 + outer offset=1.
 * do not collide with enemy (of equal halite) if have halite
 * Collect all halite within home dist
 
+* fix ending collection behaviour.
+* do not attack enemy during ending phrase.
+
 """
 
 import random
@@ -286,6 +289,10 @@ class ShipStrategy:
       return 9999
 
     def stop_threshold(cell):
+      # Collect all
+      if self.step >= NEAR_ENDING_PHRASE_STEP:
+        return MIN_STOP_COLLECTIONG_THRESHOLD
+
       threshold = MIN_STOP_COLLECTIONG_THRESHOLD
       if self.step < BEGINNING_PHRASE_END_STEP:
         threshold = max(self.mean_halite_value - 30, MIN_ENEMY_YARD_TO_MY_YARD)
@@ -301,6 +308,7 @@ class ShipStrategy:
 
           if self.num_ships >= MAX_SHIP_NUM:
             threshold = self.dist_to_expected_halite(yard_dist)
+
       return threshold
 
     max_cell = None
@@ -596,7 +604,8 @@ class ShipStrategy:
           ship_budget -= 1
 
       # Skip attack enemy if not having enough ships.
-      if self.step < BEGINNING_PHRASE_END_STEP:
+      if (self.step < BEGINNING_PHRASE_END_STEP and
+          self.step > NEAR_ENDING_PHRASE_STEP):
         continue
 
       # send destory ship from inner.
