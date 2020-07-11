@@ -1,6 +1,16 @@
 #!/usr/bin/env python
 """
-Revert to v1.8 + multiple bases.
+Refactored based on v2.1
+
+Tournament - ID: ZVVlc4, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: G6MH55, Name: Halite 4 Dimension
+Status: running | Competitors: 4 | Rank System: trueskill
+
+Total Matches: 1452 | Matches Queued: 62
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v1.8                       | l0vQL8hIyMe0   | 28.0296514      | μ=30.162, σ=0.711  | 1452
+bee v2.1.1                     | l30Hz6NNP2Tt   | 24.8132307      | μ=26.861, σ=0.683  | 1452
+optimus_mining                 | gznwS7txyuJ1   | 21.3605771      | μ=23.412, σ=0.684  | 1452
+c40                            | lyZi0IYu7Aj8   | 17.9055410      | μ=20.054, σ=0.716  | 1452
 """
 
 import random
