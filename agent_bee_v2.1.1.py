@@ -154,6 +154,11 @@ class ShipTask(Enum):
   GUARD_SHIPYARD_TASK = auto()
 
 
+# cached values
+HALITE_RETENSION_BY_DIST = []
+HALITE_GROWTH_BY_DIST = []
+
+
 class ShipStrategy:
   """Sends every ships to the nearest cell with halite.
 
@@ -171,12 +176,7 @@ class ShipStrategy:
     self.board = board
     self.me = board.current_player
 
-    # Init halite cells
-    self.halite_cells = []
-    for cell in board.cells.values():
-      cell.is_targetd = False
-      if cell.halite > 0:
-        self.halite_cells.append(cell)
+    self.init_halite_cells()
 
     # Default ship to stay on the same cell without assignment.
     for ship in self.me.ships:
@@ -184,6 +184,54 @@ class ShipStrategy:
       ship.target_cell = ship.cell
       ship.next_cell = ship.cell
       ship.task_type = ShipTask.STAY_ON_CELL_TASK
+
+    # init constants
+    global HALITE_GROWTH_BY_DIST
+    if not HALITE_GROWTH_BY_DIST:
+      HALITE_GROWTH_BY_DIST = [
+          self.growth_factor**d for d in range(self.c.size**2 + 1)
+      ]
+
+    global HALITE_RETENSION_BY_DIST
+    if not HALITE_RETENSION_BY_DIST:
+      HALITE_RETENSION_BY_DIST = [
+          self.retension_rate_rate**d for d in range(self.c.size**2 + 1)
+      ]
+
+  def init_halite_cells(self):
+    MIN_STOP_COLLECTIONG_THRESHOLD = 10.0
+
+    def keep_halite_value(cell):
+      # Collect all halite of a cell.
+      if self.step >= NEAR_ENDING_PHRASE_STEP:
+        return MIN_STOP_COLLECTIONG_THRESHOLD
+
+      threshold = MIN_STOP_COLLECTIONG_THRESHOLD
+      # if self.step < BEGINNING_PHRASE_END_STEP:
+      # threshold = max(self.mean_halite_value - 30, MIN_ENEMY_YARD_TO_MY_YARD)
+
+      yard_dist, _ = self.get_nearest_home_yard(cell)
+      if yard_dist <= self.home_grown_cell_dist:
+        threshold = 100
+        if (BEGINNING_PHRASE_END_STEP < self.step < NEAR_ENDING_PHRASE_STEP and
+            self.num_ships >= 16):
+          threshold = 200
+          # if self.num_ships >= 16:
+          # threshold += 50
+          # if self.num_ships >= EXPECT_SHIP_NUM:
+          # threshold += 50
+          # if self.num_ships >= MAX_SHIP_NUM:
+          # threshold = self.dist_to_expected_halite(yard_dist)
+
+      return threshold
+
+    # Init halite cells
+    self.halite_cells = []
+    for cell in self.board.cells.values():
+      cell.is_targetd = False
+      if cell.halite > 0:
+        self.halite_cells.append(cell)
+        cell.keep_halite_value = keep_halite_value(cell)
 
   @property
   def c(self):
@@ -196,6 +244,10 @@ class ShipStrategy:
   @property
   def growth_factor(self):
     return self.board.configuration.regen_rate + 1.0
+
+  @property
+  def retension_rate_rate(self):
+    return 1. - self.c.collect_rate
 
   @property
   def num_ships(self):
@@ -228,10 +280,8 @@ class ShipStrategy:
     ship.target_cell.is_targetd = True
     ship.target_enemy = enemy
 
-  def find_nearest_shipyard(self, position, shipyards):
-    # position could be Ship or Cell.
-    if not isinstance(position, Point):
-      position = position.position
+  def find_nearest_shipyard(self, cell: Cell, shipyards):
+    position = cell.position
 
     min_dist = 99999
     min_dist_yard = None
@@ -241,6 +291,17 @@ class ShipStrategy:
         min_dist = d
         min_dist_yard = y
     return min_dist, min_dist_yard
+
+  def get_nearest_home_yard(self, cell):
+    if not hasattr(cell, 'home_yard_info'):
+      cell.home_yard_info = self.find_nearest_shipyard(cell, self.me.shipyards)
+    return cell.home_yard_info
+
+  def get_nearest_enemy_yard(self, cell):
+    if not hasattr(cell, 'enemy_yard_info'):
+      cell.enemy_yard_info = self.find_nearest_shipyard(cell,
+                                                        self.enemy_shipyards)
+    return cell.enemy_yard_info
 
   def collect_game_info(self):
     self.mean_halite_value = 0
@@ -252,10 +313,8 @@ class ShipStrategy:
     # Computes neighbour cells mean halite values.
     # TODO: reuse
     def cell_to_yard_dist(cell):
-      _, min_yard = self.find_nearest_shipyard(cell.position, self.me.shipyards)
-      if min_yard:
-        return manhattan_dist(cell.position, min_yard.position, self.c.size)
-      return 9999
+      min_dist, _ = self.get_nearest_home_yard(cell)
+      return min_dist
 
     self.mean_home_halite = 100
     home_cells = [
@@ -274,51 +333,17 @@ class ShipStrategy:
         self.max_enemy_id = p.id
 
   def max_expected_return_cell(self, ship):
-    MIN_STOP_COLLECTIONG_THRESHOLD = 10.0
-
-    def cell_to_yard_dist(cell):
-      _, min_yard = self.find_nearest_shipyard(cell.position, self.me.shipyards)
-      if min_yard:
-        return manhattan_dist(cell.position, min_yard.position, self.c.size)
-      return 9999
-
-    def skip(cell):
-      # Collect all halite of a cell.
-      if self.step >= NEAR_ENDING_PHRASE_STEP:
-        return MIN_STOP_COLLECTIONG_THRESHOLD
-
-      threshold = MIN_STOP_COLLECTIONG_THRESHOLD
-      # if self.step < BEGINNING_PHRASE_END_STEP:
-      # threshold = max(self.mean_halite_value - 30, MIN_ENEMY_YARD_TO_MY_YARD)
-
-      yard_dist = cell_to_yard_dist(cell)
-      if yard_dist <= self.home_grown_cell_dist:
-        threshold = 100
-        if (BEGINNING_PHRASE_END_STEP < self.step < NEAR_ENDING_PHRASE_STEP and
-            self.num_ships >= 16):
-          threshold = 200
-          # if self.num_ships >= 16:
-          # threshold += 50
-          # if self.num_ships >= EXPECT_SHIP_NUM:
-          # threshold += 50
-          # if self.num_ships >= MAX_SHIP_NUM:
-          # threshold = self.dist_to_expected_halite(yard_dist)
-
-      return threshold
-
     max_cell = None
     max_expected_return = 0
     for cell in self.halite_cells:
       # Ignore targeted or cell with "little" halite.
-      if cell.is_targetd or cell.halite < skip(cell):
+      if cell.is_targetd or cell.halite < cell.keep_halite_value:
         continue
 
       # Do not go into enemy shipyard for halite.
-      enemy_yard_dist, enemy_yard = self.find_nearest_shipyard(
-          cell, self.enemy_shipyards)
+      enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
       if (enemy_yard and enemy_yard_dist <= 4):
-        ally_yard_dist, alley_yard = self.find_nearest_shipyard(
-            cell, self.me.shipyards)
+        ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
         if (alley_yard and enemy_yard_dist < ally_yard_dist):
           continue
         if alley_yard and ally_yard_dist <= self.home_grown_cell_dist:
@@ -364,20 +389,17 @@ class ShipStrategy:
       if ship.halite < min_halite_threshold():
         continue
 
-      _, min_dist_yard = self.find_nearest_shipyard(ship, self.me.shipyards)
+      _, min_dist_yard = self.get_nearest_home_yard(ship.cell)
       if min_dist_yard:
         self.assign_task(ship, min_dist_yard.cell,
                          ShipTask.RETURN_TO_SHIPYARD_TASK)
 
   def compute_expect_halite_return(self, ship, position, target_cell):
     """Position maybe other than ship.position in case of computing moves"""
-    collect_rate = self.board.configuration.collect_rate
-    board_size = self.board.configuration.size
-
-    dist = manhattan_dist(position, target_cell.position, board_size)
+    dist = manhattan_dist(position, target_cell.position, self.c.size)
     if target_cell.ship_id:
       # Halite will decrease if there is ship.
-      expected_halite = target_cell.halite * ((1 - collect_rate)**dist)
+      expected_halite = target_cell.halite * HALITE_RETENSION_BY_DIST[dist]
 
       # Give up if my ship has more halite then enemy.
       if has_enemy_ship(target_cell, self.me):
@@ -387,8 +409,8 @@ class ShipStrategy:
           return -1
     else:
       # Otherwise, halite will grow.
-      expected_halite = min(target_cell.halite * (self.growth_factor**dist),
-                            self.board.configuration.max_cell_halite)
+      expected_halite = min(target_cell.halite * HALITE_GROWTH_BY_DIST[dist],
+                            self.c.max_cell_halite)
     return expected_halite / (dist + 1)
 
   # TODO(wangfei): try this again later.
@@ -422,8 +444,7 @@ class ShipStrategy:
       halite_return = self.compute_expect_halite_return(ship, ship.position,
                                                         max_cell)
 
-      home_dist, min_dist_yard = self.find_nearest_shipyard(
-          ship, self.me.shipyards)
+      home_dist, min_dist_yard = self.get_nearest_home_yard(ship.cell)
       home_return = ship.halite / (home_dist + 1)
 
       if home_return > halite_return:
@@ -534,7 +555,7 @@ class ShipStrategy:
     def all_enemy_ships(defend_distance):
       for opp in self.board.opponents:
         for s in opp.ships:
-          min_dist, min_yard = self.find_nearest_shipyard(s, self.me.shipyards)
+          min_dist, min_yard = self.get_nearest_home_yard(s.cell)
           if min_yard and min_dist <= defend_distance:
             yield s, min_dist, min_yard
 
@@ -707,13 +728,13 @@ class ShipStrategy:
       if not self.me.shipyard_ids:
         return True
       # Put it near one of the nearest shipyard.
-      min_dist, min_yard = self.find_nearest_shipyard(ship, self.me.shipyards)
+      min_dist, min_yard = self.get_nearest_home_yard(ship.cell)
       return min_yard and (MIN_NEXT_YARD_DIST <= min_dist <= MAX_NEXT_YARD_DIST)
 
     # initialize covered cells with existing shipyards.
     covered_positions = set()
     for cell in self.halite_cells:
-      min_dist, min_yard = self.find_nearest_shipyard(cell, self.me.shipyards)
+      min_dist, min_yard = self.get_nearest_home_yard(cell)
       if min_dist <= self.home_grown_cell_dist:
         covered_positions.add(cell.position)
 
@@ -899,7 +920,7 @@ class ShipStrategy:
       for ship in self.my_idle_ships:
         if ship.halite <= MIN_HALITE_TO_YARD:
           continue
-        _, yard = self.find_nearest_shipyard(ship, self.me.shipyards)
+        _, yard = self.get_nearest_home_yard(ship.cell)
         if yard:
           dist = manhattan_dist(ship.position, yard.position, self.c.size)
           yield dist, ship, yard
@@ -1044,7 +1065,6 @@ class ShipStrategy:
 
     self.compute_ship_moves()
     self.spawn_if_shipyard_in_danger()
-    self.collision_check()
 
     # PRINT_ME
     def mean_cargo(player):
