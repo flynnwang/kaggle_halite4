@@ -1,5 +1,17 @@
 #!/usr/bin/env python
 """
+
+Tournament - ID: zA4PFb, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: E5zc5j, Name: Halite 4 Dimension
+Status: running | Competitors: 6 | Rank System: trueskill
+
+Total Matches: 468 | Matches Queued: 60
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v1.8                       | S01EvkOiID71   | 29.8973376      | μ=32.166, σ=0.756  | 283
+bee v2.1.2                     | Q4zRlApCiPuu   | 26.7171712      | μ=28.833, σ=0.705  | 270
+optimus_mining                 | vPdxWmtnoWFH   | 22.9748549      | μ=25.039, σ=0.688  | 279
+c40                            | 31PntHYoVpsg   | 22.0923424      | μ=24.146, σ=0.685  | 319
+v3.3 no min                    | uiuhNvaAQGUX   | 21.4672650      | μ=23.520, σ=0.684  | 342
+swarm                          | JQl06Ryc0IGX   | 16.4189870      | μ=18.615, σ=0.732  | 379
 """
 
 import random
@@ -34,6 +46,7 @@ LOOSE_ENEMY_SHIP_DEFEND_DIST = 7
 AVOID_COLLIDE_RATIO = 0.6
 
 MIN_HALITE_BEFORE_HOME = 100
+MEAN_HALITE_OFFSET = 10
 
 # Threshod used to send bomb to enemy shipyard
 MIN_ENEMY_YARD_TO_MY_YARD = 7
@@ -201,20 +214,24 @@ class ShipStrategy:
     MIN_STOP_COLLECTIONG_THRESHOLD = 10.0
 
     def keep_halite_value(cell):
-      # Collect all halite of a cell.
+      # Collect all halite of a cell during the end phrase.
       if self.step >= NEAR_ENDING_PHRASE_STEP:
         return MIN_STOP_COLLECTIONG_THRESHOLD
 
-      threshold = MIN_STOP_COLLECTIONG_THRESHOLD
+      lower_bound = max(self.mean_halite_value - MEAN_HALITE_OFFSET,
+                        MIN_STOP_COLLECTIONG_THRESHOLD)
+      threshold = lower_bound
       # if self.step < BEGINNING_PHRASE_END_STEP:
       # threshold = max(self.mean_halite_value - 30, MIN_ENEMY_YARD_TO_MY_YARD)
 
       yard_dist, _ = self.get_nearest_home_yard(cell)
       if yard_dist <= self.home_grown_cell_dist:
-        threshold = 100
+        # plus = 100 if self.num_ships >= 25 else 0
+        plus = 0
+        threshold = 100 + plus
         if (BEGINNING_PHRASE_END_STEP < self.step < NEAR_ENDING_PHRASE_STEP and
             self.num_ships >= 16):
-          threshold = 200
+          threshold = 200 + plus
           # if self.num_ships >= 16:
           # threshold += 50
           # if self.num_ships >= EXPECT_SHIP_NUM:
@@ -230,7 +247,15 @@ class ShipStrategy:
       cell.is_targetd = False
       if cell.halite > 0:
         self.halite_cells.append(cell)
-        cell.keep_halite_value = keep_halite_value(cell)
+
+    self.mean_halite_value = 0
+    if self.halite_cells:
+      halite_values = [c.halite for c in self.halite_cells]
+      self.mean_halite_value = np.mean(halite_values)
+      self.std_halite_value = np.std(halite_values)
+
+    for cell in self.halite_cells:
+      cell.keep_halite_value = keep_halite_value(cell)
 
   @property
   def c(self):
@@ -303,11 +328,6 @@ class ShipStrategy:
     return cell.enemy_yard_info
 
   def collect_game_info(self):
-    self.mean_halite_value = 0
-    if self.halite_cells:
-      halite_values = [c.halite for c in self.halite_cells]
-      self.mean_halite_value = np.mean(halite_values)
-      self.std_halite_value = np.std(halite_values)
 
     # Computes neighbour cells mean halite values.
     # TODO: reuse
@@ -341,7 +361,7 @@ class ShipStrategy:
 
       # Do not go into enemy shipyard for halite.
       enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
-      if (enemy_yard and enemy_yard_dist <= 4):
+      if (enemy_yard and enemy_yard_dist <= 3):
         ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
         if (alley_yard and enemy_yard_dist < ally_yard_dist):
           continue
@@ -382,8 +402,12 @@ class ShipStrategy:
       if self.step >= NEAR_ENDING_PHRASE_STEP:
         return 400
       # return self.mean_home_halite + 10
-      return max(self.mean_home_halite, MIN_HALITE_BEFORE_HOME)
+      # return max(self.mean_home_halite, MIN_HALITE_BEFORE_HOME)
+      # return max(self.mean_halite_value + MEAN_HALITE_OFFSET,
+      # MIN_HALITE_BEFORE_HOME)
+      return (self.mean_home_halite * self.c.collect_rate * 2)
 
+    print('min_h=', min_halite_threshold())
     for ship in self.my_idle_ships:
       if ship.halite < min_halite_threshold():
         continue
@@ -457,7 +481,7 @@ class ShipStrategy:
 
     def max_bomb_dist():
       # Don't use bomb if ship group is small.
-      if self.num_ships < 10:
+      if self.num_ships <= 14:
         return 0
 
       # If having enough money and halite.
@@ -560,13 +584,14 @@ class ShipStrategy:
 
     def defend_ship_ratio():
       if self.num_ships <= 10:
+        ratio = 0.2
+      elif self.num_ships <= 13:
         ratio = 0.3
-      elif self.num_ships <= 12:
+      elif self.num_ships <= 17:
         ratio = 0.4
-      elif self.num_ships <= 16:
-        ratio = 0.5
-      else:
-        ratio = 0.6
+      elif self.num_ships <= 20:
+        ratio = 0.45
+      ratio = 0.5
       return ratio
 
     def min_farmer_num():
@@ -580,6 +605,8 @@ class ShipStrategy:
                  int(np.round(self.num_ships * defend_ship_ratio())))
 
     def max_defend_ship_num():
+      if self.num_ships < MAX_SHIP_NUM:
+        return 2
       return 3
 
     enemy_ships = list(all_enemy_ships(self.loose_defend_dist()))
@@ -615,7 +642,7 @@ class ShipStrategy:
 
       # Protect shipyard
       if (ship_budget > 0 and not defend_yard.cell.is_targetd and
-          enemy.halite <= 20 and
+          enemy.halite <= 10 and
           enemy_to_defend_yard_dist <= self.shipyard_defend_dist()):
         ships = [
             s for s in self.my_idle_ships
@@ -698,10 +725,10 @@ class ShipStrategy:
         return 1
 
       if self.num_ships >= MAX_SHIP_NUM:
-        return min(3 + max((self.num_ships - 24) // 6, 0), MAX_SHIPYARD_NUM)
-      if self.num_ships >= 21:
-        return 3
-      if self.num_ships >= 16:
+        return min(2 + max((self.num_ships - 23) // 5, 0), MAX_SHIPYARD_NUM)
+      # if self.num_ships >= 23:
+      # return 3
+      if self.num_ships >= 23:
         return 2
       # <= 15
       return 1
@@ -910,6 +937,8 @@ class ShipStrategy:
         continue
 
       spawn(shipyard)
+      # One ship at a time
+      break
 
   def final_stage_back_to_shipyard(self):
     MARGIN_STEPS = self.num_ships
