@@ -4,6 +4,19 @@
 * Maximize the total of halite for the first shipyard
 * Limit min halite before home value to 100
 
+Tournament - ID: Z9UOgJ, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: Qb51uS, Name: Halite 4 Dimension
+Status: running | Competitors: 6 | Rank System: trueskill
+
+Total Matches: 278 | Matches Queued: 51
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v1.8                       | w2xESQ20zjeW   | 31.0569875      | μ=33.387, σ=0.777  | 169
+bee v2.1.3                     | joIZgBZyybpv   | 27.5802712      | μ=29.722, σ=0.714  | 167
+optimus_mining                 | Y2zBmoGVwgMx   | 23.8134515      | μ=25.879, σ=0.688  | 181
+c40                            | jAlgOogHPxL8   | 23.7219629      | μ=25.804, σ=0.694  | 164
+v3.3 no min                    | zrqIEAG8xMsu   | 21.9024076      | μ=23.973, σ=0.690  | 208
+swarm                          | i5JC1daDTWHb   | 16.1731779      | μ=18.459, σ=0.762  | 223
+
+
 """
 
 import random
