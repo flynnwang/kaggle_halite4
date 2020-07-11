@@ -1,17 +1,9 @@
 #!/usr/bin/env python
 """
+* Maximize the number of halite cells when converting shipyard.
+* Maximize the total of halite for the first shipyard
+* Limit min halite before home value to 100
 
-Tournament - ID: zA4PFb, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: E5zc5j, Name: Halite 4 Dimension
-Status: running | Competitors: 6 | Rank System: trueskill
-
-Total Matches: 468 | Matches Queued: 60
-Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
-bee v1.8                       | S01EvkOiID71   | 29.8973376      | μ=32.166, σ=0.756  | 283
-bee v2.1.2                     | Q4zRlApCiPuu   | 26.7171712      | μ=28.833, σ=0.705  | 270
-optimus_mining                 | vPdxWmtnoWFH   | 22.9748549      | μ=25.039, σ=0.688  | 279
-c40                            | 31PntHYoVpsg   | 22.0923424      | μ=24.146, σ=0.685  | 319
-v3.3 no min                    | uiuhNvaAQGUX   | 21.4672650      | μ=23.520, σ=0.684  | 342
-swarm                          | JQl06Ryc0IGX   | 16.4189870      | μ=18.615, σ=0.732  | 379
 """
 
 import random
@@ -37,7 +29,7 @@ FUTURE_RATIO = 0.3
 
 # Controls the number of ships.
 EXPECT_SHIP_NUM = 20
-MAX_SHIP_NUM = 27
+MAX_SHIP_NUM = 30
 MIN_FARMER_NUM = 9
 
 # Threshold for attack enemy nearby my shipyard
@@ -45,11 +37,10 @@ TIGHT_ENEMY_SHIP_DEFEND_DIST = 5
 LOOSE_ENEMY_SHIP_DEFEND_DIST = 7
 AVOID_COLLIDE_RATIO = 0.6
 
-MIN_HALITE_BEFORE_HOME = 100
 MEAN_HALITE_OFFSET = 10
 
 # Threshod used to send bomb to enemy shipyard
-MIN_ENEMY_YARD_TO_MY_YARD = 7
+MIN_ENEMY_YARD_TO_MY_YARD = 6
 
 POSSIBLE_MOVES = [
     Point(0, 0),
@@ -209,28 +200,32 @@ class ShipStrategy:
       HALITE_RETENSION_BY_DIST = [
           self.retension_rate_rate**d for d in range(self.c.size**2 + 1)
       ]
+    # print(HALITE_GROWTH_BY_DIST, HALITE_RETENSION_BY_DIST)
 
   def init_halite_cells(self):
-    MIN_STOP_COLLECTIONG_THRESHOLD = 10.0
+    MIN_STOP_COLLECTIONG_THRESHOLD = 10
 
     def keep_halite_value(cell):
       # Collect all halite of a cell during the end phrase.
       if self.step >= NEAR_ENDING_PHRASE_STEP:
         return MIN_STOP_COLLECTIONG_THRESHOLD
 
-      lower_bound = max(self.mean_halite_value - MEAN_HALITE_OFFSET,
-                        MIN_STOP_COLLECTIONG_THRESHOLD)
-      threshold = lower_bound
+      # lower_bound = max(self.mean_halite_value * 0.3,
+      # MIN_STOP_COLLECTIONG_THRESHOLD)
+      threshold = MIN_STOP_COLLECTIONG_THRESHOLD
       # if self.step < BEGINNING_PHRASE_END_STEP:
       # threshold = max(self.mean_halite_value - 30, MIN_ENEMY_YARD_TO_MY_YARD)
 
       yard_dist, _ = self.get_nearest_home_yard(cell)
       if yard_dist <= self.home_grown_cell_dist:
-        # plus = 100 if self.num_ships >= 25 else 0
-        plus = 0
+        plus = max(self.num_ships - 20, 0) * 10
+        # if self.num_ships >= 23 or self.num_shipyards >= 3:
+        # plus += 50
+        # if self.num_ships >= 28 and self.num_shipyards >= 3:
+        # plus += 50
         threshold = 100 + plus
         if (BEGINNING_PHRASE_END_STEP < self.step < NEAR_ENDING_PHRASE_STEP and
-            self.num_ships >= 16):
+            yard_dist <= self.tight_defend_dist() and self.num_ships >= 16):
           threshold = 200 + plus
           # if self.num_ships >= 16:
           # threshold += 50
@@ -239,6 +234,7 @@ class ShipStrategy:
           # if self.num_ships >= MAX_SHIP_NUM:
           # threshold = self.dist_to_expected_halite(yard_dist)
 
+      threshold = min(threshold, 400)
       return threshold
 
     # Init halite cells
@@ -247,6 +243,13 @@ class ShipStrategy:
       cell.is_targetd = False
       if cell.halite > 0:
         self.halite_cells.append(cell)
+
+    # Initialize covered cells by shipyards.
+    self.covered_positions = set()
+    for cell in self.halite_cells:
+      min_dist, _ = self.get_nearest_home_yard(cell)
+      if min_dist <= self.tight_defend_dist():
+        self.covered_positions.add(cell.position)
 
     self.mean_halite_value = 0
     if self.halite_cells:
@@ -396,20 +399,30 @@ class ShipStrategy:
 
     # TODO(wangfei): if tracked by enemy, also send back home.
 
-    def min_halite_threshold():
-      if self.step <= BEGINNING_PHRASE_END_STEP:
-        return 350
+    # NOTE: keep this value somehow bigger to reduce waste of time.
+    # MIN_HALITE_BEFORE_HOME = 150 # 23000
+    # TODO(wangfei): test this value, it's important.
+    MIN_HALITE_BEFORE_HOME = 100
+
+    def return_home_yard_halite_threshold():
+      # This not work, because it limits the ship spawn with initial halite.
+      # if self.step <= BEGINNING_PHRASE_END_STEP:
+      # return 300
+
       if self.step >= NEAR_ENDING_PHRASE_STEP:
         return 400
       # return self.mean_home_halite + 10
       # return max(self.mean_home_halite, MIN_HALITE_BEFORE_HOME)
       # return max(self.mean_halite_value + MEAN_HALITE_OFFSET,
       # MIN_HALITE_BEFORE_HOME)
-      return (self.mean_home_halite * self.c.collect_rate * 2)
+      # return (self.mean_halite_value * self.c.collect_rate * 3)
+      # return self.mean_halite_value
 
-    print('min_h=', min_halite_threshold())
+      return int(max(self.mean_halite_value, MIN_HALITE_BEFORE_HOME))
+
+    print('***min_h=', return_home_yard_halite_threshold())
     for ship in self.my_idle_ships:
-      if ship.halite < min_halite_threshold():
+      if ship.halite < return_home_yard_halite_threshold():
         continue
 
       _, min_dist_yard = self.get_nearest_home_yard(ship.cell)
@@ -481,7 +494,7 @@ class ShipStrategy:
 
     def max_bomb_dist():
       # Don't use bomb if ship group is small.
-      if self.num_ships <= 14:
+      if self.num_ships <= 25:
         return 0
 
       # If having enough money and halite.
@@ -584,14 +597,16 @@ class ShipStrategy:
 
     def defend_ship_ratio():
       if self.num_ships <= 10:
-        ratio = 0.2
-      elif self.num_ships <= 13:
         ratio = 0.3
-      elif self.num_ships <= 17:
+      elif self.num_ships <= 13:
         ratio = 0.4
-      elif self.num_ships <= 20:
+      elif self.num_ships <= 17:
         ratio = 0.45
-      ratio = 0.5
+      elif self.num_ships <= 20:
+        ratio = 0.5
+      elif self.num_ships <= 30:
+        ratio = 0.55
+      ratio = 0.6
       return ratio
 
     def min_farmer_num():
@@ -605,8 +620,6 @@ class ShipStrategy:
                  int(np.round(self.num_ships * defend_ship_ratio())))
 
     def max_defend_ship_num():
-      if self.num_ships < MAX_SHIP_NUM:
-        return 2
       return 3
 
     enemy_ships = list(all_enemy_ships(self.loose_defend_dist()))
@@ -721,16 +734,13 @@ class ShipStrategy:
 
     def max_shipyard_num():
       # Do not spawn too much shipyard at last.
-      if self.step >= ENDING_PHRASE_STEP:
-        return 1
-
-      if self.num_ships >= MAX_SHIP_NUM:
-        return min(2 + max((self.num_ships - 23) // 5, 0), MAX_SHIPYARD_NUM)
-      # if self.num_ships >= 23:
-      # return 3
-      if self.num_ships >= 23:
+      if self.num_ships >= 26:
+        return min(3 + max((self.num_ships - 24) // 6, 0), MAX_SHIPYARD_NUM)
+      if self.num_ships >= 25:
+        return 3
+      if self.num_ships >= 22:
         return 2
-      # <= 15
+      # < 22
       return 1
 
     # Reach max shipyard num.
@@ -757,30 +767,25 @@ class ShipStrategy:
       min_dist, min_yard = self.get_nearest_home_yard(ship.cell)
       return min_yard and (MIN_NEXT_YARD_DIST <= min_dist <= MAX_NEXT_YARD_DIST)
 
-    # initialize covered cells with existing shipyards.
-    covered_positions = set()
-    for cell in self.halite_cells:
-      min_dist, min_yard = self.get_nearest_home_yard(cell)
-      if min_dist <= self.home_grown_cell_dist:
-        covered_positions.add(cell.position)
-
     def score_ship_position(ship):
       # Maximize the total value of halite cells when converting ship.
-      score = 0
+      total_halite = 0
+      total_cell = 0
       for cell in self.halite_cells:
         dist = manhattan_dist(ship.position, cell.position, self.c.size)
-        if (dist <= self.home_grown_cell_dist and
-            cell.position not in covered_positions and
+        if (dist <= self.tight_defend_dist() and
+            cell.position not in self.covered_positions and
             cell.position != ship.position):
-          score += cell.halite
-      return score
+          total_halite += cell.halite
+          total_cell += 1
+      return total_cell, total_halite
 
     ship_scores = [(score_ship_position(s), s)
                    for s in self.me.ships
                    if (has_enough_halite(s) and not_on_shipyard(s) and
                        within_predefined_range(s))]
     ship_scores.sort(key=lambda x: x[0], reverse=True)
-    for score, ship in ship_scores:
+    for _, ship in ship_scores:
       self.me._halite -= (self.c.convert_cost - ship.halite)
       ship.next_action = ShipAction.CONVERT
       ship.has_assignment = True
@@ -910,7 +915,10 @@ class ShipStrategy:
     ships."""
 
     def max_ship_num():
-      return MAX_SHIP_NUM + max(0, (self.me.halite - 3000) // 1500)
+      if self.num_ships <= 40:
+        return min(MAX_SHIP_NUM + max(0, (self.me.halite - 3000) // 1000), 40)
+
+      return min(MAX_SHIP_NUM + max(0, (self.me.halite - 12000) // 1500), 50)
 
     def spawn(yard):
       self.me._halite -= self.c.spawn_cost
@@ -988,7 +996,7 @@ class ShipStrategy:
 
         dist = manhattan_dist(candidate_cell.position, cell.position,
                               self.c.size)
-        if dist <= TIGHT_ENEMY_SHIP_DEFEND_DIST and cell.halite > 0:
+        if dist <= self.home_grown_cell_dist and cell.halite > 0:
           expected_halite += self.dist_to_expected_halite(dist)
           current_halite += cell.halite
           num_halite_cells += 1
@@ -997,11 +1005,12 @@ class ShipStrategy:
       print(candidate_cell.position, "future=", expected_halite, 'current=',
             current_halite, 'score=', int(score), 'n=', num_halite_cells)
       # return score
-      return (num_halite_cells, current_halite)
+      # Use current halite, because it will impact the initial ship building.
+      return current_halite
 
     def get_coord_range(v):
-      DELTA = 2
-      MARGIN = 1
+      DELTA = 1
+      MARGIN = 2
       if v == 5:
         v_min, v_max = MARGIN, 5 + DELTA
       else:
@@ -1071,6 +1080,26 @@ class ShipStrategy:
               is_shipyard_in_danger(yard))
         spawn(yard)
 
+  def print_info(self):
+
+    def mean_cargo(player):
+      num_ships = len(player.ship_ids)
+      if num_ships == 0:
+        return 0
+      return int(cargo(player) / num_ships)
+
+    o = sorted(self.board.opponents, key=lambda x: -(len(x.ship_ids)))[0]
+    print('#', self.board.step, 'h(m=%s, s=%s)' % (int(self.mean_halite_value),
+                                                   int(self.std_halite_value)),
+          'yd=(m=%s, hc=%s)' % (int(self.mean_home_halite),
+                                len(self.covered_positions)),
+          'me(s=%s, y=%s, h=%s, c=%s, mc=%s)' % (self.num_ships,
+                                                 len(self.me.shipyard_ids),
+                                                 self.me.halite, cargo(self.me),
+                                                 mean_cargo(self.me)),
+          'e[%s](s=%s, h=%s, c=%s, mc=%s)' % (o.id, len(o.ships), o.halite,
+                                              cargo(o), mean_cargo(o)))
+
   def execute(self):
     self.collect_game_info()
 
@@ -1086,6 +1115,7 @@ class ShipStrategy:
       self.send_ship_to_home_yard()
       self.send_ship_to_halite()
 
+      # print('attack later=', len(list(self.my_idle_ships)))
       # Attack enemy if no task assigned
       self.attack_enemy_ship(has_budget=False)
     else:
@@ -1093,24 +1123,7 @@ class ShipStrategy:
 
     self.compute_ship_moves()
     self.spawn_if_shipyard_in_danger()
-
-    # PRINT_ME
-    def mean_cargo(player):
-      num_ships = len(player.ship_ids)
-      if num_ships == 0:
-        return 0
-      return int(cargo(player) / num_ships)
-
-    o = sorted(self.board.opponents, key=lambda x: -(len(x.ship_ids)))[0]
-    print('#', self.board.step, 'h(m=%s, s=%s)=' % (int(self.mean_halite_value),
-                                                    int(self.std_halite_value)),
-          'hh=%s' % int(self.mean_home_halite),
-          'me(s=%s, y=%s, h=%s, c=%s, mc=%s)' % (self.num_ships,
-                                                 len(self.me.shipyard_ids),
-                                                 self.me.halite, cargo(self.me),
-                                                 mean_cargo(self.me)),
-          'e[%s](s=%s, h=%s, c=%s, mc=%s)' % (o.id, len(o.ships), o.halite,
-                                              cargo(o), mean_cargo(o)))
+    self.print_info()
 
 
 @board_agent
