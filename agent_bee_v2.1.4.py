@@ -3,6 +3,19 @@
 * Fix maximum number of ships.
 * Use expected return as initial shipyard selection.
 
+-=-=-=-=-=-=-=-=-=-=-=-|  Your Halite 4 Trueskill Ladder |-=-=-=-=-=-=-=-=-=-=-=-
+
+Tournament - ID: jEgeFI, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: 7GDwl3, Name: Halite 4 Dimension
+Status: running | Competitors: 6 | Rank System: trueskill
+
+Total Matches: 2528 | Matches Queued: 60
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v1.8                       | 80Y5BiXAir0O   | 32.2456187      | μ=34.585, σ=0.780  | 1552
+bee v2.1.4                     | GQMLWe6gbP4u   | 27.2615097      | μ=29.362, σ=0.700  | 1445
+optimus_mining                 | Pq5WKLDRQWlD   | 24.6209558      | μ=26.676, σ=0.685  | 1483
+c40                            | sDfIGwOSedxt   | 22.7106448      | μ=24.762, σ=0.684  | 1667
+v3.3 no min                    | wUsZkrZfH6fk   | 21.8292647      | μ=23.884, σ=0.685  | 1976
+swarm                          | 7q77F3kRHaUC   | 18.6143217      | μ=20.758, σ=0.715  | 1981
 """
 
 import copy
