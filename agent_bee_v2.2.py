@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 """
+* Use opt mining strategy.
+
+
 """
 
 import copy
@@ -10,6 +13,7 @@ from enum import Enum, auto
 
 import networkx as nx
 import numpy as np
+import scipy.optimize
 from kaggle_environments.envs.halite.helpers import *
 
 MIN_WEIGHT = -99999
@@ -46,6 +50,19 @@ POSSIBLE_MOVES = [
     Point(1, 0),
     Point(-1, 0)
 ]
+
+TURNS_OPTIMAL = np.array(
+    [[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7,
+      8], [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7,
+           7], [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7],
+     [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6,
+      6], [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
+           6], [0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5],
+     [0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4,
+      4], [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3,
+           3], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2],
+     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
 
 logging.basicConfig(level=logging.INFO)
 # logging.basicConfig(level=logging.ERROR)
@@ -932,7 +949,6 @@ class ShipStrategy:
 
     # Too many ships.
     mx = max_ship_num()
-    print('mx=', mx)
     if self.num_ships >= max_ship_num():
       return
 
@@ -1124,6 +1140,105 @@ class ShipStrategy:
           'e[%s](s=%s, h=%s, c=%s, mc=%s)' % (o.id, len(o.ships), o.halite,
                                               cargo(o), mean_cargo(o)))
 
+  def optimal_mining(self):
+    SHIPYARD_DUPLICATE_NUM = 4
+
+    def optimal_mining_steps(C, H, rt_travel):
+      # How many turns should we plan on mining?
+      # C=carried halite, H=halite in square, rt_travel=steps to square and back to shipyard
+      if C == 0:
+        ch = 0
+      elif H == 0:
+        ch = TURNS_OPTIMAL.shape[0] - 1  # ?
+      else:
+        ch = int(np.log(C / H) * 2.5 + 5.5)
+        ch = np.clip(ch, 0, TURNS_OPTIMAL.shape[0] - 1)
+      rt_travel = int(np.clip(rt_travel, 0, TURNS_OPTIMAL.shape[1] - 1))
+      return TURNS_OPTIMAL[ch, rt_travel]
+
+    def halite_per_turn(ship: Ship,
+                        poi: Cell,
+                        ship_to_poi,
+                        poi_to_yard,
+                        min_mine=1):
+      """Computes the expected return for mining with optimial steps.
+
+      TODO(wangfei): we could use small panelty for return home dist
+      to mimic the we don't want back home.
+      """
+      carry = ship.halite
+      halite = poi.halite
+      if poi.ship_id:
+        # Halite will decrease if there is ship sitting on it.
+        halite = poi.halite * HALITE_RETENSION_BY_DIST[ship_to_poi]
+
+        # Give up if my ship has more halite then enemy.
+        if has_enemy_ship(poi, self.me):
+          enemy_halite = poi.ship.halite + (poi.halite - halite)
+          if ship and ship.halite >= enemy_halite:
+            return -1000
+      else:
+        # Otherwise, halite will grow.
+        halite = min(poi.halite * HALITE_GROWTH_BY_DIST[ship_to_poi],
+                     self.c.max_cell_halite)
+
+      travel = ship_to_poi + poi_to_yard
+      opt_steps = optimal_mining_steps(carry, halite, travel)
+      if opt_steps < min_mine:
+        opt_steps = min_mine
+      total_halite = carry + (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite
+      return total_halite / (travel + opt_steps)
+
+    ships = list(self.my_idle_ships)
+    halites = [c for c in self.halite_cells if c.halite >= c.keep_halite_value]
+
+    # Shipyards is duplicated to allow multiple ships having a same target.
+    shipyards = [y.cell for y in self.me.shipyards] * SHIPYARD_DUPLICATE_NUM
+    pois = halites + shipyards
+
+    # Value matrix for ship target assginment
+    # * row: ships
+    # * column: halite cells + shipyards with duplicates.
+    # TODO(wangfei): can we add enemy to this matrix?
+    C = np.zeros((len(ships), len(pois)))
+    for i, ship in enumerate(ships):
+      for j, poi in enumerate(pois):
+        # Init distances: from ship to POI and POI to the nearest yard.
+        ship_to_poi = manhattan_dist(ship.position, poi.position, self.c.size)
+        poi_to_yard, min_yard = self.get_nearest_home_yard(poi)
+        if min_yard is None:
+          poi_to_yard = 1
+
+        if j < len(halites):
+          # If the target is a halite cell, with enemy considered.
+          v = halite_per_turn(ship, poi, ship_to_poi, poi_to_yard)
+        else:
+          # If the target is a shipyard.
+          if ship_to_poi > 0:
+            v = ship.halite / ship_to_poi
+          else:
+            # The ship is on a shipyard.
+            v = 0
+        C[i, j] = v
+
+    rows, cols = scipy.optimize.linear_sum_assignment(C, maximize=True)
+    for ship_idx, poi_idx in zip(rows, cols):
+      ship = ships[ship_idx]
+      target_cell = pois[poi_idx]
+      # print('send ship(id=%s, p=%s, h=%s)' % (ship.id, ship.position,
+      # ship.halite),
+      # 'to target_cell(p=%s, h=%s)' % (target_cell.position,
+      # target_cell.halite))
+      if poi_idx < len(halites):
+        if ship.position == target_cell.position:
+          task_type = ShipTask.COLLECT_HALITE_TASK
+        else:
+          task_type = ShipTask.GOTO_HALITE_TASK
+      else:
+        task_type = ShipTask.RETURN_TO_SHIPYARD_TASK
+
+      self.assign_task(ship, target_cell, task_type)
+
   def execute(self):
     self.collect_game_info()
 
@@ -1135,9 +1250,10 @@ class ShipStrategy:
       self.attack_enemy_ship()
 
       self.final_stage_back_to_shipyard()
-      self.continue_mine_halite()
-      self.send_ship_to_home_yard()
-      self.send_ship_to_halite()
+      self.optimal_mining()
+      # self.continue_mine_halite()
+      # self.send_ship_to_home_yard()
+      # self.send_ship_to_halite()
 
       # print('attack later=', len(list(self.my_idle_ships)))
       # Attack enemy if no task assigned
