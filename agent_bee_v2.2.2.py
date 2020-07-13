@@ -1,21 +1,7 @@
 #!/usr/bin/env python
 """
-* Removed unused code.
-* halite_per_turn: add expected enemy halite to value
-* halite_per_turn: add expected enemy halite to value
-* Use halite_per_turn for shipyard selection
-
-Tournament - ID: wqQ09g, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: CH2t0s, Name: Halite 4 Dimension
-Status: running | Competitors: 6 | Rank System: trueskill
-
-Total Matches: 469 | Matches Queued: 55
-Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
-bee v1.8                       | 2NWgEQRMqf1I   | 32.5689128      | μ=34.866, σ=0.766  | 273
-bee v2.2.1 opt mine            | nDWHLOSfuppD   | 28.6729328      | μ=30.785, σ=0.704  | 275
-optimus_mining                 | 9LRCgr7vNCyA   | 25.5300546      | μ=27.606, σ=0.692  | 291
-c40                            | NZI2p1PahW7K   | 23.5202245      | μ=25.582, σ=0.687  | 334
-v3.3 no min                    | KfldD2XeESrI   | 22.4903574      | μ=24.564, σ=0.691  | 322
-swarm                          | HSrZcROKRb55   | 17.1156945      | μ=19.365, σ=0.750  | 381
+* mine only robot.
+* maximize total halite when convert ship
 
 """
 
@@ -231,39 +217,10 @@ class ShipStrategy:
       ship.task_type = ShipTask.STAY_ON_CELL_TASK
 
   def init_halite_cells(self):
-    MIN_STOP_COLLECTIONG_THRESHOLD = 10
+    MIN_STOP_COLLECTIONG_THRESHOLD = 5
 
     def keep_halite_value(cell):
-      # Collect all halite of a cell during the end phrase.
-      if self.step >= NEAR_ENDING_PHRASE_STEP:
-        return MIN_STOP_COLLECTIONG_THRESHOLD
-
-      # lower_bound = max(self.mean_halite_value * 0.3,
-      # MIN_STOP_COLLECTIONG_THRESHOLD)
-      threshold = MIN_STOP_COLLECTIONG_THRESHOLD
-      # if self.step < BEGINNING_PHRASE_END_STEP:
-      # threshold = max(self.mean_halite_value - 30, MIN_ENEMY_YARD_TO_MY_YARD)
-
-      yard_dist, _ = self.get_nearest_home_yard(cell)
-      if yard_dist <= self.home_grown_cell_dist:
-        plus = max(self.num_ships - 20, 0) * 10
-        # if self.num_ships >= 23 or self.num_shipyards >= 3:
-        # plus += 50
-        # if self.num_ships >= 28 and self.num_shipyards >= 3:
-        # plus += 50
-        threshold = 100 + plus
-        if (BEGINNING_PHRASE_END_STEP < self.step < NEAR_ENDING_PHRASE_STEP and
-            yard_dist <= self.tight_defend_dist() and self.num_ships >= 16):
-          threshold = 200 + plus
-          # if self.num_ships >= 16:
-          # threshold += 50
-          # if self.num_ships >= EXPECT_SHIP_NUM:
-          # threshold += 50
-          # if self.num_ships >= MAX_SHIP_NUM:
-          # threshold = self.dist_to_expected_halite(yard_dist)
-
-      threshold = min(threshold, 400)
-      return threshold
+      return MIN_STOP_COLLECTIONG_THRESHOLD
 
     # Init halite cells
     self.halite_cells = []
@@ -601,9 +558,9 @@ class ShipStrategy:
   def convert_to_shipyard(self):
     """Builds shipyard to maximize the total number of halite covered within
     |home_grown_cell_dist|."""
-    MAX_SHIPYARD_NUM = 5
-    MIN_NEXT_YARD_DIST = 4
-    MAX_NEXT_YARD_DIST = 6
+    MAX_SHIPYARD_NUM = 8
+    MIN_NEXT_YARD_DIST = 3
+    MAX_NEXT_YARD_DIST = 7
 
     # No ship left.
     if not self.num_ships:
@@ -611,11 +568,11 @@ class ShipStrategy:
 
     def max_shipyard_num():
       # Do not spawn too much shipyard at last.
-      if self.num_ships >= 26:
-        return min(3 + max((self.num_ships - 24) // 6, 0), MAX_SHIPYARD_NUM)
-      if self.num_ships >= 25:
+      if self.num_ships >= 19:
+        return min(3 + max((self.num_ships - 16) // 5, 0), MAX_SHIPYARD_NUM)
+      if self.num_ships >= 16:
         return 3
-      if self.num_ships >= 22:
+      if self.num_ships >= 12:
         return 2
       # < 22
       return 1
@@ -656,6 +613,7 @@ class ShipStrategy:
           total_halite += cell.halite
           total_cell += 1
       return total_cell, total_halite
+      # return total_halite
 
     ship_scores = [(score_ship_position(s), s)
                    for s in self.me.ships
@@ -810,11 +768,13 @@ class ShipStrategy:
 
     # Too many ships.
     mx = max_ship_num()
+    print('max ship num:', mx)
     if self.num_ships >= max_ship_num():
+      print('skip')
       return
 
     # No more ships after ending.
-    if self.num_ships >= 3 and self.step >= NEAR_ENDING_PHRASE_STEP:
+    if self.num_ships >= 3 and self.step >= 300:
       return
 
     shipyards = self.me.shipyards
@@ -888,7 +848,7 @@ class ShipStrategy:
       return (expected_halite, current_halite, dist)
 
     def get_coord_range(v):
-      DELTA = 2
+      DELTA = 1
       MARGIN = 2
       if v == 5:
         v_min, v_max = MARGIN, 5 + DELTA
@@ -1077,15 +1037,15 @@ class ShipStrategy:
       self.convert_to_shipyard()
       self.spawn_ships()
 
-      self.bomb_enemy_shipyard()
-      self.attack_enemy_ship()
+      # self.bomb_enemy_shipyard()
+      # self.attack_enemy_ship()
 
       self.final_stage_back_to_shipyard()
       self.optimal_mining()
 
       # print('attack later=', len(list(self.my_idle_ships)))
       # Attack enemy if no task assigned
-      self.attack_enemy_ship(has_budget=False)
+      # self.attack_enemy_ship(has_budget=False)
     else:
       self.convert_first_shipyard()
 
