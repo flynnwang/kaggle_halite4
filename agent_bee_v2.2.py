@@ -2,7 +2,17 @@
 """
 * Use opt mining strategy.
 
+Tournament - ID: g5JSC4, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: 2fmwJR, Name: Halite 4 Dimension
+Status: running | Competitors: 6 | Rank System: trueskill
 
+Total Matches: 339 | Matches Queued: 59
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v1.8                       | sXdRyHTwJeLx   | 30.7544963      | μ=33.020, σ=0.755  | 207
+bee v2.2 opt mine              | 9YxOAvguxfjK   | 28.7013485      | μ=30.857, σ=0.719  | 197
+optimus_mining                 | PNj4vVjPLdCU   | 23.7752558      | μ=25.826, σ=0.684  | 210
+c40                            | 5drf0YZ3v4sq   | 22.7481376      | μ=24.796, σ=0.683  | 221
+v3.3 no min                    | BtuQBa1YocZg   | 20.8065852      | μ=22.882, σ=0.692  | 244
+swarm                          | R7mPuq1EMjiU   | 18.5984661      | μ=20.735, σ=0.712  | 277
 """
 
 import copy

@@ -1,7 +1,21 @@
 #!/usr/bin/env python
 """
-* Use opt mining strategy.
+* Removed unused code.
+* halite_per_turn: add expected enemy halite to value
+* halite_per_turn: add expected enemy halite to value
+* Use halite_per_turn for shipyard selection
 
+Tournament - ID: wqQ09g, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: CH2t0s, Name: Halite 4 Dimension
+Status: running | Competitors: 6 | Rank System: trueskill
+
+Total Matches: 469 | Matches Queued: 55
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v1.8                       | 2NWgEQRMqf1I   | 32.5689128      | μ=34.866, σ=0.766  | 273
+bee v2.2.1 opt mine            | nDWHLOSfuppD   | 28.6729328      | μ=30.785, σ=0.704  | 275
+optimus_mining                 | 9LRCgr7vNCyA   | 25.5300546      | μ=27.606, σ=0.692  | 291
+c40                            | NZI2p1PahW7K   | 23.5202245      | μ=25.582, σ=0.687  | 334
+v3.3 no min                    | KfldD2XeESrI   | 22.4903574      | μ=24.564, σ=0.691  | 322
+swarm                          | HSrZcROKRb55   | 17.1156945      | μ=19.365, σ=0.750  | 381
 
 """
 
@@ -25,8 +39,6 @@ ENDING_PHRASE_STEP = 370
 # If my halite is less than this, do not build ship or shipyard anymore.
 MIN_HALITE_TO_BUILD_SHIPYARD = 1000
 MIN_HALITE_TO_BUILD_SHIP = 1000
-
-FUTURE_RATIO = 0.3
 
 # Controls the number of ships.
 EXPECT_SHIP_NUM = 20
@@ -64,8 +76,22 @@ TURNS_OPTIMAL = np.array(
      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
       1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
 
+
+def optimal_mining_steps(C, H, rt_travel):
+  # How many turns should we plan on mining?
+  # C=carried halite, H=halite in square, rt_travel=steps to square and back to shipyard
+  if C == 0:
+    ch = 0
+  elif H == 0:
+    ch = TURNS_OPTIMAL.shape[0] - 1  # ?
+  else:
+    ch = int(np.log(C / H) * 2.5 + 5.5)
+    ch = np.clip(ch, 0, TURNS_OPTIMAL.shape[0] - 1)
+  rt_travel = int(np.clip(rt_travel, 0, TURNS_OPTIMAL.shape[1] - 1))
+  return TURNS_OPTIMAL[ch, rt_travel]
+
+
 logging.basicConfig(level=logging.INFO)
-# logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
 
@@ -204,20 +230,6 @@ class ShipStrategy:
       ship.next_cell = ship.cell
       ship.task_type = ShipTask.STAY_ON_CELL_TASK
 
-    # init constants
-    global HALITE_GROWTH_BY_DIST
-    if not HALITE_GROWTH_BY_DIST:
-      HALITE_GROWTH_BY_DIST = [
-          self.growth_factor**d for d in range(self.c.size**2 + 1)
-      ]
-
-    global HALITE_RETENSION_BY_DIST
-    if not HALITE_RETENSION_BY_DIST:
-      HALITE_RETENSION_BY_DIST = [
-          self.retension_rate_rate**d for d in range(self.c.size**2 + 1)
-      ]
-    # print(HALITE_GROWTH_BY_DIST, HALITE_RETENSION_BY_DIST)
-
   def init_halite_cells(self):
     MIN_STOP_COLLECTIONG_THRESHOLD = 10
 
@@ -283,14 +295,6 @@ class ShipStrategy:
   @property
   def step(self):
     return self.board.step
-
-  @property
-  def growth_factor(self):
-    return self.board.configuration.regen_rate + 1.0
-
-  @property
-  def retension_rate_rate(self):
-    return 1. - self.c.collect_rate
 
   @property
   def num_ships(self):
@@ -373,141 +377,6 @@ class ShipStrategy:
       if p.halite >= self.max_enemy_halite:
         self.max_enemy_halite = p.halite
         self.max_enemy_id = p.id
-
-  def max_expected_return_cell(self, ship):
-    max_cell = None
-    max_expected_return = 0
-    for cell in self.halite_cells:
-      # Ignore targeted or cell with "little" halite.
-      if cell.is_targetd or cell.halite < cell.keep_halite_value:
-        continue
-
-      # Do not go into enemy shipyard for halite.
-      enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
-      if (enemy_yard and enemy_yard_dist <= 3):
-        ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
-        if (alley_yard and enemy_yard_dist < ally_yard_dist):
-          continue
-        if alley_yard and ally_yard_dist <= self.home_grown_cell_dist:
-          continue
-
-      expected_return = self.compute_expect_halite_return(
-          ship, ship.position, cell)
-      if expected_return > max_expected_return:
-        max_cell = cell
-        max_expected_return = expected_return
-    return max_expected_return, max_cell
-
-  def continue_mine_halite(self):
-    """Ship that stay on halite cell. We're trying to collect more halite from
-    far away cells, but keep some margin on home grown cells."""
-
-    for ship in self.my_idle_ships:
-      _, max_cell = self.max_expected_return_cell(ship)
-      if max_cell and max_cell.position == ship.position:
-        self.assign_task(ship, max_cell, ShipTask.COLLECT_HALITE_TASK)
-
-  def send_ship_to_halite(self):
-    """Ship that goes to halite."""
-    for ship in self.my_idle_ships:
-      _, max_cell = self.max_expected_return_cell(ship)
-      if max_cell:
-        self.assign_task(ship, max_cell, ShipTask.GOTO_HALITE_TASK)
-
-  def send_ship_to_home_yard(self):
-    """Ship goes back home after collected enough halite."""
-
-    # TODO(wangfei): if tracked by enemy, also send back home.
-
-    # NOTE: keep this value somehow bigger to reduce waste of time.
-    # MIN_HALITE_BEFORE_HOME = 150 # 23000
-    # TODO(wangfei): test this value, it's important.
-    MIN_HALITE_BEFORE_HOME = 100
-
-    def return_home_yard_halite_threshold():
-      # This not work, because it limits the ship spawn with initial halite.
-      # if self.step <= BEGINNING_PHRASE_END_STEP:
-      # return 300
-
-      if self.step >= NEAR_ENDING_PHRASE_STEP:
-        return 400
-      # return self.mean_home_halite + 10
-      # return max(self.mean_home_halite, MIN_HALITE_BEFORE_HOME)
-      # return max(self.mean_halite_value + MEAN_HALITE_OFFSET,
-      # MIN_HALITE_BEFORE_HOME)
-      # return (self.mean_halite_value * self.c.collect_rate * 3)
-      # return self.mean_halite_value
-
-      return int(max(self.mean_halite_value, MIN_HALITE_BEFORE_HOME))
-
-    # print('***min_h=', return_home_yard_halite_threshold())
-    for ship in self.my_idle_ships:
-      if ship.halite < return_home_yard_halite_threshold():
-        continue
-
-      _, min_dist_yard = self.get_nearest_home_yard(ship.cell)
-      if min_dist_yard:
-        self.assign_task(ship, min_dist_yard.cell,
-                         ShipTask.RETURN_TO_SHIPYARD_TASK)
-
-  def compute_expect_halite_return(self, ship, position, target_cell):
-    """Position maybe other than ship.position in case of computing moves"""
-    dist = manhattan_dist(position, target_cell.position, self.c.size)
-    if target_cell.ship_id:
-      # Halite will decrease if there is ship.
-      expected_halite = target_cell.halite * HALITE_RETENSION_BY_DIST[dist]
-
-      # Give up if my ship has more halite then enemy.
-      if has_enemy_ship(target_cell, self.me):
-        collectd = target_cell.halite - expected_halite
-        enemy_halite = target_cell.ship.halite + collectd
-        if ship and ship.halite >= enemy_halite:
-          return -1
-    else:
-      # Otherwise, halite will grow.
-      expected_halite = min(target_cell.halite * HALITE_GROWTH_BY_DIST[dist],
-                            self.c.max_cell_halite)
-    return expected_halite / (dist + 1)
-
-  # TODO(wangfei): try this again later.
-  def send_ship_to_halite_v2(self):
-    """Ship that goes to halite."""
-    board_size = self.board.configuration.size
-
-    g = nx.Graph()
-    for ship in self.my_idle_ships:
-      for cell in self.halite_cells:
-        if cell.halite < CELL_START_COLLECTING_HALITE:
-          continue
-
-        cell_dist = manhattan_dist(ship.position, cell.position, board_size)
-        if cell_dist > 10:
-          continue
-
-        wt = self.compute_expect_halite_return(ship, ship.position, cell)
-        if wt < 0:
-          continue
-        g.add_edge(ship.id, cell.position, weight=int(wt * 100))
-
-    matches = nx.algorithms.max_weight_matching(g, weight='weight')
-    for ship_id, cell_pos in matches:
-      # Assume ship id is str.
-      if not isinstance(ship_id, str):
-        ship_id, cell_pos = cell_pos, ship_id
-
-      ship = self.board.ships[ship_id]
-      max_cell = self.board[cell_pos]
-      halite_return = self.compute_expect_halite_return(ship, ship.position,
-                                                        max_cell)
-
-      home_dist, min_dist_yard = self.get_nearest_home_yard(ship.cell)
-      home_return = ship.halite / (home_dist + 1)
-
-      if home_return > halite_return:
-        self.assign_task(ship, min_dist_yard.cell,
-                         ShipTask.RETURN_TO_SHIPYARD_TASK)
-      else:
-        self.assign_task(ship, max_cell, ShipTask.GOTO_HALITE_TASK)
 
   def bomb_enemy_shipyard(self):
     """Having enough farmers, let's send ghost to enemy shipyard."""
@@ -729,18 +598,6 @@ class ShipStrategy:
       if ship_budget <= 0:
         break
 
-  def collision_check(self):
-    ships = [
-        ship for ship in self.me.ships if ship.next_action != ShipAction.CONVERT
-    ]
-    ship_positions = {ship.next_cell.position for ship in ships}
-    if len(ship_positions) != len(ships):
-      print('Total ships', len(self.me.ships), 'step', self.board.step)
-      for ship in self.me.ships:
-        print(ship.id, 'at', ship.position, 'action', ship.next_action,
-              'next_cell', ship.next_cell.position, 'task', ship.task_type)
-    assert len(ship_positions) == len(ships)
-
   def convert_to_shipyard(self):
     """Builds shipyard to maximize the total number of halite covered within
     |home_grown_cell_dist|."""
@@ -852,8 +709,12 @@ class ShipStrategy:
       if ((ship.task_type == ShipTask.GOTO_HALITE_TASK or
            ship.task_type == ShipTask.COLLECT_HALITE_TASK) and
           target_cell.halite > 0):
-        expect_return = self.compute_expect_halite_return(
-            ship, next_position, target_cell)
+        ship_to_poi = dist
+        poi_to_yard, min_yard = self.get_nearest_home_yard(next_cell)
+        if min_yard is None:
+          poi_to_yard = 1
+        expect_return = self.halite_per_turn(ship, target_cell, ship_to_poi,
+                                             poi_to_yard)
         if expect_return < 0:
           return MIN_WEIGHT
         wt += expect_return
@@ -1004,22 +865,6 @@ class ShipStrategy:
     if not self.initial_ship_position:
       ShipStrategy.initial_ship_position = ship.position
 
-    def simulate_initial_shipyard_position(position, max_steps=20):
-      """Simulate returns without enemy for some steps."""
-      ShipStrategy.initial_yard_position = position
-      board = copy.deepcopy(self.board)
-      for i in range(max_steps):
-        strategy = ShipStrategy(board, simulation=True)
-        strategy.execute()  # simulate for one step
-        board = board.next()
-        # strategy = ShipStrategy(board, simulation=False)
-        # print('step=%s (b.step=%s), h=%s, s=%s, y=%s' %
-        # (i, board.step, strategy.me.halite, strategy.num_ships,
-        # strategy.num_shipyards))
-      strategy = ShipStrategy(board, simulation=False)
-      return (strategy.me.halite + strategy.num_ships * 500 +
-              strategy.num_shipyards * 500 - 5000)
-
     def expected_coverted_halite(candidate_cell):
       expected_halite = 0
       current_halite = 0
@@ -1029,24 +874,18 @@ class ShipStrategy:
         if candidate_cell.position == cell.position:
           continue
 
-        dist = manhattan_dist(candidate_cell.position, cell.position,
+        dist = manhattan_dist(cell.position, candidate_cell.position,
                               self.c.size)
+        # TODO(wangfei): try larger value?
         if dist <= self.home_grown_cell_dist and cell.halite > 0:
-          expected_halite += self.compute_expect_halite_return(
-              None, ShipStrategy.initial_ship_position, cell)
+          expected_halite += self.halite_per_turn(None, cell, dist, dist)
           current_halite += cell.halite
           num_halite_cells += 1
 
-      # simulte_halite = simulate_initial_shipyard_position(
       # candidate_cell.position)
-      simulte_halite = 0
-      print(candidate_cell.position, "expexted=",
-            expected_halite, 'current=', current_halite, 'simulate=',
-            int(simulte_halite), 'n=', num_halite_cells)
-      # return score
-      # Use current halite, because it will impact the initial ship building.
-      # return (expected_halite, current_halite)
-      return (simulte_halite, expected_halite, current_halite)
+      print(candidate_cell.position, "expexted=", expected_halite, 'current=',
+            current_halite, 'n=', num_halite_cells)
+      return (expected_halite, current_halite, dist)
 
     def get_coord_range(v):
       DELTA = 2
@@ -1140,54 +979,46 @@ class ShipStrategy:
           'e[%s](s=%s, h=%s, c=%s, mc=%s)' % (o.id, len(o.ships), o.halite,
                                               cargo(o), mean_cargo(o)))
 
+  def halite_per_turn(self,
+                      ship,
+                      poi: Cell,
+                      ship_to_poi,
+                      poi_to_yard,
+                      min_mine=1):
+    """Computes the expected return for mining with optimial steps.
+
+    TODO(wangfei): we could use small panelty for return home dist
+    to mimic the we don't want back home.
+    """
+    carry = ship.halite if ship else 0
+    halite = poi.halite
+    if ship and has_enemy_ship(poi, self.me):
+      # Dist to move to neighour cell of POI.
+      dist = max(0, ship_to_poi - 1)
+
+      # Halite will decrease if there is ship sitting on it.
+      halite_left = poi.halite * HALITE_RETENSION_BY_DIST[dist]
+
+      # Give up if my ship has more halite then enemy.
+      enemy_halite = poi.ship.halite + (poi.halite - halite_left)
+      if ship and ship.halite >= enemy_halite:
+        return -1000
+
+      halite = poi.halite + poi.ship.halite
+    else:
+      # Otherwise, assume halite will grow with or without alley ship.
+      halite = min(poi.halite * HALITE_GROWTH_BY_DIST[ship_to_poi],
+                   self.c.max_cell_halite)
+
+    travel = ship_to_poi + poi_to_yard
+    opt_steps = optimal_mining_steps(carry, halite, travel)
+    if opt_steps < min_mine:
+      opt_steps = min_mine
+    total_halite = carry + (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite
+    return total_halite / (travel + opt_steps)
+
   def optimal_mining(self):
     SHIPYARD_DUPLICATE_NUM = 4
-
-    def optimal_mining_steps(C, H, rt_travel):
-      # How many turns should we plan on mining?
-      # C=carried halite, H=halite in square, rt_travel=steps to square and back to shipyard
-      if C == 0:
-        ch = 0
-      elif H == 0:
-        ch = TURNS_OPTIMAL.shape[0] - 1  # ?
-      else:
-        ch = int(np.log(C / H) * 2.5 + 5.5)
-        ch = np.clip(ch, 0, TURNS_OPTIMAL.shape[0] - 1)
-      rt_travel = int(np.clip(rt_travel, 0, TURNS_OPTIMAL.shape[1] - 1))
-      return TURNS_OPTIMAL[ch, rt_travel]
-
-    def halite_per_turn(ship: Ship,
-                        poi: Cell,
-                        ship_to_poi,
-                        poi_to_yard,
-                        min_mine=1):
-      """Computes the expected return for mining with optimial steps.
-
-      TODO(wangfei): we could use small panelty for return home dist
-      to mimic the we don't want back home.
-      """
-      carry = ship.halite
-      halite = poi.halite
-      if poi.ship_id:
-        # Halite will decrease if there is ship sitting on it.
-        halite = poi.halite * HALITE_RETENSION_BY_DIST[ship_to_poi]
-
-        # Give up if my ship has more halite then enemy.
-        if has_enemy_ship(poi, self.me):
-          enemy_halite = poi.ship.halite + (poi.halite - halite)
-          if ship and ship.halite >= enemy_halite:
-            return -1000
-      else:
-        # Otherwise, halite will grow.
-        halite = min(poi.halite * HALITE_GROWTH_BY_DIST[ship_to_poi],
-                     self.c.max_cell_halite)
-
-      travel = ship_to_poi + poi_to_yard
-      opt_steps = optimal_mining_steps(carry, halite, travel)
-      if opt_steps < min_mine:
-        opt_steps = min_mine
-      total_halite = carry + (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite
-      return total_halite / (travel + opt_steps)
 
     ships = list(self.my_idle_ships)
     halites = [c for c in self.halite_cells if c.halite >= c.keep_halite_value]
@@ -1211,7 +1042,7 @@ class ShipStrategy:
 
         if j < len(halites):
           # If the target is a halite cell, with enemy considered.
-          v = halite_per_turn(ship, poi, ship_to_poi, poi_to_yard)
+          v = self.halite_per_turn(ship, poi, ship_to_poi, poi_to_yard)
         else:
           # If the target is a shipyard.
           if ship_to_poi > 0:
@@ -1251,9 +1082,6 @@ class ShipStrategy:
 
       self.final_stage_back_to_shipyard()
       self.optimal_mining()
-      # self.continue_mine_halite()
-      # self.send_ship_to_home_yard()
-      # self.send_ship_to_halite()
 
       # print('attack later=', len(list(self.my_idle_ships)))
       # Attack enemy if no task assigned
@@ -1267,6 +1095,25 @@ class ShipStrategy:
       self.print_info()
 
 
+def init_globals(board):
+  growth_factor = board.configuration.regen_rate + 1.0
+  retension_rate_rate = 1.0 - board.configuration.collect_rate
+  size = board.configuration.size
+
+  # init constants
+  global HALITE_GROWTH_BY_DIST
+  if not HALITE_GROWTH_BY_DIST:
+    HALITE_GROWTH_BY_DIST = [growth_factor**d for d in range(size**2 + 1)]
+
+  global HALITE_RETENSION_BY_DIST
+  if not HALITE_RETENSION_BY_DIST:
+    HALITE_RETENSION_BY_DIST = [
+        retension_rate_rate**d for d in range(size**2 + 1)
+    ]
+  # print(HALITE_GROWTH_BY_DIST, HALITE_RETENSION_BY_DIST)
+
+
 @board_agent
 def agent(board):
+  init_globals(board)
   ShipStrategy(board).execute()
