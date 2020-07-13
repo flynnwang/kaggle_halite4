@@ -322,6 +322,7 @@ class ShipStrategy:
         if (alley_yard and enemy_yard_dist < ally_yard_dist):
           continue
         if alley_yard and ally_yard_dist <= self.home_grown_cell_dist:
+          # BUG
           continue
 
       expected_return = self.compute_expect_halite_return(
