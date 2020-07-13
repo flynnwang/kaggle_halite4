@@ -455,6 +455,8 @@ class ShipStrategy:
       return ratio
 
     def min_farmer_num():
+      return max(self.num_ships - self.num_shipyards, 0)
+
       # Use all ships for halite collection.
       if (self.step >= NEAR_ENDING_PHRASE_STEP or
           self.step < BEGINNING_PHRASE_END_STEP):
@@ -517,9 +519,9 @@ class ShipStrategy:
           ship_budget -= 1
 
       # Skip attack enemy if not having enough ships.
-      if (self.step < BEGINNING_PHRASE_END_STEP and
-          self.step > NEAR_ENDING_PHRASE_STEP):
-        continue
+      # if (self.step < BEGINNING_PHRASE_END_STEP and
+      # self.step > NEAR_ENDING_PHRASE_STEP):
+      continue
 
       # send destory ship from inner.
       if (ship_budget > 0 and
@@ -1039,7 +1041,7 @@ class ShipStrategy:
       self.spawn_ships()
 
       # self.bomb_enemy_shipyard()
-      # self.attack_enemy_ship()
+      self.attack_enemy_ship()
 
       self.final_stage_back_to_shipyard()
       self.optimal_mining()
