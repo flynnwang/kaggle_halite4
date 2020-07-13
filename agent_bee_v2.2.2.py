@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 * mine only robot.
-* maximize total halite when convert ship
+* maximize number of halite cells when convert ship
 
 """
 

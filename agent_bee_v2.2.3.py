@@ -35,8 +35,6 @@ TIGHT_ENEMY_SHIP_DEFEND_DIST = 5
 LOOSE_ENEMY_SHIP_DEFEND_DIST = 7
 AVOID_COLLIDE_RATIO = 0.6
 
-MEAN_HALITE_OFFSET = 10
-
 # Threshod used to send bomb to enemy shipyard
 MIN_ENEMY_YARD_TO_MY_YARD = 6
 
@@ -49,17 +47,17 @@ POSSIBLE_MOVES = [
 ]
 
 TURNS_OPTIMAL = np.array(
-    [[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8],
-     [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
-     [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7],
-     [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6],
-     [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6],
-     [0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5],
-     [0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4],
-     [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3],
-     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2],
-     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+    [[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7,
+      8], [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7,
+           7], [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7],
+     [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6,
+      6], [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5,
+           6], [0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5],
+     [0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4,
+      4], [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3,
+           3], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2],
+     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
 
 
 def optimal_mining_steps(C, H, rt_travel):
@@ -735,9 +733,8 @@ class ShipStrategy:
           continue
         wt = int(wt * 100)
         g.add_edge(ship.id, next_position, weight=(wt if wt != 0 else -1))
-    matches = nx.algorithms.max_weight_matching(g,
-                                                maxcardinality=True,
-                                                weight='weight')
+    matches = nx.algorithms.max_weight_matching(
+        g, maxcardinality=True, weight='weight')
     assert len(matches) == len(ships)
 
     for ship_id, next_position in matches:
@@ -770,9 +767,7 @@ class ShipStrategy:
 
     # Too many ships.
     mx = max_ship_num()
-    print('max ship num:', mx)
     if self.num_ships >= max_ship_num():
-      print('skip')
       return
 
     # No more ships after ending.
@@ -873,12 +868,11 @@ class ShipStrategy:
         candidate_cells.sort(key=lambda x: x[0], reverse=True)
         value, yard_cell = candidate_cells[0]
         ShipStrategy.initial_yard_position = yard_cell.position
-        print(
-            "Ship initial:", self.initial_ship_position, 'dist=',
-            manhattan_dist(self.initial_ship_position,
-                           self.initial_yard_position, self.c.size),
-            'selected yard position:', self.initial_yard_position, 'value=',
-            value)
+        print("Ship initial:", self.initial_ship_position, 'dist=',
+              manhattan_dist(self.initial_ship_position,
+                             self.initial_yard_position, self.c.size),
+              'selected yard position:', self.initial_yard_position, 'value=',
+              value)
 
     if ship.position == self.initial_yard_position:
       ShipStrategy.initial_shipyard_set = True
@@ -931,16 +925,16 @@ class ShipStrategy:
       return int(cargo(player) / num_ships)
 
     o = sorted(self.board.opponents, key=lambda x: -(len(x.ship_ids)))[0]
-    print(
-        '#', self.board.step, 'h(m=%s, s=%s)' %
-        (int(self.mean_halite_value), int(self.std_halite_value)),
-        'yd=(m=%s, hc=%s)' %
-        (int(self.mean_home_halite), len(self.covered_positions)),
-        'me(s=%s, y=%s, h=%s, c=%s, mc=%s)' %
-        (self.num_ships, len(self.me.shipyard_ids), self.me_halite,
-         cargo(self.me), mean_cargo(self.me)),
-        'e[%s](s=%s, h=%s, c=%s, mc=%s)' %
-        (o.id, len(o.ships), o.halite, cargo(o), mean_cargo(o)))
+    print('#', self.board.step, 'h(m=%s, s=%s)' % (int(self.mean_halite_value),
+                                                   int(self.std_halite_value)),
+          'yd=(m=%s, hc=%s)' % (int(self.mean_home_halite),
+                                len(self.covered_positions)),
+          'me(s=%s, y=%s, h=%s, c=%s, mc=%s)' % (self.num_ships,
+                                                 len(self.me.shipyard_ids),
+                                                 self.me_halite, cargo(self.me),
+                                                 mean_cargo(self.me)),
+          'e[%s](s=%s, h=%s, c=%s, mc=%s)' % (o.id, len(o.ships), o.halite,
+                                              cargo(o), mean_cargo(o)))
 
   def halite_per_turn(self,
                       ship,
