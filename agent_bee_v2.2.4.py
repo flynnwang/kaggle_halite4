@@ -1106,8 +1106,8 @@ class ShipStrategy:
         C[i, j] = v
 
     rows, cols = scipy.optimize.linear_sum_assignment(C, maximize=True)
-    assert len(rows) == len(ships), "ships=%s, halites=%s" % (len(ships),
-                                                              len(halites))
+    # assert len(rows) == len(ships), "ships=%s, halites=%s" % (len(ships),
+    # len(halites))
     for ship_idx, poi_idx in zip(rows, cols):
       ship = ships[ship_idx]
       target_cell = pois[poi_idx]
