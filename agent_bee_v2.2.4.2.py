@@ -13,6 +13,9 @@ optimus_mining                 | 4MPRGptEpuS9   | 23.8096656      | μ=25.879, �
 c40                            | r2o0thBAe4OO   | 22.3334608      | μ=24.409, σ=0.692  | 171
 v3.3 no min                    | No1t3uewcMD4   | 20.2064496      | μ=22.283, σ=0.692  | 210
 swarm                          | eKsW3dEp2fbE   | 14.6525374      | μ=16.934, σ=0.761  | 209
+
+
+
 """
 
 import copy

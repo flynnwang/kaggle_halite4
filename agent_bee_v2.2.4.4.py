@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 """
+* Increase holding of halite within home dist.
+* Ending with keep_halite_value = 10.
+* Use large shipyard duplicate num during ending.
 """
 
 import copy
@@ -229,12 +232,14 @@ class ShipStrategy:
 
     def keep_halite_value(cell):
       threshold = MIN_STOP_COLLECTIONG_THRESHOLD
+      if self.step >= NEAR_ENDING_PHRASE_STEP:
+        return threshold
 
       yard_dist, _ = self.get_nearest_home_yard(cell)
       if yard_dist <= self.home_grown_cell_dist:
-        plus = max(self.num_ships - 20, 0) * 10
-        threshold = 100 + plus
-      threshold = min(300, threshold)
+        plus = max(self.num_ships - 15, 0) * 15
+        threshold = 150 + plus
+      threshold = min(400, threshold)
 
       # Do not go into enemy shipyard for halite.
       enemy_yard_dist, enemy_yard = self.find_nearest_shipyard(
@@ -1047,15 +1052,25 @@ class ShipStrategy:
       if quadrant_num >= MIN_ATTACK_QUADRANT_NUM:
         yield enemy, [ship for _, ship in dist_ships][:max_attack_num]
 
+  def shipyard_duplicate_num(self):
+    if self.num_shipyards == 0:
+      return 0
+
+    SHIPYARD_DUPLICATE_NUM = 5
+    if self.step >= NEAR_ENDING_PHRASE_STEP:
+      ship_per_yard = self.num_ships // self.num_shipyards
+      SHIPYARD_DUPLICATE_NUM = max(5, ship_per_yard) * 2
+    return SHIPYARD_DUPLICATE_NUM
+
   def optimal_mining(self):
-    SHIPYARD_DUPLICATE_NUM = 4
     ATTACK_PER_ENEMY = 6
 
     ships = list(self.my_idle_ships)
     halites = [c for c in self.halite_cells if c.halite >= c.keep_halite_value]
 
     # Shipyards is duplicated to allow multiple ships having a same target.
-    shipyards = [y.cell for y in self.me.shipyards] * SHIPYARD_DUPLICATE_NUM
+    shipyards = ([y.cell for y in self.me.shipyards]
+                 * self.shipyard_duplicate_num())
 
     # Attack enemy.
     enemy_cells = []
@@ -1086,7 +1101,10 @@ class ShipStrategy:
           v = self.halite_per_turn(ship, poi, ship_to_poi, poi_to_yard)
         elif j < len(halites) + len(shipyards):
           # If the target is a shipyard.
-          if ship_to_poi > 0:
+          if self.step >= NEAR_ENDING_PHRASE_STEP:
+            # Use small value for coming home when near ending.
+            v = (ship.halite / 10.0) / (ship_to_poi + 1)
+          elif ship_to_poi > 0:
             v = ship.halite / ship_to_poi
           else:
             # The ship is on a shipyard.

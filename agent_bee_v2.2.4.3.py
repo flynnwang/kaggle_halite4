@@ -1,6 +1,16 @@
 #!/usr/bin/env python
 """
 * When collecting halite, Lower penality for return yard
+
+Tournament - ID: Q4PTI4, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: W0LHrH, Name: Halite 4 Dimension
+Status: running | Competitors: 4 | Rank System: trueskill
+
+Total Matches: 377 | Matches Queued: 55
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v2.2.4.3                   | LwgJABPvj6xy   | 25.3962753      | μ=27.438, σ=0.681  | 377
+bee v1.8                       | 10ntfq3CKMSN   | 25.1828561      | μ=27.224, σ=0.680  | 377
+optimus_mining                 | RY7rcbFuRGAN   | 21.8609768      | μ=23.890, σ=0.676  | 377
+c40                            | gq5ZtB2fa2mT   | 18.9487194      | μ=21.046, σ=0.699  | 377
 """
 
 import copy
