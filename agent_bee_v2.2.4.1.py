@@ -4,6 +4,20 @@ halite_per_turn:
 * Use current halite value when no ship on it
 * -1000 if enemy with with less halite
 
+-=-=-=-=-=-=-=-=-=-=-=-|  Your Halite 4 Trueskill Ladder |-=-=-=-=-=-=-=-=-=-=-=-
+
+Tournament - ID: t8uPQv, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: nU3Byg, Name: Halite 4 Dimension
+Status: running | Competitors: 7 | Rank System: trueskill
+
+Total Matches: 572 | Matches Queued: 58
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v1.8                       | 61fgpgTPMl9V   | 29.9049534      | μ=32.032, σ=0.709  | 263
+bee v2.2.4 attack              | f1NKoInHuloY   | 28.2238038      | μ=30.301, σ=0.692  | 304
+bee v2.2.4.1                   | pR5eEG6XAfKY   | 28.0136128      | μ=30.074, σ=0.687  | 279
+optimus_mining                 | xdAojSbKsiWj   | 25.9457208      | μ=27.991, σ=0.682  | 331
+c40                            | 5ZsvJC3K6CNi   | 24.7707335      | μ=26.817, σ=0.682  | 357
+v3.3 no min                    | 4OlkXQDdwsqE   | 21.7383512      | μ=23.818, σ=0.693  | 371
+swarm                          | psFwrYs71HB7   | 16.2060266      | μ=18.518, σ=0.771  | 383
 """
 
 import copy
@@ -1125,12 +1139,12 @@ class ShipStrategy:
         task_type = ShipTask.DESTORY_ENEMY_TASK_INNER
         enemy = target_cell.ship
 
-        dist = manhattan_dist(ship.position, enemy.position, self.c.size)
-        print(
-            "ship(%s, h=%s, p=%s, q=%s) attack enemy(%s, h=%s, p=%s): dist2=%s"
-            % (ship.id, ship.halite, ship.position,
-               get_quadrant(ship.position - enemy.position), enemy.id,
-               enemy.halite, enemy.position, dist))
+        # dist = manhattan_dist(ship.position, enemy.position, self.c.size)
+        # print(
+        # "ship(%s, h=%s, p=%s, q=%s) attack enemy(%s, h=%s, p=%s): dist2=%s"
+        # % (ship.id, ship.halite, ship.position,
+        # get_quadrant(ship.position - enemy.position), enemy.id,
+        # enemy.halite, enemy.position, dist))
 
       self.assign_task(ship, target_cell, task_type, enemy=enemy)
 
