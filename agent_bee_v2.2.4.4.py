@@ -6,6 +6,13 @@ v2.2.4.4 inc home halite and opt collect at ending
 * Lower weight for returning shipyard during near ending
 * Ending with keep_halite_value = 10.
 * Use large shipyard duplicate num during ending.
+
+Total Matches: 244 | Matches Queued: 56
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v1.8                       | a9Z2L4VsAD4L   | 26.2591870      | μ=28.319, σ=0.687  | 244
+bee v2.2.4.4                   | OSpmWG2UcsUZ   | 25.9205480      | μ=27.981, σ=0.687  | 244
+optimus_mining                 | hpDWMFLDoTkT   | 21.9240923      | μ=23.967, σ=0.681  | 244
+c40                            | MLk53ZAI9YEl   | 17.8802127      | μ=20.030, σ=0.717  | 244
 """
 
 import copy
