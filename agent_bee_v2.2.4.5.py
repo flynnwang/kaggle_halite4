@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 """
-v2.2.4.4 inc home halite and opt collect at ending
+based on v2.2.4.4
 
-* Increase holding of halite within home dist.
-* Lower weight for returning shipyard during near ending
-* Ending with keep_halite_value = 10.
-* Use large shipyard duplicate num during ending.
+* Minor adjust of bomb behaviour (15-0, 25-5, >25-7)
+* convert shipyard dist >= 4
+
 """
 
 import copy
@@ -380,10 +379,10 @@ class ShipStrategy:
 
     def max_bomb_dist():
       # Don't use bomb if ship group is small.
-      if self.num_ships <= 20:
+      if self.num_ships <= 15:
         return 0
 
-      if self.num_ships <= 28:
+      if self.num_ships <= 25:
         return 5
 
       # If having enough money and halite.
@@ -604,7 +603,7 @@ class ShipStrategy:
     """Builds shipyard to maximize the total number of halite covered within
     |home_grown_cell_dist|."""
     MAX_SHIPYARD_NUM = 10
-    MIN_NEXT_YARD_DIST = 3
+    MIN_NEXT_YARD_DIST = 4
     MAX_NEXT_YARD_DIST = 7
 
     # No ship left.
