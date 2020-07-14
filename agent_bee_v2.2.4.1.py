@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """
-* Attack enemy with optimal_mining strategy.
+halite_per_turn:
+* Use current halite value when no ship on it
+* -1000 if enemy with with less halite
 
 """
 
@@ -1007,10 +1009,6 @@ class ShipStrategy:
         return -1000
 
       halite = poi.halite + poi.ship.halite
-    else:
-      # Otherwise, assume halite will grow with or without alley ship.
-      halite = min(poi.halite * HALITE_GROWTH_BY_DIST[ship_to_poi],
-                   self.c.max_cell_halite)
 
     travel = ship_to_poi + poi_to_yard
     opt_steps = optimal_mining_steps(carry, halite, travel)
