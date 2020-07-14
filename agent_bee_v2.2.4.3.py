@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-
+* When collecting halite, Lower penality for return yard
 """
 
 import copy
@@ -1007,7 +1007,8 @@ class ShipStrategy:
 
       halite = poi.halite + poi.ship.halite
 
-    travel = ship_to_poi + poi_to_yard
+    # By dividing 2, it means collecting multiple cell to share return home cost
+    travel = ship_to_poi + (poi_to_yard / 2.0)
     opt_steps = optimal_mining_steps(carry, halite, travel)
     if opt_steps < min_mine:
       opt_steps = min_mine
