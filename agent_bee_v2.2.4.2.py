@@ -1,6 +1,18 @@
 #!/usr/bin/env python
 """
 * Enable attack strategy.
+
+Tournament - ID: 0KHCP2, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: I37Kv8, Name: Halite 4 Dimension
+Status: running | Competitors: 6 | Rank System: trueskill
+
+Total Matches: 271 | Matches Queued: 55
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v1.8                       | sz6nOeFiN93X   | 28.9419580      | μ=31.210, σ=0.756  | 147
+bee v2.2.4.2                   | 3E7FhcT2IOgk   | 25.8016501      | μ=27.914, σ=0.704  | 175
+optimus_mining                 | 4MPRGptEpuS9   | 23.8096656      | μ=25.879, σ=0.690  | 172
+c40                            | r2o0thBAe4OO   | 22.3334608      | μ=24.409, σ=0.692  | 171
+v3.3 no min                    | No1t3uewcMD4   | 20.2064496      | μ=22.283, σ=0.692  | 210
+swarm                          | eKsW3dEp2fbE   | 14.6525374      | μ=16.934, σ=0.761  | 209
 """
 
 import copy
