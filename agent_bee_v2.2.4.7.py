@@ -1,25 +1,8 @@
 #!/usr/bin/env python
 """
-v2.2.4.2 => v2.2.4.6: ending pose optimization + bomb
+v2.2.4.6 => v2.2.4.7: lower wt for return home yard dist.
 
-* Lower weight for returning shipyard during near ending
-* Ending with keep_halite_value = 10.
-* Use large shipyard duplicate num during ending.
-* adjust of bomb distance (15-0, 25-5, >25-7)
-
-Total Matches: 224 | Matches Queued: 56
-Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
-bee v2.2.4.6                   | T6NDPNwcGIQe   | 25.4543689      | μ=27.519, σ=0.688  | 224
-bee v1.8                       | RHtE2PVS2by5   | 24.7777578      | μ=26.819, σ=0.680  | 224
-optimus_mining                 | xaSayugvnW2B   | 21.9134789      | μ=23.950, σ=0.679  | 224
-c40                            | XltAOkESEiKW   | 18.2622860      | μ=20.373, σ=0.704  | 224
-
-Total Matches: 513 | Matches Queued: 55
-Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
-bee v2.2.4.6                   | T6NDPNwcGIQe   | 25.2877953      | μ=27.331, σ=0.681  | 513
-bee v1.8                       | RHtE2PVS2by5   | 23.8942749      | μ=25.908, σ=0.671  | 513
-optimus_mining                 | xaSayugvnW2B   | 22.5930515      | μ=24.615, σ=0.674  | 513
-c40                            | XltAOkESEiKW   | 18.7668743      | μ=20.848, σ=0.694  | 513
+* Lower penality for return yard for collecting halite
 
 """
 
@@ -1029,7 +1012,8 @@ class ShipStrategy:
 
       halite = poi.halite + poi.ship.halite
 
-    travel = ship_to_poi + poi_to_yard
+    # By dividing 2, it means collecting multiple cell to share return home cost
+    travel = ship_to_poi + (poi_to_yard / 2.0)
     opt_steps = optimal_mining_steps(carry, halite, travel)
     if opt_steps < min_mine:
       opt_steps = min_mine
