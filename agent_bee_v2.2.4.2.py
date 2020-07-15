@@ -14,7 +14,25 @@ c40                            | r2o0thBAe4OO   | 22.3334608      | μ=24.409, �
 v3.3 no min                    | No1t3uewcMD4   | 20.2064496      | μ=22.283, σ=0.692  | 210
 swarm                          | eKsW3dEp2fbE   | 14.6525374      | μ=16.934, σ=0.761  | 209
 
+-=-=-=-=-=-=-=-=-=-=-=-|  Your Halite 4 Trueskill Ladder |-=-=-=-=-=-=-=-=-=-=-=-
 
+Tournament - ID: dZeX9X, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: g5gcz5, Name: Halite 4 Dimension
+Status: running | Competitors: 4 | Rank System: trueskill
+
+Total Matches: 321 | Matches Queued: 55
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v1.8                       | 6dljkWoOaR0v   | 26.1151276      | μ=28.154, σ=0.680  | 321
+bee v2.2.4.2                   | VR3pHf9uWga1   | 25.2852147      | μ=27.308, σ=0.674  | 321
+optimus_mining                 | oDOicqEVryOA   | 22.6216376      | μ=24.659, σ=0.679  | 321
+c40                            | KJrYcxCpYot8   | 19.2559207      | μ=21.352, σ=0.699  | 321
+
+
+Total Matches: 635 | Matches Queued: 57
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v2.2.4.2                   | VR3pHf9uWga1   | 25.9226659      | μ=27.964, σ=0.680  | 635
+bee v1.8                       | 6dljkWoOaR0v   | 24.9167023      | μ=26.940, σ=0.674  | 635
+optimus_mining                 | oDOicqEVryOA   | 22.6735072      | μ=24.709, σ=0.678  | 635
+c40                            | KJrYcxCpYot8   | 19.8053938      | μ=21.886, σ=0.693  | 635
 
 """
 
