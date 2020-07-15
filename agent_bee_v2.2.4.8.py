@@ -4,6 +4,15 @@ agent_bee_v2.2.4.3 => agent_bee_v2.2.4.8
 
 * add end phrase optimization with (SHIPYARD_DUPLICATE_NUM=4)
 
+Tournament - ID: YmaAph, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: w0M6pI, Name: Halite 4 Dimension
+Status: running | Competitors: 4 | Rank System: trueskill
+
+Total Matches: 341 | Matches Queued: 55
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v2.2.4.8                   | dTzl6Rabg8P6   | 25.9020677      | μ=27.966, σ=0.688  | 340
+bee v1.8                       | LllbGeed0EnP   | 24.9987474      | μ=27.027, σ=0.676  | 340
+optimus_mining                 | 1tKha3JnGxb7   | 20.7741927      | μ=22.815, σ=0.680  | 340
+c40                            | qFJwxs9OiDBb   | 18.9090808      | μ=21.012, σ=0.701  | 340
 """
 
 import copy
