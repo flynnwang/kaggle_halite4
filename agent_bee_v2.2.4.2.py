@@ -917,8 +917,8 @@ class ShipStrategy:
           num_halite_cells += 1
 
       # candidate_cell.position)
-      print(candidate_cell.position, "expexted=", expected_halite, 'current=',
-            current_halite, 'n=', num_halite_cells)
+      # print(candidate_cell.position, "expexted=", expected_halite, 'current=',
+            # current_halite, 'n=', num_halite_cells)
       return (expected_halite, current_halite, dist)
 
     def get_coord_range(v):
@@ -945,11 +945,11 @@ class ShipStrategy:
         candidate_cells.sort(key=lambda x: x[0], reverse=True)
         value, yard_cell = candidate_cells[0]
         ShipStrategy.initial_yard_position = yard_cell.position
-        print("Ship initial:", self.initial_ship_position, 'dist=',
-              manhattan_dist(self.initial_ship_position,
-                             self.initial_yard_position, self.c.size),
-              'selected yard position:', self.initial_yard_position, 'value=',
-              value)
+        # print("Ship initial:", self.initial_ship_position, 'dist=',
+              # manhattan_dist(self.initial_ship_position,
+                             # self.initial_yard_position, self.c.size),
+              # 'selected yard position:', self.initial_yard_position, 'value=',
+              # value)
 
     if ship.position == self.initial_yard_position:
       ShipStrategy.initial_shipyard_set = True
@@ -989,8 +989,8 @@ class ShipStrategy:
       if yard.next_action:
         continue
       if is_shipyard_in_danger(yard) and self.me_halite >= self.c.spawn_cost:
-        print('spawn for danger: y=', yard.position, 'in_danger=',
-              is_shipyard_in_danger(yard))
+        # print('spawn for danger: y=', yard.position, 'in_danger=',
+              # is_shipyard_in_danger(yard))
         spawn(yard)
 
   def print_info(self):
@@ -1002,16 +1002,16 @@ class ShipStrategy:
       return int(cargo(player) / num_ships)
 
     o = sorted(self.board.opponents, key=lambda x: -(len(x.ship_ids)))[0]
-    print('#', self.board.step, 'h(m=%s, s=%s)' % (int(self.mean_halite_value),
-                                                   int(self.std_halite_value)),
-          'yd=(m=%s, hc=%s)' % (int(self.mean_home_halite),
-                                len(self.covered_positions)),
-          'me(s=%s, y=%s, h=%s, c=%s, mc=%s)' % (self.num_ships,
-                                                 len(self.me.shipyard_ids),
-                                                 self.me_halite, cargo(self.me),
-                                                 mean_cargo(self.me)),
-          'e[%s](s=%s, h=%s, c=%s, mc=%s)' % (o.id, len(o.ships), o.halite,
-                                              cargo(o), mean_cargo(o)))
+    # print('#', self.board.step, 'h(m=%s, s=%s)' % (int(self.mean_halite_value),
+                                                   # int(self.std_halite_value)),
+          # 'yd=(m=%s, hc=%s)' % (int(self.mean_home_halite),
+                                # len(self.covered_positions)),
+          # 'me(s=%s, y=%s, h=%s, c=%s, mc=%s)' % (self.num_ships,
+                                                 # len(self.me.shipyard_ids),
+                                                 # self.me_halite, cargo(self.me),
+                                                 # mean_cargo(self.me)),
+          # 'e[%s](s=%s, h=%s, c=%s, mc=%s)' % (o.id, len(o.ships), o.halite,
+                                              # cargo(o), mean_cargo(o)))
 
   def halite_per_turn(self,
                       ship,
