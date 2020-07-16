@@ -2,6 +2,14 @@
 """
 agent_bee_v2.2.4.9 => agent_bee_v2.2.4.11
 
+Try to be aggresive.
+
+* limit max ship to 25
+* keep_halite_value: home 50/ other=0, no grow.
+* Adjust infinite bomb to account for number of ship.
+* **use halite ratio to build shipyard
+* maximze total expected halite to yard when convert.
+* home_grown_cell_dist = TIGHT_ENEMY_SHIP_DEFEND_DIST
 
 """
 
@@ -28,7 +36,7 @@ MIN_HALITE_TO_BUILD_SHIP = 1000
 
 # Controls the number of ships.
 EXPECT_SHIP_NUM = 20
-MAX_SHIP_NUM = 30
+MAX_SHIP_NUM = 25
 MIN_FARMER_NUM = 9
 
 # Threshold for attack enemy nearby my shipyard
@@ -216,6 +224,7 @@ class ShipStrategy:
     self.board = board
     self.me = board.current_player
     self.cost_halite = 0
+    self.halite_ratio = -1
     self.simulation = simulation
 
     self.init_halite_cells()
@@ -228,7 +237,7 @@ class ShipStrategy:
       ship.task_type = ShipTask.STAY_ON_CELL_TASK
 
   def init_halite_cells(self):
-    MIN_STOP_COLLECTIONG_THRESHOLD = 10
+    MIN_STOP_COLLECTIONG_THRESHOLD = 0
 
     def keep_halite_value(cell):
       threshold = MIN_STOP_COLLECTIONG_THRESHOLD
@@ -238,14 +247,15 @@ class ShipStrategy:
 
       yard_dist, _ = self.get_nearest_home_yard(cell)
       if yard_dist <= self.home_grown_cell_dist:
-        plus = max(self.num_ships - 20, 0) * 10
-        threshold = 100 + plus
+        threshold = 100
+        # plus = max(self.num_ships - 20, 0) * 10
+        # threshold = 100 + plus
       threshold = min(300, threshold)
 
       # Do not go into enemy shipyard for halite.
       enemy_yard_dist, enemy_yard = self.find_nearest_shipyard(
           cell, self.enemy_shipyards)
-      if (enemy_yard and enemy_yard_dist <= 4):
+      if (enemy_yard and enemy_yard_dist <= 5):
         ally_yard_dist, alley_yard = self.find_nearest_shipyard(
             cell, self.me.shipyards)
         if (alley_yard and enemy_yard_dist < ally_yard_dist):
@@ -265,7 +275,7 @@ class ShipStrategy:
     self.covered_positions = set()
     for cell in self.halite_cells:
       min_dist, _ = self.get_nearest_home_yard(cell)
-      if min_dist <= self.tight_defend_dist():
+      if min_dist <= self.home_grown_cell_dist:
         self.covered_positions.add(cell.position)
 
     self.mean_halite_value = 0
@@ -367,26 +377,30 @@ class ShipStrategy:
       self.mean_home_halite = np.mean(home_cells)
 
     self.max_enemy_halite = -1
-    self.max_enemy_id = None
+    self.max_enemy = None
     for p in self.board.opponents:
       if p.halite >= self.max_enemy_halite:
         self.max_enemy_halite = p.halite
-        self.max_enemy_id = p.id
+        self.max_enemy= p
 
   def bomb_enemy_shipyard(self):
     """Having enough farmers, let's send ghost to enemy shipyard."""
+    def estimate_halite(player):
+      h = player.halite
+      s = len(player.ship_ids) * self.c.spawn_cost
+      return h + s
 
     def max_bomb_dist():
       # Don't use bomb if ship group is small.
       if self.num_ships <= 20:
         return 0
 
-      if self.num_ships <= 28:
+      if self.step < NEAR_ENDING_PHRASE_STEP and self.num_ships <= 25 :
         return 5
 
       # If having enough money and halite.
-      if (self.num_ships >= 30 and
-          self.me.halite > self.max_enemy_halite + self.c.spawn_cost * 2):
+      if (estimate_halite(self.me) >
+          estimate_halite(self.max_enemy) + self.c.spawn_cost * 2):
         return 999
 
       # Only attack nearby enemy yard.
@@ -439,7 +453,6 @@ class ShipStrategy:
     return TIGHT_ENEMY_SHIP_DEFEND_DIST
 
   def loose_defend_dist(self):
-    # return self.tight_defend_dist() + 2
     return LOOSE_ENEMY_SHIP_DEFEND_DIST
 
   def shipyard_defend_dist(self):
@@ -448,7 +461,7 @@ class ShipStrategy:
 
   @property
   def home_grown_cell_dist(self):
-    return self.tight_defend_dist() + 1
+    return self.tight_defend_dist()
 
   def dist_to_expected_halite(self, dist):
     """Start collect halite if its halite reach this value."""
@@ -598,27 +611,42 @@ class ShipStrategy:
       if ship_budget <= 0:
         break
 
+
+
   def convert_to_shipyard(self):
     """Builds shipyard to maximize the total number of halite covered within
     |home_grown_cell_dist|."""
     MAX_SHIPYARD_NUM = 10
-    MIN_NEXT_YARD_DIST = 3
-    MAX_NEXT_YARD_DIST = 7
+    MIN_NEXT_YARD_DIST = 6
+    MAX_NEXT_YARD_DIST = 9
+    HALITE_CELL_PER_SHIP = 2 if self.step < BEGINNING_PHRASE_END_STEP else 3.0
 
+    self.halite_ratio = -1
     # No ship left.
     if not self.num_ships:
       return
 
-    def max_shipyard_num():
-      # Do not spawn too much shipyard at last.
-      if self.num_ships >= 19:
-        return min(3 + max((self.num_ships - 16) // 5, 0), MAX_SHIPYARD_NUM)
-      if self.num_ships >= 16:
-        return 3
+    def shipyard_num_by_ship_num():
       if self.num_ships >= 12:
-        return 2
-      # < 22
+        return min(2 + max((self.num_ships - 12) // 6, 0), MAX_SHIPYARD_NUM)
       return 1
+
+    def shipyard_num_by_halite_ratio():
+      num_halite_cells = 0
+      for cell in self.halite_cells:
+        for yard in self.me.shipyards:
+          dist = manhattan_dist(cell.position, yard.position, self.c.size)
+          num_halite_cells += int(dist <= self.home_grown_cell_dist)
+      num_yards = self.num_shipyards
+      halite_ratio = num_halite_cells / (self.num_ships or 1)
+      self.halite_ratio = halite_ratio
+      if halite_ratio < HALITE_CELL_PER_SHIP:
+        num_yards += 1
+        print('more ship: halite cell / ship =', halite_ratio)
+      return num_yards
+
+    def max_shipyard_num():
+      return max(shipyard_num_by_ship_num(), shipyard_num_by_halite_ratio())
 
     # Reach max shipyard num.
     if self.num_shipyards >= max_shipyard_num():
@@ -648,15 +676,17 @@ class ShipStrategy:
       # Maximize the total value of halite cells when converting ship.
       total_halite = 0
       total_cell = 0
+      shipyards = self.me.shipyards + [ship] # Fake ship as shipyard.
       for cell in self.halite_cells:
-        dist = manhattan_dist(ship.position, cell.position, self.c.size)
-        if (dist <= self.tight_defend_dist() and
-            cell.position not in self.covered_positions and
-            cell.position != ship.position):
-          total_halite += cell.halite
+        if cell.position == ship.position:
+          continue
+
+        min_dist, _ = self.find_nearest_shipyard(cell, shipyards)
+        if min_dist <= self.home_grown_cell_dist:
+          total_halite += 100 / min_dist # Use 100 for all cells
           total_cell += 1
-      return total_cell, total_halite
-      # return total_halite
+      # return total_cell, total_halite
+      return total_halite, total_cell
 
     ship_scores = [(score_ship_position(s), s)
                    for s in self.me.ships
@@ -809,7 +839,7 @@ class ShipStrategy:
     ships."""
 
     def max_ship_num():
-      more_ships = max(0, (self.me_halite - 4000) // 1200)
+      more_ships = max(0, (self.me_halite - 3000) // 1000)
       return min(60, MAX_SHIP_NUM + more_ships)
 
     def spawn(yard):
@@ -983,12 +1013,14 @@ class ShipStrategy:
     o = sorted(self.board.opponents, key=lambda x: -(len(x.ship_ids)))[0]
     print('#', self.board.step, 'h(m=%s, s=%s)' % (int(self.mean_halite_value),
                                                    int(self.std_halite_value)),
-          'yd=(m=%s, hc=%s)' % (int(self.mean_home_halite),
-                                len(self.covered_positions)),
+          'yd=(m=%s, hc=%s, hc/s=%.1f)' % (int(self.mean_home_halite),
+                                            len(self.covered_positions),
+                                            self.halite_ratio),
           'me(s=%s, y=%s, h=%s, c=%s, mc=%s)' % (self.num_ships,
-                                                 len(self.me.shipyard_ids),
-                                                 self.me_halite, cargo(self.me),
-                                                 mean_cargo(self.me)),
+                                                           self.num_shipyards,
+                                                           self.me_halite,
+                                                           cargo(self.me),
+                                                           mean_cargo(self.me)),
           'e[%s](s=%s, h=%s, c=%s, mc=%s)' % (o.id, len(o.ships), o.halite,
                                               cargo(o), mean_cargo(o)))
 
