@@ -4,6 +4,12 @@ v2.2.4.9 => v2.2.4.10
 
 * Use lower penality only in initial phrase (S<=40).
 
+Total Matches: 945 | Matches Queued: 55
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v2.2.4.10                  | Or1iJgmJvRqJ   | 26.4665039      | μ=28.525, σ=0.686  | 944
+bee v1.8                       | erGwfVDi9VnO   | 25.4095465      | μ=27.444, σ=0.678  | 944
+optimus_mining                 | HuIOOPVoPnzo   | 22.2186263      | μ=24.247, σ=0.676  | 944
+c40                            | 5L5RGzyWcU0U   | 18.9547053      | μ=21.061, σ=0.702  | 944
 """
 
 import copy
