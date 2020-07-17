@@ -821,14 +821,11 @@ class ShipStrategy:
               'selected yard position:', self.initial_yard_position, 'value=',
               value)
 
+    self.assign_task(ship, self.board[self.initial_yard_position],
+                      ShipTask.INITIAL_SHIPYARD)
     if ship.position == self.initial_yard_position:
-      ShipStrategy.initial_shipyard_set = True
       ship.next_action = ShipAction.CONVERT
-      ship.has_assignment = True
-      ship.cell.is_targetd = True
-    else:
-      self.assign_task(ship, self.board[self.initial_yard_position],
-                       ShipTask.INITIAL_SHIPYARD)
+      ShipStrategy.initial_shipyard_set = True
 
   def spawn_if_shipyard_in_danger(self):
     """Spawn ship if enemy nearby my shipyard and no ship's next_cell on this
@@ -940,6 +937,10 @@ class ShipStrategy:
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
+    # Do not attack enemy during ending.
+    if self.step >= NEAR_ENDING_PHRASE_STEP:
+      return
+
     is_strong  = int(self.num_ships >= 23)
     MAX_ATTACK_DIST = 4 + is_strong
     MIN_ATTACK_QUADRANT_NUM = 3 - is_strong
@@ -985,17 +986,32 @@ class ShipStrategy:
     # Shipyards is duplicated to allow multiple ships having a same target.
     shipyards = [y.cell for y in self.me.shipyards] * shipyard_duplicate_num()
 
+
     # Attack enemy.
     trapped_enemy_ships = list(self.get_trapped_enemy_ships(ATTACK_PER_ENEMY))
     enemy_cells = [e.cell for e, _ in trapped_enemy_ships] * ATTACK_PER_ENEMY
     attack_pairs = {(s.id, e.id)
                     for e, ships in trapped_enemy_ships
                     for s in ships}
-    # Do not attack enemy during ending.
-    if self.step >= NEAR_ENDING_PHRASE_STEP:
-      enemy_cells = []
 
-    pois = halites + shipyards + enemy_cells
+    # Guard shipyard.
+    offended_shipyards = list(self.get_offended_shipyard())
+    offended_cells = [y.cell for y, _ in offended_shipyards]
+    guard_paris = {(s.id, y.id)
+                   for y, ships in offended_shipyards
+                   for s in ships}
+
+    pois = halites + shipyards + enemy_cells + offended_cells
+
+    def is_halite_column(x):
+      return x < len(halites)
+
+    def is_shipyard_column(x):
+      return len(halites) <= x < len(halites) + len(shipyards)
+
+    def is_enemy_column(x):
+      return (len(halites) + len(shipyards) <= x
+              and x < len(halites) + len(shipyards) + len(enemy_cells))
 
     # Value matrix for ship target assginment
     # * row: ships
@@ -1010,23 +1026,30 @@ class ShipStrategy:
         if min_yard is None:
           poi_to_yard = 1
 
-        if j < len(halites):
+        if is_halite_column(j):
           # If the target is a halite cell, with enemy considered.
           v = self.halite_per_turn(ship, poi, ship_to_poi, poi_to_yard)
-        elif j < len(halites) + len(shipyards):
+        elif is_shipyard_column(j):
           # If the target is a shipyard.
           if ship_to_poi > 0:
             v = ship.halite / ship_to_poi
           else:
             # The ship is on a shipyard.
             v = 0
-        else:
-          # attack enemy
+        elif is_enemy_column(j):
+          # If attack enemy
           enemy = poi.ship
           v = -99999  # not exists edge.
           if (ship.id, enemy.id) in attack_pairs:
             # Discount by 0.5
             v = (self.c.spawn_cost + enemy.halite * 0.5) / ship_to_poi
+        else:
+          # If shipyard is offended.
+          yard = poi.shipyard
+          v = -99999
+          if (ship.id, yard.id) in guard_paris:
+            v = (self.c.spawn_cost + self.c.convert_cost) / (ship_to_poi or 1)
+
         C[i, j] = v
 
     rows, cols = scipy.optimize.linear_sum_assignment(C, maximize=True)
@@ -1034,40 +1057,43 @@ class ShipStrategy:
     # len(halites))
     for ship_idx, poi_idx in zip(rows, cols):
       ship = ships[ship_idx]
-      target_cell = pois[poi_idx]
+      poi_cell = pois[poi_idx]
       # print('send ship(id=%s, p=%s, h=%s)' % (ship.id, ship.position,
       # ship.halite),
-      # 'to target_cell(p=%s, h=%s)' % (target_cell.position,
-      # target_cell.halite))
+      # 'to poi_cell(p=%s, h=%s)' % (poi_cell.position,
+      # poi_cell.halite))
       enemy = None
-      if poi_idx < len(halites):
-        if ship.position == target_cell.position:
+      if is_halite_column(poi_idx):
+        if ship.position == poi_cell.position:
           task_type = ShipTask.COLLECT
         else:
           task_type = ShipTask.GOTO_HALITE
-      elif poi_idx < len(halites) + len(shipyards):
+      elif is_shipyard_column(poi_idx):
         task_type = ShipTask.RETURN
-      else:
+      elif is_enemy_column(poi_idx):
         task_type = ShipTask.ATTACK_SHIP
-        enemy = target_cell.ship
+        enemy = poi_cell.ship
+      else:
+        task_type = ShipTask.GUARD_SHIPYARD
+        enemy = poi_cell.shipyard.offend_enemy
+        print('guide task: ', ship.position, poi_cell.position,
+              poi_cell.shipyard.offend_enemy.position)
 
-        # dist = manhattan_dist(ship.position, enemy.position, self.c.size)
-        # print(
-        # "ship(%s, h=%s, p=%s, q=%s) attack enemy(%s, h=%s, p=%s): dist2=%s"
-        # % (ship.id, ship.halite, ship.position,
-        # get_quadrant(ship.position - enemy.position), enemy.id,
-        # enemy.halite, enemy.position, dist))
-
-      self.assign_task(ship, target_cell, task_type, enemy=enemy)
+      self.assign_task(ship, poi_cell, task_type, enemy=enemy)
 
   def manhattan_dist(self, p, q):
     return manhattan_dist(p.position, q.position, self.c.size)
 
-  def guard_shipyard(self):
+  def get_offended_shipyard(self):
+
     def offend_enemy_ships(yard):
+      not_enough_halite_to_spawn = self.me_halite < self.c.spawn_cost
       for enemy in self.enemy_ships:
-        if (enemy.halite < 30
-            and self.manhattan_dist(enemy, yard) <= self.shipyard_defend_dist):
+        if self.manhattan_dist(enemy, yard) > self.shipyard_defend_dist:
+          continue
+
+        # If the enemy has money, then I'll just let me send it for me.
+        if not_enough_halite_to_spawn or enemy.halite == 0:
           yield enemy
 
     def get_defend_ships(yard, enemy, enemy_to_yard_dist):
@@ -1084,12 +1110,15 @@ class ShipStrategy:
                                                 offend_enemy_ships(yard))
       if enemy is None:
         continue
+      # No need guard shipyard if enemy has halite (by turn order, spawn comes
+      # before collision)
+      if yard.next_action == ShipyardAction.SPAWN and enemy.halite > 0:
+        continue
 
-      defend_ships = get_defend_ships(yard, enemy, min_enemy_dist)
-      min_dist, ship = self.find_nearest(yard.cell, defend_ships)
-      if ship:
-        self.assign_task(ship, yard.cell, ShipTask.GUARD_SHIPYARD, enemy)
-        # print('guide task: ', ship.position, yard.position, enemy.position)
+      defend_ships = list(get_defend_ships(yard, enemy, min_enemy_dist))
+      if defend_ships:
+        yard.offend_enemy = enemy
+        yield yard, defend_ships
 
   def execute(self):
     self.collect_game_info()
@@ -1098,7 +1127,6 @@ class ShipStrategy:
       self.convert_to_shipyard()
       self.spawn_ships()
 
-      self.guard_shipyard()
       self.bomb_enemy_shipyard()
 
       self.final_stage_back_to_shipyard()
