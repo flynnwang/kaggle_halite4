@@ -15,6 +15,16 @@ Try to be aggresive.
 * fix bug of attack by quadrants
 
 
+Tournament - ID: 0ZcT3y, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: f2sR1j, Name: Halite 4 Dimension
+Status: running | Competitors: 5 | Rank System: trueskill
+
+Total Matches: 531 | Matches Queued: 56
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v2.2.4.11                  | wH8E01r4tYvt   | 27.3635455      | μ=29.483, σ=0.706  | 389
+bee v1.8                       | fvetwprp6Hyt   | 24.7635262      | μ=26.804, σ=0.680  | 383
+bee v2.2.4.2                   | EmZIUo5DosCg   | 23.7572319      | μ=25.797, σ=0.680  | 400
+optimus_mining                 | 5ZKOFLDYdHex   | 21.2293996      | μ=23.278, σ=0.683  | 428
+c40                            | A6adjCX1WuFt   | 16.4539817      | μ=18.645, σ=0.730  | 524
 """
 
 import copy
