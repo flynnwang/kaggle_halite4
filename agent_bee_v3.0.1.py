@@ -2,6 +2,8 @@
 """
 v3.0 => v3.0.1
 
+* ATTACK_PER_ENEMY: 6 -> 8
+* STOP_COLLECT_HALITE_THRESHOLD: 0 -> 19
 """
 
 import copy
@@ -227,20 +229,16 @@ class ShipStrategy:
       ship.task_type = ShipTask.STAY
 
   def init_halite_cells(self):
-    MIN_STOP_COLLECTIONG_THRESHOLD = 0
+    STOP_COLLECT_HALITE_THRESHOLD = 19
 
     def keep_halite_value(cell):
-      threshold = MIN_STOP_COLLECTIONG_THRESHOLD
-
+      threshold = STOP_COLLECT_HALITE_THRESHOLD
       if self.step >= NEAR_ENDING_PHRASE_STEP:
-        return MIN_STOP_COLLECTIONG_THRESHOLD
+        return threshold
 
       yard_dist, _ = self.get_nearest_home_yard(cell)
       if yard_dist <= self.home_grown_cell_dist:
         threshold = 100
-        # plus = max(self.num_ships - 20, 0) * 10
-        # threshold = 100 + plus
-      threshold = min(300, threshold)
 
       # Do not go into enemy shipyard for halite.
       enemy_yard_dist, enemy_yard = self.find_nearest(cell, self.enemy_shipyards)
@@ -969,7 +967,7 @@ class ShipStrategy:
         yield enemy, [ship for _, ship in dist_ships][:max_attack_num]
 
   def optimal_assigntment(self):
-    ATTACK_PER_ENEMY = 6
+    ATTACK_PER_ENEMY = 8
     SHIPYARD_DUPLICATE_NUM = 6
 
     def shipyard_duplicate_num():
