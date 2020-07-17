@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
-v3.0.3 => v3.1.0
+v3.1.1 <- v3.1.0
 
-* add guard shipyard to optimal assignment
+* Use actual halite weight when convert shipyard.
 """
 
 import copy
@@ -462,7 +462,7 @@ class ShipStrategy:
   def convert_to_shipyard(self):
     """Builds shipyard to maximize the total number of halite covered within
     |home_grown_cell_dist|."""
-    MAX_SHIPYARD_NUM = 10
+    MAX_SHIPYARD_NUM = 16
     MIN_NEXT_YARD_DIST = 6
     MAX_NEXT_YARD_DIST = 9
     HALITE_CELL_PER_SHIP = 2 if self.step < 60 else 3
@@ -537,9 +537,8 @@ class ShipStrategy:
 
         min_dist, _ = self.find_nearest(cell, shipyards)
         if min_dist <= self.home_grown_cell_dist:
-          total_halite += 100 / min_dist # Use 100 for all cells
+          total_halite += cell.halite / min_dist # Use actual halite value.
           total_cell += 1
-      # return total_cell, total_halite
       return total_halite, total_cell
 
     ship_scores = [(score_ship_position(s), s)
