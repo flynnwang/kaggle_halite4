@@ -3,8 +3,6 @@
 v3.0.3 => v3.1.0
 
 * add guard shipyard to optimal assignment
-* ATTACK_PER_ENEMY = 5
-* SHIPYARD_DUPLICATE_NUM = 5
 """
 
 import copy
@@ -974,8 +972,8 @@ class ShipStrategy:
         yield enemy, [ship for _, ship in dist_ships][:max_attack_num]
 
   def optimal_assigntment(self):
-    ATTACK_PER_ENEMY = 5
-    SHIPYARD_DUPLICATE_NUM = 5
+    ATTACK_PER_ENEMY = 6
+    SHIPYARD_DUPLICATE_NUM = 6
 
     def shipyard_duplicate_num():
       if self.step >= NEAR_ENDING_PHRASE_STEP:
