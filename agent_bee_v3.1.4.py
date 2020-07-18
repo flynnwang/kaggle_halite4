@@ -5,6 +5,15 @@ v3.1.4 <- v3.1.3
 * Set a minimum value for halite value: 0.4 of mean home halite
 * Reduce weight poi_to_yard by a factor of 5 for computing expected return.
 
+ournament - ID: ws8wF7, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: yiBGo2, Name: Halite 4 Dimension
+Status: running | Competitors: 5 | Rank System: trueskill
+
+Total Matches: 118 | Matches Queued: 59
+bee v3.1.4                     | Wtg4OQhygV94   | 26.7074921      | μ=28.959, σ=0.750  | 88
+bee v3.0                       | XLbNHSUumA2p   | 26.3611233      | μ=28.591, σ=0.743  | 91
+bee v1.8                       | Hcobx12qc1Pp   | 24.8525964      | μ=26.994, σ=0.714  | 99
+optimus_mining                 | LRkubq4Hb0gc   | 19.7515127      | μ=21.947, σ=0.732  | 98
+c40                            | IZrJWYdiROup   | 18.1227611      | μ=20.395, σ=0.757  | 96
 """
 
 import copy
