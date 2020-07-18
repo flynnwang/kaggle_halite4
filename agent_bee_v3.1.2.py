@@ -1,10 +1,21 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 v3.1.2 <- v3.1.1
 
 * Discount by quadrant.
 * MAX_ATTACK_DIST = 3(<20),4(<27),5(27+)
 * ATTACK_PER_ENEMY = 6
+
+Tournament - ID: sas3e0, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: 9cZ6Yt, Name: Halite 4 Dimension
+Status: running | Competitors: 5 | Rank System: trueskill
+
+Total Matches: 641 | Matches Queued: 56
+bee v3.0                       | Xrj43OPbLYEX   | 26.2443424      | μ=28.321, σ=0.692  | 478
+bee v3.1.2                     | uce115wijeLj   | 24.7602584      | μ=26.809, σ=0.683  | 467
+bee v1.8                       | unUwsxmkut7d   | 24.7259924      | μ=26.771, σ=0.682  | 470
+optimus_mining                 | Li5MJFYLIWkJ   | 19.9582043      | μ=22.019, σ=0.687  | 515
+c40                            | ucT8pI9PNuXY   | 17.9834193      | μ=20.135, σ=0.717  | 630
 """
 
 import copy
