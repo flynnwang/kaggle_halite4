@@ -1,20 +1,10 @@
 #!/usr/bin/env python
 """
-v3.1.1 <- v3.1.0
+v3.1.2 <- v3.1.1
 
-* Use actual halite weight when convert shipyard.
-* ATTACK_PER_ENEMY = 5
-* SHIPYARD_DUPLICATE_NUM = 5
-
-Tournament - ID: mzeKJO, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: 81QjB8, Name: Halite 4 Dimension
-Status: running | Competitors: 5 | Rank System: trueskill
-
-Total Matches: 178 | Matches Queued: 59
-bee v3.0                       | b8b48fA1SJm9   | 26.7642199      | μ=28.908, σ=0.714  | 139
-bee v1.8                       | VACnTTkbobrZ   | 25.4959476      | μ=27.592, σ=0.699  | 136
-bee v3.1.1                     | QiG692R5QtdC   | 24.3771178      | μ=26.483, σ=0.702  | 126
-optimus_mining                 | UWGDiTKKWfEz   | 20.3328768      | μ=22.432, σ=0.700  | 140
-c40                            | VaV4WfhdxChv   | 17.4870404      | μ=19.672, σ=0.728  | 171
+* Discount by quadrant.
+* MAX_ATTACK_DIST = 3(<20),4(<27),5(27+)
+* ATTACK_PER_ENEMY = 6
 """
 
 import copy
@@ -952,9 +942,14 @@ class ShipStrategy:
     if self.step >= NEAR_ENDING_PHRASE_STEP:
       return
 
-    is_strong  = int(self.num_ships >= 23)
-    MAX_ATTACK_DIST = 4 + is_strong
-    MIN_ATTACK_QUADRANT_NUM = 3 - is_strong
+    adjust = 0
+    if self.num_ships >= 20:
+      adjust = 1
+    elif self.num_ships >= 27:
+      adjust = 2
+
+    MAX_ATTACK_DIST = 3 + adjust
+    MIN_ATTACK_QUADRANT_NUM = 3 - min(adjust, 1)
 
     def get_attack_ships(enemy):
       for ship in self.my_idle_ships:
@@ -965,7 +960,7 @@ class ShipStrategy:
     def annotate_by_quadrant(dist_ships, enemy):
       """Sort to make sure at least one ship is selected in each quadrant."""
       quadrants = set()
-      for (dist, ship) in dist_ships:
+      for dist, ship in dist_ships:
         q = get_quadrant(ship.position - enemy.position)
         q_exist = int(q in quadrants)
         quadrants.add(q)
@@ -980,10 +975,12 @@ class ShipStrategy:
           for _, ship in dist_ships
       })
       if quadrant_num >= MIN_ATTACK_QUADRANT_NUM:
-        yield enemy, [ship for _, ship in dist_ships][:max_attack_num]
+        enemy.quadrant_num = quadrant_num
+        enemy.attack_ships = [ship for _, ship in dist_ships][:max_attack_num]
+        yield enemy
 
   def optimal_assigntment(self):
-    ATTACK_PER_ENEMY = 5
+    ATTACK_PER_ENEMY = 6
     SHIPYARD_DUPLICATE_NUM = 5
 
     def shipyard_duplicate_num():
@@ -1000,10 +997,9 @@ class ShipStrategy:
 
     # Attack enemy.
     trapped_enemy_ships = list(self.get_trapped_enemy_ships(ATTACK_PER_ENEMY))
-    enemy_cells = [e.cell for e, _ in trapped_enemy_ships] * ATTACK_PER_ENEMY
+    enemy_cells = [e.cell for e in trapped_enemy_ships] * ATTACK_PER_ENEMY
     attack_pairs = {(s.id, e.id)
-                    for e, ships in trapped_enemy_ships
-                    for s in ships}
+                    for e in trapped_enemy_ships for s in e.attack_ships}
 
     # Guard shipyard.
     offended_shipyards = list(self.get_offended_shipyard())
@@ -1052,8 +1048,9 @@ class ShipStrategy:
           enemy = poi.ship
           v = -99999  # not exists edge.
           if (ship.id, enemy.id) in attack_pairs:
-            # Discount by 0.5
-            v = (self.c.spawn_cost + enemy.halite * 0.5) / ship_to_poi
+            # Discount: 4=0.8, 3=0.6, 2=0.4
+            discount = enemy.quadrant_num * 0.2
+            v = (self.c.spawn_cost + enemy.halite * discount) / ship_to_poi
         else:
           # If shipyard is offended.
           yard = poi.shipyard
