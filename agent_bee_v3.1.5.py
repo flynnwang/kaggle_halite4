@@ -925,7 +925,7 @@ class ShipStrategy:
       opt_steps = min_mine
     total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * poi.halite)
-    return total_halite / (ship_to_poi + opt_steps + travel / 7)
+    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
