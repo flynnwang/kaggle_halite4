@@ -1,26 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-v3.1.3 <- v3.1.2
+v3.1.4 <- v3.1.3
 
-* Fix halite per turn with enemy.
-* Remove poi_to_yard at ending phrase.
-* Reduce guard distance when having enough money.
-* initial MIN_ATTACK_QUADRANT_NUM=4
-# * Build second shipyard earlier.
-# * keep_halite_value min value = 80
-* Final stage margin = 6
-* loose defend when having enough halite.
+* Set a minimum value for halite value: 0.4 of mean
+* Test trigger ship return home action with mean halite: 2 of mean
 
-Tournament - ID: sy7Tws, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: 1SsK5a, Name: Halite 4 Dimension
-Status: running | Competitors: 5 | Rank System: trueskill
-
-Total Matches: 532 | Matches Queued: 55
-bee v3.0                       | LIzqUzeS02fI   | 26.6312610      | μ=28.720, σ=0.696  | 389
-bee v3.1.3                     | hWusMWJOyCLk   | 26.0791913      | μ=28.141, σ=0.687  | 397
-bee v1.8                       | OgYLZfS7UaOT   | 25.0800046      | μ=27.131, σ=0.684  | 397
-optimus_mining                 | 4itbckbs1dxd   | 20.0187406      | μ=22.077, σ=0.686  | 423
-c40                            | UrXwXsUzpBZB   | 17.5832289      | μ=19.721, σ=0.713  | 518
 """
 
 import copy
@@ -47,7 +32,7 @@ MIN_HALITE_TO_BUILD_SHIP = 1000
 
 # Controls the number of ships.
 EXPECT_SHIP_NUM = 22
-MAX_SHIP_NUM = 25
+MAX_SHIP_NUM = 30
 MIN_FARMER_NUM = 9
 
 # Threshold for attack enemy nearby my shipyard
@@ -249,14 +234,14 @@ class ShipStrategy:
     MIN_STOP_COLLECTIONG_THRESHOLD = 30
 
     def keep_halite_value(cell):
-      threshold = MIN_STOP_COLLECTIONG_THRESHOLD
+      threshold = self.mean_halite_value * 0.4
 
       if self.step >= NEAR_ENDING_PHRASE_STEP:
-        return MIN_STOP_COLLECTIONG_THRESHOLD
+        return threshold
 
-      yard_dist, _ = self.get_nearest_home_yard(cell)
-      if yard_dist <= self.home_grown_cell_dist:
-        threshold = 100
+      # yard_dist, _ = self.get_nearest_home_yard(cell)
+      # if yard_dist <= self.home_grown_cell_dist:
+        # threshold = 100
 
       # Do not go into enemy shipyard for halite.
       enemy_yard_dist, enemy_yard = self.find_nearest(cell, self.enemy_shipyards)
@@ -475,7 +460,7 @@ class ShipStrategy:
     MAX_SHIPYARD_NUM = 16
     MIN_NEXT_YARD_DIST = 5
     MAX_NEXT_YARD_DIST = 8
-    HALITE_CELL_PER_SHIP = 2.0 if self.step < 60 else 2.8
+    HALITE_CELL_PER_SHIP = 2.5 if self.step < 60 else 3.5
 
     self.halite_ratio = -1
     # No ship left.
@@ -953,15 +938,15 @@ class ShipStrategy:
       return
 
     adjust = 0
-    if self.num_ships >= 23:
+    if self.num_ships >= 20:
       adjust = 1
-    elif self.num_ships >= 28:
+    elif self.num_ships >= MAX_SHIP_NUM:
       adjust = 2
-    elif self.num_ships >= 40:
+    elif self.num_ships >= 30:
       adjust = 3
 
     MAX_ATTACK_DIST = 3 + adjust
-    MIN_ATTACK_QUADRANT_NUM = 4 - adjust
+    MIN_ATTACK_QUADRANT_NUM = max(4 - adjust, 2)
 
     def get_attack_ships(enemy):
       for ship in self.my_idle_ships:
@@ -1050,11 +1035,15 @@ class ShipStrategy:
           v = self.halite_per_turn(ship, poi, ship_to_poi, poi_to_yard)
         elif is_shipyard_column(j):
           # If the target is a shipyard.
+          factor = (3.5 if self.is_beginning_phrase else 2.0)
           if ship_to_poi > 0:
-            v = ship.halite / ship_to_poi
+            if ship.halite > self.mean_home_halite * factor:
+              v = ship.halite / ship_to_poi
+            else:
+              v = ship.halite / (10.0 * (ship_to_poi + 10))
           else:
             # The ship is on a shipyard.
-            v = 0
+            v = MIN_WEIGHT
         elif is_enemy_column(j):
           # If attack enemy
           enemy = poi.ship
