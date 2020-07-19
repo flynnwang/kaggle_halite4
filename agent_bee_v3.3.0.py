@@ -61,6 +61,9 @@ TURNS_OPTIMAL = np.array(
      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
 
+# cached values
+HALITE_RETENSION_BY_DIST = []
+HALITE_GROWTH_BY_DIST = []
 
 def get_quadrant(p: Point):
   if p.x > 0 and p.y >= 0:
@@ -192,12 +195,100 @@ class ShipTask(Enum):
   GUARD_SHIPYARD = auto()
 
 
-# cached values
-HALITE_RETENSION_BY_DIST = []
-HALITE_GROWTH_BY_DIST = []
+class BoardMixin:
+  """Class with board related method."""
+
+  @property
+  def me(self):
+    return self.board.current_player
+
+  @property
+  def c(self):
+    return self.board.configuration
+
+  @property
+  def step(self):
+    return self.board.step
+
+  @property
+  def num_ships(self):
+    return len(self.me.ship_ids)
+
+  @property
+  def num_shipyards(self):
+    return len(self.me.shipyard_ids)
 
 
-class ShipStrategy:
+class FollowerDetector(BoardMixin):
+
+  # >= 2 is considered as following.
+  FOLLOW_COUNT = 2
+
+  def __init__(self):
+    self.board = None
+    self.ship_index = {}  # Ship id => ship
+    self.follower = {}        # ship_id => follower
+    self.follow_count = Counter()
+
+  def clear(self, ship_id):
+    if ship_id not in self.follower:
+      return
+    del self.follower[ship_id]
+    del self.follow_count[ship_id]
+
+  def add(self, ship_id, follower : Ship):
+    """Note: follower.halite < ship.halite"""
+    prev_follower = self.follower.get(ship_id)
+    if prev_follower is None or prev_follower.id != follower.id:
+      # New follower.
+      self.follow_count[ship_id] = 1
+    else:
+      # Existing follower.
+      self.follow_count[ship_id] += 1
+
+    self.follower[ship_id] = follower
+
+  def update(self, board):
+    """Updates follow info with the latest board state."""
+    self.board = board
+    latest_ship_index = {s.id : s for s in self.me.ships}
+
+    # Check last ship positions for follower.
+    for ship_id, prev_ship in self.ship_index.items():
+      ship = latest_ship_index.get(ship_id)
+      if ship is None:
+        # The ship has gone.
+        self.clear(ship_id)
+        continue
+
+      follower = board[prev_ship.position].ship
+      if follower is None or follower.halite >= ship.halite:
+        # Not a follower.
+        self.clear(ship_id)
+        continue
+
+      assert follower and follower.halite < ship.halite
+      self.add(ship_id, follower)
+
+    # Update with latest ship position.
+    self.ship_index = latest_ship_index
+
+
+  def is_followed(self, ship: Ship):
+    """Returns true if the ship of mine is traced by enemy."""
+    follower = self.follower.get(ship.id)
+    assert not follower or follower.halite < ship.halite
+
+    follow_count = self.follow_count.get(ship.id, 0)
+    return follow_count >= self.FOLLOW_COUNT
+
+  def get_follower(self, ship : Ship):
+    return self.follower.get(ship.id)
+
+
+follower_detector = FollowerDetector()
+
+class ShipStrategy(BoardMixin):
   """Sends every ships to the nearest cell with halite.
 
   cell:
@@ -212,7 +303,6 @@ class ShipStrategy:
 
   def __init__(self, board, simulation=False):
     self.board = board
-    self.me = board.current_player
     self.cost_halite = 0
     self.halite_ratio = -1
     self.num_home_halite_cells = 0
@@ -277,24 +367,8 @@ class ShipStrategy:
       cell.keep_halite_value = keep_halite_value(cell)
 
   @property
-  def c(self):
-    return self.board.configuration
-
-  @property
-  def step(self):
-    return self.board.step
-
-  @property
-  def num_ships(self):
-    return len(self.me.ship_ids)
-
-  @property
   def me_halite(self):
     return self.me.halite - self.cost_halite
-
-  @property
-  def num_shipyards(self):
-    return len(self.me.shipyard_ids)
 
   @property
   def my_idle_ships(self):
@@ -570,10 +644,11 @@ class ShipStrategy:
       target_cell = ship.target_cell
       next_cell = self.board[next_position]
 
-      # If next move to alley SPAWNING shipyard, skip
+      # If a non-followed ship's next move is to alley SPAWNING shipyard, skip
       yard = next_cell.shipyard
       if (yard and yard.player_id == self.me.id and
-          yard.next_action == ShipyardAction.SPAWN):
+          yard.next_action == ShipyardAction.SPAWN
+          and not hasattr(ship, "follower")):
         return MIN_WEIGHT
 
       # If stay at current location, prefer not stay...
@@ -600,6 +675,8 @@ class ShipStrategy:
       # If go back home
       if ship.task_type == ShipTask.RETURN:
         wt += ship.halite / (dist + 1)
+        if hasattr(ship, 'follower'):
+          wt += self.c.spawn_cost
 
       # If goto enemy yard.
       if ship.task_type == ShipTask.ATTACK_SHIPYARD:
@@ -702,7 +779,7 @@ class ShipStrategy:
 
     def spawn_threshold():
       if (self.step <= BEGINNING_PHRASE_END_STEP or
-          self.num_ships <= EXPECT_SHIP_NUM):
+          self.num_ships <= MAX_SHIP_NUM):
         return self.c.spawn_cost
       return MIN_HALITE_TO_BUILD_SHIP
 
@@ -1132,11 +1209,40 @@ class ShipStrategy:
         yard.offend_enemy = enemy
         yield yard, defend_ships
 
+  def send_followed_ship_back_to_shipyard(self):
+    """If a ship is followed by enemy, send it back home."""
+    for ship in self.my_idle_ships:
+      if not follower_detector.is_followed(ship):
+        continue
+
+      _, yard = self.get_nearest_home_yard(ship.cell)
+      if not yard:
+        continue
+
+      ship.follower = follower_detector.get_follower(ship)
+      self.assign_task(ship, yard.cell, ShipTask.RETURN)
+      print('ship(%s) at %s is followed by enemy(%s) at %s by %s times' %
+            (ship.id, ship.position, ship.follower.id, ship.follower.position,
+             follower_detector.follow_count[ship.id]))
+
+  def clear_spawn_ship(self):
+    """Clear ship spawn for ship to return homeyard with follower."""
+
+    def is_my_shipyard_spawning(cell):
+      return (cell.shipyard_id and cell.shipyard.player_id == self.me.id
+              and cell.shipyard.next_action == ShipyardAction.SPAWN)
+
+    for ship in self.me.ships:
+      cell = ship.next_cell
+      if cell and is_my_shipyard_spawning(cell):
+        cell.shipyard.next_action = None
+
   def execute(self):
     self.collect_game_info()
 
     if self.initial_shipyard_set:
       self.convert_to_shipyard()
+      self.send_followed_ship_back_to_shipyard()
       self.spawn_ships()
 
       self.bomb_enemy_shipyard()
@@ -1148,6 +1254,7 @@ class ShipStrategy:
 
     self.compute_ship_moves()
     self.spawn_if_shipyard_in_danger()
+    self.clear_spawn_ship()
     if not self.simulation:
       self.print_info()
 
@@ -1173,4 +1280,5 @@ def init_globals(board):
 @board_agent
 def agent(board):
   init_globals(board)
+  follower_detector.update(board)
   ShipStrategy(board).execute()
