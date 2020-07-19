@@ -2,7 +2,9 @@
 """
 v3.3.0 <- v3.1.5
 
-
+* Add follower detector.
+* remove poi_to_yard from halite_per_turn.
+* Use 7 for margin steps.
 """
 
 import copy
@@ -725,6 +727,7 @@ class ShipStrategy(BoardMixin):
               wt -= (spawn_cost + ship.halite)
       return wt
 
+    # TODO: Really?
     DO_NOT_STAY_TYPES = {
         ShipTask.GOTO_HALITE, ShipTask.RETURN, ShipTask.ATTACK_SHIPYARD
     }
@@ -804,7 +807,7 @@ class ShipStrategy(BoardMixin):
       break
 
   def final_stage_back_to_shipyard(self):
-    MARGIN_STEPS = 6
+    MARGIN_STEPS = 7
     MIN_HALITE_TO_YARD = 10
 
     def ship_and_dist_to_yard():
@@ -1000,7 +1003,11 @@ class ShipStrategy(BoardMixin):
       opt_steps = min_mine
     total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * poi.halite)
-    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
+    # return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
+    return total_halite / (ship_to_poi + opt_steps)
+
+    # total_halite = poi.halite + enemy_carry
+    # return total_halite / (ship_to_poi + 1)
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
@@ -1011,12 +1018,12 @@ class ShipStrategy(BoardMixin):
     adjust = 0
     if self.num_ships >= 20:
       adjust = 1
-    elif self.num_ships >= 23:
+    elif self.num_ships >= 25:
       adjust = 2
-    elif self.num_ships >= 28:
+    elif self.num_ships >= 30:
       adjust = 3
     MAX_ATTACK_DIST = 3 + adjust
-    MIN_ATTACK_QUADRANT_NUM = 3 - int(self.num_ships >= 23)
+    MIN_ATTACK_QUADRANT_NUM = 3 - int(self.num_ships >= 25)
 
     def get_attack_ships(enemy):
       for ship in self.my_idle_ships:
