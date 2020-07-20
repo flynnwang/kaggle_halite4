@@ -1,31 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-v4.0.0 <- v3.3.3
+v4_0_1 <- v4_0_0
 
-* code refactor.
-* fix guard shipyard with multiple enemies at same distance
-* fine tune |keep_halite_value|
-
-Tournament - ID: kDoM7J, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: iIkUNT, Name: Halite 4 Dimension
-Status: running | Competitors: 5 | Rank System: trueskill
-
-Total Matches: 124 | Matches Queued: 58
-bee v4.0                       | aXXEyGBhOpwT   | 29.1055366      | μ=31.448, σ=0.781  | 101
-bee v1.8                       | JSHQDQ1526sN   | 26.0705567      | μ=28.309, σ=0.746  | 91
-bee v3.0                       | q4ortyDt1Tie   | 25.6325078      | μ=27.884, σ=0.751  | 91
-optimus_mining                 | vmXrWLmmBvK5   | 20.1786914      | μ=22.396, σ=0.739  | 104
-c40                            | 6J9ZH7xePVvK   | 16.5628218      | μ=18.942, σ=0.793  | 109
-
-
-Tournament - ID: ijiGIw, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: ZWWBo4, Name: Halite 4 Dimension
-Status: running | Competitors: 5 | Rank System: trueskill
-
-Total Matches: 3711 | Matches Queued: 56
-bee v4.0                       | HkT7vRQ0Kuyr   | 30.0211790      | μ=32.225, σ=0.735  | 2738
-bee v3.0                       | 4UMHs1lR2WUj   | 26.2453348      | μ=28.340, σ=0.698  | 2691
-bee v1.8                       | JCk35wqBndRF   | 25.5281541      | μ=27.594, σ=0.689  | 2750
-optimus_mining                 | ep9GEHUkouCK   | 20.0959455      | μ=22.180, σ=0.695  | 2968
-c40                            | vgs59gWyIrgk   | 17.8232673      | μ=20.002, σ=0.726  | 3697
+* Less aggresive when making attack.
 """
 
 import random
@@ -523,10 +500,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         threshold = max(HOME_GROWN_CELL_MIN_HALITE, threshold)
 
       # Do not go into enemy shipyard for halite.
-      enemy_yard_dist, enemy_yard = self.find_nearest_shipyard(cell,
-                                                      self.enemy_shipyards)
+      enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
       if (enemy_yard and enemy_yard_dist <= 5):
-        ally_yard_dist, alley_yard = self.find_nearest_shipyard(cell, self.me.shipyards)
+        ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
         if (alley_yard and enemy_yard_dist < ally_yard_dist):
           # if the cell is nearer to the enemy yard.
           return 999
@@ -1061,14 +1037,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return
 
     adjust = 0
-    if self.num_ships >= 20:
+    if self.num_ships >= 21:
       adjust = 1
-    elif self.num_ships >= 25:
+    elif self.num_ships >= 27:
       adjust = 2
-    elif self.num_ships >= 30:
+    elif self.num_ships >= 35:
       adjust = 3
     MAX_ATTACK_DIST = 3 + adjust
-    MIN_ATTACK_QUADRANT_NUM = 3 - int(self.num_ships >= 25)
+    MIN_ATTACK_QUADRANT_NUM = 3 - int(self.num_ships >= 35)
 
     def get_attack_ships(enemy):
       for ship in self.my_idle_ships:
