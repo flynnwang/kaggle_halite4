@@ -3,6 +3,16 @@
 v3.3.3 <- v3.3.2
 
 * Use 80 as min halite value.
+
+Tournament - ID: ZHovTN, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: tc3IyL, Name: Halite 4 Dimension
+Status: running | Competitors: 5 | Rank System: trueskill
+
+Total Matches: 189 | Matches Queued: 58
+bee v3.3.3                     | FaqZbfZhfUCq   | 30.7890570      | μ=33.047, σ=0.752  | 147
+bee v3.0                       | Fe4wIAeJ5KgA   | 27.5497724      | μ=29.699, σ=0.716  | 131
+bee v1.8                       | oDU4YamjBbOr   | 25.7441279      | μ=27.839, σ=0.698  | 145
+optimus_mining                 | P52w8USjzyBE   | 21.0108402      | μ=23.126, σ=0.705  | 161
+c40                            | KYguHye1muT6   | 19.2271909      | μ=21.401, σ=0.725  | 172
 """
 
 import copy
@@ -319,18 +329,16 @@ class ShipStrategy(BoardMixin):
       ship.task_type = ShipTask.STAY
 
   def init_halite_cells(self):
+    HOME_GROWN_CELL_MIN_HALITE = 80
+
     def keep_halite_value(cell):
-      # threshold = self.mean_home_halite * 0.74
-      threshold = self.mean_halite_value * 0.74
-      # if self.is_beginning_phrase:
-        # threshold = self.mean_halite_value * 0.74
-
+      threshold = self.mean_halite_value * 0.4
       if self.step >= NEAR_ENDING_PHRASE_STEP:
-        return threshold
+        return 40
 
-      # yard_dist, _ = self.get_nearest_home_yard(cell)
-      # if yard_dist <= self.home_grown_cell_dist:
-      # threshold = 100
+      yard_dist, _ = self.get_nearest_home_yard(cell)
+      if yard_dist <= self.home_grown_cell_dist:
+        threshold = max(HOME_GROWN_CELL_MIN_HALITE, threshold)
 
       # Do not go into enemy shipyard for halite.
       enemy_yard_dist, enemy_yard = self.find_nearest(cell,
@@ -512,16 +520,18 @@ class ShipStrategy(BoardMixin):
       # One bomb at a time
       break
 
+  @property
   def tight_defend_dist(self):
     # return 4 + max((self.num_ships - 15) // 5, 0)
     return TIGHT_ENEMY_SHIP_DEFEND_DIST
 
+  @property
   def loose_defend_dist(self):
     return LOOSE_ENEMY_SHIP_DEFEND_DIST
 
   @property
   def home_grown_cell_dist(self):
-    return self.tight_defend_dist()
+    return self.tight_defend_dist
 
   @property
   def is_beginning_phrase(self):
@@ -954,8 +964,9 @@ class ShipStrategy(BoardMixin):
                       for k, v in items))
 
     print(
-        '#%s' % self.step, 'halite(mean=%s, std=%s)' %
-        (int(self.mean_halite_value), int(self.std_halite_value)),
+        '#%s' % self.step, 'halite(n=%s, mean=%s, std=%s)' %
+        (len(self.halite_cells), int(self.mean_halite_value),
+         int(self.std_halite_value)),
         'home_halite=(d=%s, cover=%.0f%%, n=%s, m=%s, n/s=%.1f)' %
         (self.home_grown_cell_dist, self.num_home_halite_cells /
          len(self.halite_cells) * 100, self.num_home_halite_cells,
