@@ -4,6 +4,17 @@ v4.0.0 <- v3.3.3
 
 * code refactor.
 * fix guard shipyard with multiple enemies at same distance
+* fine tune |keep_halite_value|
+
+Tournament - ID: kDoM7J, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: iIkUNT, Name: Halite 4 Dimension
+Status: running | Competitors: 5 | Rank System: trueskill
+
+Total Matches: 124 | Matches Queued: 58
+bee v4.0                       | aXXEyGBhOpwT   | 29.1055366      | μ=31.448, σ=0.781  | 101
+bee v1.8                       | JSHQDQ1526sN   | 26.0705567      | μ=28.309, σ=0.746  | 91
+bee v3.0                       | q4ortyDt1Tie   | 25.6325078      | μ=27.884, σ=0.751  | 91
+optimus_mining                 | vmXrWLmmBvK5   | 20.1786914      | μ=22.396, σ=0.739  | 104
+c40                            | 6J9ZH7xePVvK   | 16.5628218      | μ=18.942, σ=0.793  | 109
 """
 
 import random
