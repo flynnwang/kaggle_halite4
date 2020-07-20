@@ -3,6 +3,7 @@
 v4.0.0 <- v3.3.3
 
 * code refactor.
+* fix guard shipyard with multiple enemies at same distance
 """
 
 import random
@@ -380,7 +381,6 @@ class InitializeFirstShipyard(StrategyBase):
 
   def __init__(self):
     super().__init__()
-    print('Initizlized InitializeFirstShipyard')
     self.first_shipyard_set = False
     self.initial_yard_position = None
     self.initial_ship_position = None
@@ -492,9 +492,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     HOME_GROWN_CELL_MIN_HALITE = 80
 
     def keep_halite_value(cell):
-      threshold = self.mean_halite_value * 0.4
+      threshold = self.mean_halite_value * 0.74
       if self.step >= NEAR_ENDING_PHRASE_STEP:
-        return 40
+        return min(40, threshold)
 
       yard_dist, _ = self.get_nearest_home_yard(cell)
       if yard_dist <= self.home_grown_cell_dist:
