@@ -280,7 +280,7 @@ class StrategyBase:
   def manhattan_dist(self, p, q):
     return manhattan_dist(p.position, q.position, self.c.size)
 
-  def find_nearest(self, cell: Cell, shipyards):
+  def find_nearest_shipyard(self, cell: Cell, shipyards):
     min_dist = 99999
     min_dist_yard = None
     for y in shipyards:
@@ -292,12 +292,12 @@ class StrategyBase:
 
   def get_nearest_home_yard(self, cell):
     if not hasattr(cell, 'home_yard_info'):
-      cell.home_yard_info = self.find_nearest(cell, self.me.shipyards)
+      cell.home_yard_info = self.find_nearest_shipyard(cell, self.me.shipyards)
     return cell.home_yard_info
 
   def get_nearest_enemy_yard(self, cell):
     if not hasattr(cell, 'enemy_yard_info'):
-      cell.enemy_yard_info = self.find_nearest(cell, self.enemy_shipyards)
+      cell.enemy_yard_info = self.find_nearest_shipyard(cell, self.enemy_shipyards)
     return cell.enemy_yard_info
 
   def update(self, board):
@@ -501,10 +501,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         threshold = max(HOME_GROWN_CELL_MIN_HALITE, threshold)
 
       # Do not go into enemy shipyard for halite.
-      enemy_yard_dist, enemy_yard = self.find_nearest(cell,
+      enemy_yard_dist, enemy_yard = self.find_nearest_shipyard(cell,
                                                       self.enemy_shipyards)
       if (enemy_yard and enemy_yard_dist <= 5):
-        ally_yard_dist, alley_yard = self.find_nearest(cell, self.me.shipyards)
+        ally_yard_dist, alley_yard = self.find_nearest_shipyard(cell, self.me.shipyards)
         if (alley_yard and enemy_yard_dist < ally_yard_dist):
           # if the cell is nearer to the enemy yard.
           return 999
@@ -709,7 +709,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if cell.position == ship.position:
           continue
 
-        min_dist, _ = self.find_nearest(cell, shipyards)
+        min_dist, _ = self.find_nearest_shipyard(cell, shipyards)
         if min_dist <= self.home_grown_cell_dist:
           total_halite += cell.halite / min_dist  # Use actual halite value.
           total_cell += 1
@@ -1227,10 +1227,17 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
               enemy.halite == 0 and ship.halite == 0))):
           yield ship
 
+    def find_nearest_enemy(cell, enemy_ships):
+      enemy_ships = list(enemy_ships)
+      enemy_ships.sort(key=lambda s: (self.manhattan_dist(cell, s), s.halite))
+      for enemy in enemy_ships:
+        return self.manhattan_dist(cell, enemy), enemy
+      return 9999, None
+
     for yard in self.me.shipyards:
       yard.is_in_danger = False
-      min_enemy_dist, enemy = self.find_nearest(yard.cell,
-                                                offend_enemy_ships(yard))
+      min_enemy_dist, enemy = find_nearest_enemy(yard.cell,
+                                                 offend_enemy_ships(yard))
       if enemy is None:
         continue
       # No need guard shipyard if enemy has halite (by turn order, spawn comes
