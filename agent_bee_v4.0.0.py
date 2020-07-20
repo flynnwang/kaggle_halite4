@@ -5,7 +5,6 @@ v4.0.0 <- v3.3.3
 * code refactor.
 """
 
-import copy
 import random
 import timeit
 import logging
@@ -16,6 +15,9 @@ import networkx as nx
 import numpy as np
 import scipy.optimize
 from kaggle_environments.envs.halite.helpers import *
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 MIN_WEIGHT = -99999
 
@@ -28,9 +30,7 @@ MIN_HALITE_TO_BUILD_SHIPYARD = 1000
 MIN_HALITE_TO_BUILD_SHIP = 1000
 
 # Controls the number of ships.
-EXPECT_SHIP_NUM = 22
 MAX_SHIP_NUM = 30
-MIN_FARMER_NUM = 9
 
 # Threshold for attack enemy nearby my shipyard
 TIGHT_ENEMY_SHIP_DEFEND_DIST = 5
@@ -65,6 +65,7 @@ TURNS_OPTIMAL = np.array(
 HALITE_RETENSION_BY_DIST = []
 HALITE_GROWTH_BY_DIST = []
 
+
 def get_quadrant(p: Point):
   if p.x > 0 and p.y >= 0:
     return 1
@@ -90,10 +91,6 @@ def optimal_mining_steps(C, H, rt_travel):
     ch = np.clip(ch, 0, TURNS_OPTIMAL.shape[0] - 1)
   rt_travel = int(np.clip(rt_travel, 0, TURNS_OPTIMAL.shape[1] - 1))
   return TURNS_OPTIMAL[ch, rt_travel]
-
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class Timer:
@@ -166,6 +163,22 @@ def get_neighbor_cells(cell, include_self=False):
   return neighbor_cells
 
 
+def init_globals(board):
+  growth_factor = board.configuration.regen_rate + 1.0
+  retension_rate_rate = 1.0 - board.configuration.collect_rate
+  size = board.configuration.size
+
+  global HALITE_GROWTH_BY_DIST
+  if not HALITE_GROWTH_BY_DIST:
+    HALITE_GROWTH_BY_DIST = [growth_factor**d for d in range(size**2 + 1)]
+
+  global HALITE_RETENSION_BY_DIST
+  if not HALITE_RETENSION_BY_DIST:
+    HALITE_RETENSION_BY_DIST = [
+        retension_rate_rate**d for d in range(size**2 + 1)
+    ]
+
+
 class ShipTask(Enum):
 
   UNKNOWN_TASK = auto()
@@ -195,7 +208,7 @@ class ShipTask(Enum):
   GUARD_SHIPYARD = auto()
 
 
-class BoardMixin:
+class StrategyBase:
   """Class with board related method."""
 
   @property
@@ -218,8 +231,86 @@ class BoardMixin:
   def num_shipyards(self):
     return len(self.me.shipyard_ids)
 
+  @property
+  def tight_defend_dist(self):
+    # return 4 + max((self.num_ships - 15) // 5, 0)
+    return TIGHT_ENEMY_SHIP_DEFEND_DIST
 
-class FollowerDetector(BoardMixin):
+  @property
+  def loose_defend_dist(self):
+    return LOOSE_ENEMY_SHIP_DEFEND_DIST
+
+  @property
+  def home_grown_cell_dist(self):
+    return self.tight_defend_dist
+
+  @property
+  def is_beginning_phrase(self):
+    return self.step <= BEGINNING_PHRASE_END_STEP
+
+  @property
+  def my_idle_ships(self):
+    """All ships without task assignment."""
+    for ship in self.me.ships:
+      if ship.next_action or ship.has_assignment:
+        continue
+      yield ship
+
+  @property
+  def enemy_shipyards(self):
+    for e in self.board.opponents:
+      for y in e.shipyards:
+        yield y
+
+  @property
+  def enemy_ships(self):
+    for e in self.board.opponents:
+      for s in e.ships:
+        yield s
+
+  @staticmethod
+  def assign_task(ship, target_cell: Cell, task_type: ShipTask, enemy=None):
+    """Add a task to a ship."""
+    ship.has_assignment = True
+    ship.target_cell = target_cell
+    ship.task_type = task_type
+    ship.target_cell.is_targetd = True
+    ship.target_enemy = enemy
+
+  def manhattan_dist(self, p, q):
+    return manhattan_dist(p.position, q.position, self.c.size)
+
+  def find_nearest(self, cell: Cell, shipyards):
+    min_dist = 99999
+    min_dist_yard = None
+    for y in shipyards:
+      d = self.manhattan_dist(cell, y)
+      if d < min_dist:
+        min_dist = d
+        min_dist_yard = y
+    return min_dist, min_dist_yard
+
+  def get_nearest_home_yard(self, cell):
+    if not hasattr(cell, 'home_yard_info'):
+      cell.home_yard_info = self.find_nearest(cell, self.me.shipyards)
+    return cell.home_yard_info
+
+  def get_nearest_enemy_yard(self, cell):
+    if not hasattr(cell, 'enemy_yard_info'):
+      cell.enemy_yard_info = self.find_nearest(cell, self.enemy_shipyards)
+    return cell.enemy_yard_info
+
+  def update(self, board):
+    self.board = board
+
+  def execute(self):
+    pass
+
+  def __call__(self):
+    self.execute()
+
+
+class FollowerDetector(StrategyBase):
 
   # >= 2 is considered as following.
   FOLLOW_COUNT = 2
@@ -227,7 +318,7 @@ class FollowerDetector(BoardMixin):
   def __init__(self):
     self.board = None
     self.ship_index = {}  # Ship id => ship
-    self.follower = {}        # ship_id => follower
+    self.follower = {}  # ship_id => follower
     self.follow_count = Counter()
 
   def clear(self, ship_id):
@@ -236,7 +327,7 @@ class FollowerDetector(BoardMixin):
     del self.follower[ship_id]
     del self.follow_count[ship_id]
 
-  def add(self, ship_id, follower : Ship):
+  def add(self, ship_id, follower: Ship):
     """Note: follower.halite < ship.halite"""
     prev_follower = self.follower.get(ship_id)
     if prev_follower is None or prev_follower.id != follower.id:
@@ -251,7 +342,7 @@ class FollowerDetector(BoardMixin):
   def update(self, board):
     """Updates follow info with the latest board state."""
     self.board = board
-    latest_ship_index = {s.id : s for s in self.me.ships}
+    latest_ship_index = {s.id: s for s in self.me.ships}
 
     # Check last ship positions for follower.
     for ship_id, prev_ship in self.ship_index.items():
@@ -273,7 +364,6 @@ class FollowerDetector(BoardMixin):
     # Update with latest ship position.
     self.ship_index = latest_ship_index
 
-
   def is_followed(self, ship: Ship):
     """Returns true if the ship of mine is traced by enemy."""
     follower = self.follower.get(ship.id)
@@ -282,13 +372,83 @@ class FollowerDetector(BoardMixin):
     follow_count = self.follow_count.get(ship.id, 0)
     return follow_count >= self.FOLLOW_COUNT
 
-  def get_follower(self, ship : Ship):
+  def get_follower(self, ship: Ship):
     return self.follower.get(ship.id)
 
 
-follower_detector = FollowerDetector()
+class InitializeFirstShipyard(StrategyBase):
 
-class ShipStrategy(BoardMixin):
+  def __init__(self):
+    super().__init__()
+    print('Initizlized InitializeFirstShipyard')
+    self.first_shipyard_set = False
+    self.initial_yard_position = None
+    self.initial_ship_position = None
+
+  def estimate_cell_halite(self, candidate_cell):
+    expected_halite = 0
+    current_halite = 0
+    num_halite_cells = 0
+    for cell in self.halite_cells:
+      # shipyard will destory the halite under it.
+      if candidate_cell.position == cell.position:
+        continue
+
+      dist = self.manhattan_dist(cell, candidate_cell)
+      # TODO(wangfei): try larger value?
+      if dist <= self.home_grown_cell_dist and cell.halite > 0:
+        expected_halite += self.halite_per_turn(None, cell, dist, dist)
+        current_halite += cell.halite
+        num_halite_cells += 1
+    return expected_halite, current_halite, dist
+
+  def select_initial_cell(self):
+
+    def get_coord_range(v):
+      DELTA = 1
+      MARGIN = 4
+      if v == 5:
+        v_min, v_max = MARGIN, 5 + DELTA
+      else:
+        v_min, v_max = 15 - DELTA, 20 - MARGIN
+      return v_min, v_max
+
+    position = self.initial_ship_position
+    x_min, x_max = get_coord_range(position.x)
+    y_min, y_max = get_coord_range(position.y)
+    for cell in self.board.cells.values():
+      position = cell.position
+      if (x_min <= position.x <= x_max and y_min <= position.y <= y_max):
+        yield self.estimate_cell_halite(cell), cell
+
+  def convert_first_shipyard(self):
+    """Strategy for convert the first shipyard."""
+    assert self.num_ships == 1, self.num_ships
+
+    ship = self.me.ships[0]
+    if not self.initial_ship_position:
+      self.initial_ship_position = ship.position
+
+      candidate_cells = list(self.select_initial_cell())
+      if candidate_cells:
+        candidate_cells.sort(key=lambda x: x[0], reverse=True)
+        value, yard_cell = candidate_cells[0]
+        self.initial_yard_position = yard_cell.position
+        print(
+            "Ship initial:", self.initial_ship_position, 'dist=',
+            manhattan_dist(self.initial_ship_position,
+                           self.initial_yard_position, self.c.size),
+            'selected yard position:', self.initial_yard_position, 'value=',
+            value)
+
+    self.assign_task(ship, self.board[self.initial_yard_position],
+                     ShipTask.INITIAL_SHIPYARD)
+    if ship.position == self.initial_yard_position:
+      ship.next_action = ShipAction.CONVERT
+      self.first_shipyard_set = True
+
+
+class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   """Sends every ships to the nearest cell with halite.
 
   cell:
@@ -301,14 +461,22 @@ class ShipStrategy(BoardMixin):
     |task_type|: used to rank ship for moves.
   """
 
-  def __init__(self, board, simulation=False):
+  def __init__(self, simulation=False):
+    super().__init__()
+    self.board = None
+    self.simulation = simulation
+    self.follower_detector = FollowerDetector()
+
+  def update(self, board):
+    """Updates board state at each step."""
+    if self.board is None:
+      init_globals(board)
+
     self.board = board
     self.cost_halite = 0
     self.halite_ratio = -1
     self.num_home_halite_cells = 0
     self.mean_home_halite = 100
-    self.simulation = simulation
-
     self.init_halite_cells()
 
     # Default ship to stay on the same cell without assignment.
@@ -317,6 +485,8 @@ class ShipStrategy(BoardMixin):
       ship.target_cell = ship.cell
       ship.next_cell = ship.cell
       ship.task_type = ShipTask.STAY
+
+    self.follower_detector.update(board)
 
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
@@ -367,55 +537,6 @@ class ShipStrategy(BoardMixin):
   @property
   def me_halite(self):
     return self.me.halite - self.cost_halite
-
-  @property
-  def my_idle_ships(self):
-    """All ships without task assignment."""
-    for ship in self.me.ships:
-      if ship.next_action or ship.has_assignment:
-        continue
-      yield ship
-
-  @property
-  def enemy_shipyards(self):
-    for e in self.board.opponents:
-      for y in e.shipyards:
-        yield y
-
-  @property
-  def enemy_ships(self):
-    for e in self.board.opponents:
-      for s in e.ships:
-        yield s
-
-  @staticmethod
-  def assign_task(ship, target_cell: Cell, task_type: ShipTask, enemy=None):
-    """Add a task to a ship."""
-    ship.has_assignment = True
-    ship.target_cell = target_cell
-    ship.task_type = task_type
-    ship.target_cell.is_targetd = True
-    ship.target_enemy = enemy
-
-  def find_nearest(self, cell: Cell, shipyards):
-    min_dist = 99999
-    min_dist_yard = None
-    for y in shipyards:
-      d = manhattan_dist(cell.position, y.position, self.c.size)
-      if d < min_dist:
-        min_dist = d
-        min_dist_yard = y
-    return min_dist, min_dist_yard
-
-  def get_nearest_home_yard(self, cell):
-    if not hasattr(cell, 'home_yard_info'):
-      cell.home_yard_info = self.find_nearest(cell, self.me.shipyards)
-    return cell.home_yard_info
-
-  def get_nearest_enemy_yard(self, cell):
-    if not hasattr(cell, 'enemy_yard_info'):
-      cell.enemy_yard_info = self.find_nearest(cell, self.enemy_shipyards)
-    return cell.enemy_yard_info
 
   def collect_game_info(self):
 
@@ -471,7 +592,7 @@ class ShipStrategy(BoardMixin):
 
     def is_near_my_shipyard(enemy_yard):
       for yard in self.me.shipyards:
-        dist = manhattan_dist(yard.position, enemy_yard.position, self.c.size)
+        dist = self.manhattan_dist(yard, enemy_yard)
         if dist <= max_bomb_dist():
           return True
       return False
@@ -491,7 +612,7 @@ class ShipStrategy(BoardMixin):
         # Don't send halite to enemy.
         if ship.halite > 0:
           continue
-        dist = manhattan_dist(enemy_yard.position, ship.position, self.c.size)
+        dist = self.manhattan_dist(enemy_yard, ship)
         if dist < min_dist:
           min_dist = dist
           bomb_ship = ship
@@ -509,23 +630,6 @@ class ShipStrategy(BoardMixin):
 
       # One bomb at a time
       break
-
-  @property
-  def tight_defend_dist(self):
-    # return 4 + max((self.num_ships - 15) // 5, 0)
-    return TIGHT_ENEMY_SHIP_DEFEND_DIST
-
-  @property
-  def loose_defend_dist(self):
-    return LOOSE_ENEMY_SHIP_DEFEND_DIST
-
-  @property
-  def home_grown_cell_dist(self):
-    return self.tight_defend_dist
-
-  @property
-  def is_beginning_phrase(self):
-    return self.step <= BEGINNING_PHRASE_END_STEP
 
   def convert_to_shipyard(self):
     """Builds shipyard to maximize the total number of halite covered within
@@ -647,14 +751,13 @@ class ShipStrategy(BoardMixin):
       # If a non-followed ship's next move is to alley SPAWNING shipyard, skip
       yard = next_cell.shipyard
       if (yard and yard.player_id == self.me.id and
-          yard.next_action == ShipyardAction.SPAWN
-          and not hasattr(ship, "follower")):
+          yard.next_action == ShipyardAction.SPAWN and
+          not hasattr(ship, "follower")):
         return MIN_WEIGHT
 
       # If stay at current location, prefer not stay...
       dist = manhattan_dist(next_position, target_cell.position, self.c.size)
-      ship_dist = manhattan_dist(ship.position, target_cell.position,
-                                 self.c.size)
+      ship_dist = self.manhattan_dist(ship, target_cell)
       wt = ship_dist - dist
       if (ship.task_type == ShipTask.STAY and ship.position == next_position):
         wt -= 10
@@ -814,7 +917,7 @@ class ShipStrategy(BoardMixin):
           continue
         _, yard = self.get_nearest_home_yard(ship.cell)
         if yard:
-          dist = manhattan_dist(ship.position, yard.position, self.c.size)
+          dist = self.manhattan_dist(ship, yard)
           yield dist, ship, yard
 
     if not self.me.shipyard_ids:
@@ -827,77 +930,6 @@ class ShipStrategy(BoardMixin):
     for min_dist, ship, min_dist_yard in ship_dists:
       if self.step + min_dist + MARGIN_STEPS > self.c.episode_steps:
         self.assign_task(ship, min_dist_yard.cell, ShipTask.RETURN)
-
-  initial_shipyard_set = False
-  initial_yard_position = None
-  initial_ship_position = None
-
-  def convert_first_shipyard(self):
-    """Strategy for convert the first shipyard."""
-    assert self.num_ships == 1, self.num_ships
-
-    ship = self.me.ships[0]
-    if not self.initial_ship_position:
-      ShipStrategy.initial_ship_position = ship.position
-
-    def expected_coverted_halite(candidate_cell):
-      expected_halite = 0
-      current_halite = 0
-      num_halite_cells = 0
-      for cell in self.halite_cells:
-        # shipyard will destory the halite under it.
-        if candidate_cell.position == cell.position:
-          continue
-
-        dist = manhattan_dist(cell.position, candidate_cell.position,
-                              self.c.size)
-        # TODO(wangfei): try larger value?
-        if dist <= self.home_grown_cell_dist and cell.halite > 0:
-          expected_halite += self.halite_per_turn(None, cell, dist, dist)
-          current_halite += cell.halite
-          num_halite_cells += 1
-
-      # candidate_cell.position)
-      print(candidate_cell.position, "expexted=", expected_halite, 'current=',
-            current_halite, 'n=', num_halite_cells)
-      return (expected_halite, current_halite, dist)
-
-    def get_coord_range(v):
-      DELTA = 1
-      MARGIN = 4
-      if v == 5:
-        v_min, v_max = MARGIN, 5 + DELTA
-      else:
-        v_min, v_max = 15 - DELTA, 20 - MARGIN
-      return v_min, v_max
-
-    def select_initial_cell():
-      position = ship.position
-      x_min, x_max = get_coord_range(position.x)
-      y_min, y_max = get_coord_range(position.y)
-      for cell in self.board.cells.values():
-        cell_pos = cell.position
-        if (x_min <= cell_pos.x <= x_max and y_min <= cell_pos.y <= y_max):
-          yield expected_coverted_halite(cell), cell
-
-    if not self.initial_yard_position:
-      candidate_cells = list(select_initial_cell())
-      if candidate_cells:
-        candidate_cells.sort(key=lambda x: x[0], reverse=True)
-        value, yard_cell = candidate_cells[0]
-        ShipStrategy.initial_yard_position = yard_cell.position
-        print(
-            "Ship initial:", self.initial_ship_position, 'dist=',
-            manhattan_dist(self.initial_ship_position,
-                           self.initial_yard_position, self.c.size),
-            'selected yard position:', self.initial_yard_position, 'value=',
-            value)
-
-    self.assign_task(ship, self.board[self.initial_yard_position],
-                     ShipTask.INITIAL_SHIPYARD)
-    if ship.position == self.initial_yard_position:
-      ship.next_action = ShipAction.CONVERT
-      ShipStrategy.initial_shipyard_set = True
 
   def spawn_if_shipyard_in_danger(self):
     """Spawn ship if enemy nearby my shipyard and no ship's next_cell on this
@@ -955,8 +987,8 @@ class ShipStrategy(BoardMixin):
 
     print(
         '#%s' % self.step, 'halite(n=%s, mean=%s, std=%s)' %
-        (len(self.halite_cells), int(self.mean_halite_value),
-         int(self.std_halite_value)),
+        (len(self.halite_cells), int(
+            self.mean_halite_value), int(self.std_halite_value)),
         'home_halite=(d=%s, cover=%.0f%%, n=%s, m=%s, n/s=%.1f)' %
         (self.home_grown_cell_dist, self.num_home_halite_cells /
          len(self.halite_cells) * 100, self.num_home_halite_cells,
@@ -1026,7 +1058,7 @@ class ShipStrategy(BoardMixin):
 
     def get_attack_ships(enemy):
       for ship in self.my_idle_ships:
-        dist = manhattan_dist(ship.position, enemy.position, self.c.size)
+        dist = self.manhattan_dist(ship, enemy)
         if dist <= MAX_ATTACK_DIST and ship.halite < enemy.halite:
           yield dist, ship
 
@@ -1164,9 +1196,6 @@ class ShipStrategy(BoardMixin):
 
       self.assign_task(ship, poi_cell, task_type, enemy=enemy)
 
-  def manhattan_dist(self, p, q):
-    return manhattan_dist(p.position, q.position, self.c.size)
-
   def get_offended_shipyard(self):
     """Guard shipyard."""
 
@@ -1218,25 +1247,25 @@ class ShipStrategy(BoardMixin):
   def send_followed_ship_back_to_shipyard(self):
     """If a ship is followed by enemy, send it back home."""
     for ship in self.my_idle_ships:
-      if not follower_detector.is_followed(ship):
+      if not self.follower_detector.is_followed(ship):
         continue
 
       _, yard = self.get_nearest_home_yard(ship.cell)
       if not yard:
         continue
 
-      ship.follower = follower_detector.get_follower(ship)
+      ship.follower = self.follower_detector.get_follower(ship)
       self.assign_task(ship, yard.cell, ShipTask.RETURN)
       print('ship(%s) at %s is followed by enemy(%s) at %s by %s times' %
             (ship.id, ship.position, ship.follower.id, ship.follower.position,
-             follower_detector.follow_count[ship.id]))
+             self.follower_detector.follow_count[ship.id]))
 
   def clear_spawn_ship(self):
     """Clear ship spawn for ship to return homeyard with follower."""
 
     def is_my_shipyard_spawning(cell):
-      return (cell.shipyard_id and cell.shipyard.player_id == self.me.id
-              and cell.shipyard.next_action == ShipyardAction.SPAWN)
+      return (cell.shipyard_id and cell.shipyard.player_id == self.me.id and
+              cell.shipyard.next_action == ShipyardAction.SPAWN)
 
     for ship in self.me.ships:
       cell = ship.next_cell
@@ -1246,7 +1275,7 @@ class ShipStrategy(BoardMixin):
   def execute(self):
     self.collect_game_info()
 
-    if self.initial_shipyard_set:
+    if self.first_shipyard_set:
       self.convert_to_shipyard()
       self.send_followed_ship_back_to_shipyard()
       self.spawn_ships()
@@ -1265,26 +1294,10 @@ class ShipStrategy(BoardMixin):
       self.print_info()
 
 
-def init_globals(board):
-  growth_factor = board.configuration.regen_rate + 1.0
-  retension_rate_rate = 1.0 - board.configuration.collect_rate
-  size = board.configuration.size
-
-  # init constants
-  global HALITE_GROWTH_BY_DIST
-  if not HALITE_GROWTH_BY_DIST:
-    HALITE_GROWTH_BY_DIST = [growth_factor**d for d in range(size**2 + 1)]
-
-  global HALITE_RETENSION_BY_DIST
-  if not HALITE_RETENSION_BY_DIST:
-    HALITE_RETENSION_BY_DIST = [
-        retension_rate_rate**d for d in range(size**2 + 1)
-    ]
-  # print(HALITE_GROWTH_BY_DIST, HALITE_RETENSION_BY_DIST)
+STRATEGY = ShipStrategy()
 
 
 @board_agent
 def agent(board):
-  init_globals(board)
-  follower_detector.update(board)
-  ShipStrategy(board).execute()
+  STRATEGY.update(board)
+  STRATEGY.execute()
