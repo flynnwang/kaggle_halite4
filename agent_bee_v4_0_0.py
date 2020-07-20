@@ -839,18 +839,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
               wt -= (spawn_cost + ship.halite)
       return wt
 
-    # TODO: Really?
-    DO_NOT_STAY_TYPES = {
-        ShipTask.GOTO_HALITE, ShipTask.RETURN, ShipTask.ATTACK_SHIPYARD
-    }
     g = nx.Graph()
     for ship in ships:
       random.shuffle(POSSIBLE_MOVES)
       for move in POSSIBLE_MOVES:
-        # Skip stay on home cells for some task type.
-        if ship.task_type in DO_NOT_STAY_TYPES and move == Point(0, 0):
-          continue
-
         next_position = make_move(ship.position, move, self.c.size)
         wt = compute_weight(ship, next_position)
         if wt == MIN_WEIGHT:
