@@ -7,6 +7,16 @@ v4_0_3_3 <- v4_0_3_2
 * avoid collision 0.95
 * trapped enemy (23,29,35)
 * do not open more shipyard near ending.
+
+Tournament - ID: UnDp2V, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: WKOKuK, Name: Halite 4 Dimension
+Status: running | Competitors: 5 | Rank System: trueskill
+
+Total Matches: 876 | Matches Queued: 6
+bee v4.0.1                     | 7TydEKMnzysw   | 28.1735828      | μ=30.349, σ=0.725  | 637
+bee v4.0.3.3                   | L4NB46HG21EV   | 27.5638904      | μ=29.728, σ=0.721  | 619
+bee v1.8                       | md6mCywFDQII   | 22.9142000      | μ=24.986, σ=0.691  | 665
+optimus_mining                 | XEEqPxDyuNWN   | 18.8138210      | μ=20.904, σ=0.697  | 710
+c40                            | RrC23gFqIk3X   | 16.8107961      | μ=18.971, σ=0.720  | 873
 """
 
 import random
