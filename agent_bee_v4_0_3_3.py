@@ -640,7 +640,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return
 
     # Do not open more shipyard during ending.
-    if self.num_shipyard and self.step >= NEAR_ENDING_PHRASE_STEP:
+    if self.num_shipyards and self.step >= NEAR_ENDING_PHRASE_STEP:
       return
 
     def convert_threshold():
