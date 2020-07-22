@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 
-v4_0_3_2 <- v4_0_3_1
+v4_0_3_3 <- v4_0_3_2
 
 * Spawn multiple ships
-* Fine tune HALITE_CELL_PER_SHIP
+* avoid collision 0.95
+* trapped enemy (23,29,35)
+* do not open more shipyard near ending.
 """
 
 import random
@@ -25,7 +27,6 @@ MIN_WEIGHT = -99999
 
 BEGINNING_PHRASE_END_STEP = 60
 NEAR_ENDING_PHRASE_STEP = 340
-ENDING_PHRASE_STEP = 370
 
 # If my halite is less than this, do not build ship or shipyard anymore.
 MIN_HALITE_TO_BUILD_SHIPYARD = 1000
@@ -638,6 +639,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if self.num_shipyards >= max_shipyard_num():
       return
 
+    # Do not open more shipyard during ending.
+    if self.num_shipyard and self.step >= NEAR_ENDING_PHRASE_STEP:
+      return
+
     def convert_threshold():
       threshold = MIN_HALITE_TO_BUILD_SHIPYARD
 
@@ -783,10 +788,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           not hasattr(ship, "follower")):
         return MIN_WEIGHT
 
-      # If stay at current location, prefer not stay...
+      # Near to target cell is better.
       dist = manhattan_dist(next_position, target_cell.position, self.c.size)
       ship_dist = self.manhattan_dist(ship, target_cell)
       wt = ship_dist - dist
+
+      # If task is stay, make room for others.
       if (ship.task_type == ShipTask.STAY and ship.position == next_position):
         wt -= 10
 
@@ -814,7 +821,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         # TODO: use what value as weight for destory enemy yard?
         wt += convert_cost / (dist + 1)
 
-      # Do not step on shipyard
+      # Do not step on enemy shipyard
       if (ship.task_type != ShipTask.ATTACK_SHIPYARD and
           next_cell.shipyard_id and next_cell.shipyard.player_id != self.me.id):
         wt -= convert_cost / (dist + 1)
@@ -1090,7 +1097,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return
 
     adjust = 0
-    if self.num_ships >= 21:
+    if self.num_ships >= 23:
       adjust = 1
     elif self.num_ships >= 29:
       adjust = 2
