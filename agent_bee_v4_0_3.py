@@ -519,7 +519,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if (num_covered >= 2
           or num_covered > 0 and cell.convering_shipyards[0][0] <= 2):
         keep = HOME_GROWN_CELL_MIN_HALITE
-        # keep = min(num_covered * 40, HOME_GROWN_CELL_MIN_HALITE)
+        if num_covered >= 2:
+          keep *= 2
         threshold = max(keep, threshold)
 
       # Do not go into enemy shipyard for halite.
@@ -659,7 +660,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     MANHATTAN_DIST_RANGE = range(6, 7+1)
     AXIS_DIST_RANGE = range(3, 5+1)
     MAX_SHIP_TO_SHIPYARD_DIST = 8
-    HALITE_CELL_PER_SHIP = 2.5 if self.step < 60 else 3
+    HALITE_CELL_PER_SHIP = 2.5 if self.step < 60 else 2.8
 
     self.halite_ratio = -1
     # No ship left.
@@ -745,12 +746,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         for dist, yard in dist_yards[:MAX_COVER_HALITE]:
           if dist <= self.home_grown_cell_dist:
             # Repeat count halite if recovered.
-            # total_halite += cell.halite / dist  # Use actual halite value.
-            # total_halite += cell.halite / np.sqrt(dist)  # Use actual halite value.
-            total_halite += 1
+            total_halite += cell.halite / np.sqrt(dist)
             covered = 1
         total_cell += covered
       return total_halite, total_cell
+      # return total_cell, total_halite
 
     def nominate_shipyard_positions():
       for cell in self.board.cells.values():
@@ -796,7 +796,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if ship.position != cell.position:
           print("Send ship(%s %s) to shipyard position (%s), dist=%s" % (ship.id, ship.position, cell.position, dist_to_yard))
           # Let's use GOTO_HALITE for now.
-          self.assign_task(ship, cell, ShipTask.GOTO_HALITE)
+          self.assign_task(ship, cell, ShipTask.INITIAL_SHIPYARD)
           return True
 
       return False
@@ -926,6 +926,25 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     matches = nx.algorithms.max_weight_matching(g,
                                                 maxcardinality=True,
                                                 weight='weight')
+
+    if len(matches) != len(ships):
+      matched_ship_ids = set()
+      for ship_id, next_position in matches:
+        # Assume ship id is str.
+        if not isinstance(ship_id, str):
+          ship_id, next_position = next_position, ship_id
+        matched_ship_ids.add(ship_id)
+
+      for ship in ships:
+        print('ship %s (matchd=%s), at %s, has_assignment=%s, task=%s'
+              % (ship.id, ship.id in matched_ship_ids, ship.position,
+                 ship.has_assignment, ship.task_type))
+        random.shuffle(POSSIBLE_MOVES)
+        for move in POSSIBLE_MOVES:
+          next_position = make_move(ship.position, move, self.c.size)
+          wt = compute_weight(ship, next_position)
+          print('   to %s, wt=%.2f' % (move, wt))
+
     assert len(matches) == len(ships), "match=%s, ships=%s" % (len(matches), len(ships))
 
     for ship_id, next_position in matches:
