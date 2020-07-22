@@ -2,11 +2,11 @@
 """
 v4_0_3 <- v4_0_2
 
-* MAX_SHIP_TO_SHIPYARD_DIST = 5
+* MAX_SHIP_TO_SHIPYARD_DIST = 8
 * reverp max ship num to 30
-* boost keep halite value only for double cover halite cell.
+* boost keep halite value only for double cover halite cell and nearby(<=2) cell
 * fine tune shipyard position
-* fix initial position.
+* initial position fixed.
 """
 
 import random
