@@ -4,7 +4,8 @@
 v4_0_4_1 <- v4_0_4
 
 * Fix guard with enemy nearby enemy (only ignore at shipyard position).
-* Add followed ship into optimal_assigntment.
+* Add followed ship into optimal_assignment.
+* Revert enemy attack weight.
 """
 
 import random
@@ -1187,7 +1188,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         enemy.attack_ships = [ship for _, ship in dist_ships][:max_attack_num]
         yield enemy
 
-  def optimal_assigntment(self):
+  def optimal_assignment(self):
     ATTACK_PER_ENEMY = 6
     SHIPYARD_DUPLICATE_NUM = 4
 
@@ -1263,8 +1264,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             # Discount: 4=0.8, 3=0.6, 2=0.4, 1=0.2
             # discount = enemy.quadrant_num * 0.2
             # discount = 0.5
-            # v = (self.c.spawn_cost + enemy.halite * discount) / ship_to_poi
-            v = (self.c.spawn_cost + enemy.halite + ship.halite) * (ship_to_poi / 2)
+            v = (self.c.spawn_cost + enemy.halite + ship.halite) / ship_to_poi
+            # v = (self.c.spawn_cost + enemy.halite + ship.halite) * (ship_to_poi / 2)
         else:
           # If shipyard is offended.
           yard = poi.shipyard
@@ -1398,7 +1399,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       self.bomb_enemy_shipyard()
 
       self.final_stage_back_to_shipyard()
-      self.optimal_assigntment()
+      self.optimal_assignment()
     else:
       self.convert_first_shipyard()
 
