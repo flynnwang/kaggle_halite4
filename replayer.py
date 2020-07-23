@@ -1,5 +1,12 @@
 from kaggle_environments import make
+from kaggle_environments.envs.halite.helpers import *
 
+
+def parse_board(replay_json, player_id, conf, step):
+  state = replay_json['steps'][step][0]
+  obs = state['observation']
+  obs['player'] = player_id
+  return Board(obs, conf)
 
 class Replayer:
 
@@ -11,17 +18,17 @@ class Replayer:
                     configuration=replay_json['configuration'],
                     steps=replay_json['steps'])
     self.step = 0
+    num_state = len(self.replay_json['steps'])
+    self.boards = [parse_board(replay_json, player_id, self.env.configuration, s)
+                   for s in range(num_state)]
 
-    def play(self, steps=1):
-      for i in range(steps):
-        self.simulate(i)
-        self.step += 1
+  def play(self, steps=1):
+    for i in range(steps):
+      self.simulate(i)
+      self.step += 1
 
-    def simulate(self, step=0):
-      # list of length 1 for each step
-      state = self.replay_json['steps'][step][0]
-      obs = state['observation']
-      obs['player'] = self.player_id
-      board = Board(obs, self.env.configuration)
-      self.strategy.update(board)
-      self.strategy.execute()
+  def simulate(self, step):
+    # list of length 1 for each step
+    board = self.boards[step]
+    self.strategy.update(board)
+    self.strategy.execute()

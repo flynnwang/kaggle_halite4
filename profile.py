@@ -6,19 +6,21 @@ import os
 from pycallgraph import PyCallGraph
 from pycallgraph import Config
 from pycallgraph.output import GraphvizOutput
+from kaggle_environments.envs.halite.helpers import *
 
-import agent_bee_v4_0_4_1 as agent
+import agent_bee_v4_0_4_2 as agent
+from replayer import Replayer
+
+REPLAYE_NAME = "1746731"
 
 work_dir = "/ssd/wangfei/repo/flynn/kaggle_halite4/"
-replay_path = os.path.join(work_dir, "debug_replay", "1746731.json")
-
-
-def agent(name, collection=False):
-  return os.path.join(work_dir, collection and 'collection' or '', name)
+replay_path = os.path.join(work_dir, "debug_replay", REPLAYE_NAME+ ".json")
+result_path = os.path.join(work_dir, "%s_%s.png"
+                           % ("agent_bee_v4_0_4_2", REPLAYE_NAME))
 
 
 config = Config(max_depth=10)
-graphviz = GraphvizOutput(output_file='filter_max_depth.png')
+graphviz = GraphvizOutput(output_file=result_path)
 
 with open(replay_path, 'r') as f:
   replay_json = json.loads(f.read())

@@ -19,6 +19,10 @@ import numpy as np
 import scipy.optimize
 from kaggle_environments.envs.halite.helpers import *
 
+# Mute print.
+def print(*args, **kwargs):
+  pass
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
