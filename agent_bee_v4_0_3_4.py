@@ -3,9 +3,11 @@
 
 v4_0_3_4 <- v4_0_3_3
 
-* go back home if ship.halite > mean halite.
+* go back home if ship.halite > mean halite * 1.5.
 * exhaust halite.
 * high confidence attack.
+* no more ships after 250
+* revert enemy attack weight
 """
 
 import random
@@ -37,7 +39,7 @@ MAX_SHIP_NUM = 30
 # Threshold for attack enemy nearby my shipyard
 TIGHT_ENEMY_SHIP_DEFEND_DIST = 5
 LOOSE_ENEMY_SHIP_DEFEND_DIST = 7
-AVOID_COLLIDE_RATIO = 0.95
+AVOID_COLLIDE_RATIO = 0.9
 
 # Threshod used to send bomb to enemy shipyard
 MIN_ENEMY_YARD_TO_MY_YARD = 7
@@ -451,19 +453,24 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
+    INC_STEP_NUM = 50
+    MIN_RATIO = 0.25
+    STEP_INC = (0.7 - MIN_RATIO) /  INC_STEP_NUM
+
+    def min_collect_rate():
+      return max((INC_STEP_NUM - self.step), 0) * STEP_INC + MIN_RATIO
 
     def keep_halite_value(cell):
-      threshold = self.mean_halite_value * 0.74
-      if self.step >= NEAR_ENDING_PHRASE_STEP:
-        return min(40, threshold)
+      threshold = self.mean_halite_value * min_collect_rate()
+
+      num_covered = len(cell.convering_shipyards)
 
       num_covered = len(cell.convering_shipyards)
       if (num_covered >= 2
-          or num_covered > 0 and cell.convering_shipyards[0][0] <= 2):
+          or num_covered > 0 and cell.convering_shipyards[0][0] <= 3):
         keep = HOME_GROWN_CELL_MIN_HALITE
-        if num_covered >= 2:
-          keep *= 2
         threshold = max(keep, threshold)
+
 
       # Do not go into enemy shipyard for halite.
       enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
@@ -944,7 +951,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return
 
     # No more ships after ending.
-    if self.num_ships >= 3 and self.step >= 280:
+    if self.num_ships >= 3 and self.step >= 250:
       return
 
     shipyards = self.me.shipyards
@@ -1096,14 +1103,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return
 
     adjust = 0
-    if self.num_ships >= 23:
+    if self.num_ships >= 21:
       adjust = 1
-    elif self.num_ships >= 29:
+    elif self.num_ships >= 27:
       adjust = 2
-    elif self.num_ships >= 36:
+    elif self.num_ships >= 35:
       adjust = 3
     MAX_ATTACK_DIST = 3 + adjust
-    MIN_ATTACK_QUADRANT_NUM = 3 - int(self.num_ships >= 36)
+    MIN_ATTACK_QUADRANT_NUM = 3 - int(self.num_ships >= 35)
 
     def get_attack_ships(enemy):
       for ship in self.my_idle_ships:
@@ -1191,7 +1198,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           v = self.halite_per_turn(ship, poi, ship_to_poi, poi_to_yard)
         elif is_shipyard_column(j):
           # If the target is a shipyard.
-          if ship_to_poi > 0:
+          if ship_to_poi > 0 and ship.halite > self.mean_halite_value:
             v = ship.halite / ship_to_poi
           else:
             # The ship is on a shipyard.
@@ -1201,11 +1208,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           enemy = poi.ship
           v = MIN_WEIGHT  # not exists edge.
           if (ship.id, enemy.id) in attack_pairs:
-            # Discount: 4=0.8, 3=0.6, 2=0.4, 1=0.2
-            # discount = enemy.quadrant_num * 0.2
-            # discount = 0.5
-            # v = (self.c.spawn_cost + enemy.halite * discount) / ship_to_poi
-            v = (self.c.spawn_cost + enemy.halite + ship.halite) * (ship_to_poi / 2)
+            v = (self.c.spawn_cost + enemy.halite) / ship_to_poi
+            # v = (self.c.spawn_cost + enemy.halite + ship.halite) * (ship_to_poi / 2)
         else:
           # If shipyard is offended.
           yard = poi.shipyard
