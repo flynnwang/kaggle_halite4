@@ -9,6 +9,17 @@ Try new strategy for convrting shipyard.
 * Remove infinite bomb
 * Use halite_ration for convert shipyard when ships >= 15
 
+Tournament - ID: BkGYiL, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: qwHWpB, Name: Halite 4 Dimension
+Status: running | Competitors: 6 | Rank System: trueskill
+
+Total Matches: 397 | Matches Queued: 52
+bee v4.0.4                     | 2hMu51iuYTcr   | 28.3609518      | μ=30.632, σ=0.757  | 225
+bee v4.0.1                     | PVQQkrtbeSPP   | 25.5556864      | μ=27.690, σ=0.711  | 223
+tom v1.0.0                     | Gm66A84N6MaW   | 24.6952817      | μ=26.823, σ=0.709  | 239
+bee v1.8                       | IVyGxDYSu8ZI   | 22.5123748      | μ=24.603, σ=0.697  | 268
+c40                            | 23ZXBme9A99y   | 15.0856232      | μ=17.272, σ=0.729  | 314
+optimus_mining                 | o5XZjCdW6cHB   | 14.9072379      | μ=17.085, σ=0.726  | 315
+
 """
 
 import random
