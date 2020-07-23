@@ -290,15 +290,10 @@ class StrategyBase:
   def manhattan_dist(self, p, q):
     return manhattan_dist(p.position, q.position, self.c.size)
 
-  def find_nearest_shipyard(self, cell: Cell, shipyards):
-    min_dist = 99999
-    min_dist_yard = None
-    for y in shipyards:
-      d = self.manhattan_dist(cell, y)
-      if d < min_dist:
-        min_dist = d
-        min_dist_yard = y
-    return min_dist, min_dist_yard
+  def nearest_shipyards(self, cell: Cell, shipyards):
+    dist_yards = [(self.manhattan_dist(y, cell), y) for y in shipyards]
+    dist_yards = sorted(dist_yards, key=lambda x: x[0])
+    return dist_yards
 
   def find_nearest_enemy(self, cell: Cell, enemy_ships):
     """Nearest enemy with least halite."""
@@ -313,12 +308,18 @@ class StrategyBase:
 
   def get_nearest_home_yard(self, cell):
     if not hasattr(cell, 'home_yard_info'):
-      cell.home_yard_info = self.find_nearest_shipyard(cell, self.shipyards)
+      cell.nearest_home_yards = self.nearest_shipyards(cell, self.shipyards)
+      cell.home_yard_info = (9999, None)
+      if cell.nearest_home_yards:
+        cell.home_yard_info = cell.nearest_home_yards[0]
     return cell.home_yard_info
 
   def get_nearest_enemy_yard(self, cell):
     if not hasattr(cell, 'enemy_yard_info'):
-      cell.enemy_yard_info = self.find_nearest_shipyard(cell, self.enemy_shipyards)
+      cell.nearest_enemy_yards = self.nearest_shipyards(cell, self.enemy_shipyards)
+      cell.enemy_yard_info = (9999, None)
+      if cell.nearest_enemy_yards:
+        cell.enemy_yard_info = cell.nearest_enemy_yards[0]
     return cell.enemy_yard_info
 
   def update(self, board):
@@ -746,11 +747,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if cell.position == candidate_cell.position:
           continue
 
-        dist_yards = [(self.manhattan_dist(y, cell), y) for y in shipyards]
-        dist_yards = sorted(dist_yards, key=lambda x: x[0])
+        min_dist, _ = self.get_nearest_home_yard(cell)
+        if min_dist > self.home_grown_cell_dist:
+          continue
 
         covered = 0
-        for dist, yard in dist_yards[:MAX_COVER_HALITE]:
+        for dist, yard in cell.nearest_home_yards[:MAX_COVER_HALITE]:
           if dist <= self.home_grown_cell_dist:
             # Repeat count halite if recovered.
             # total_halite += 1.0 / np.sqrt(dist)
