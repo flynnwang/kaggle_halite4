@@ -27,7 +27,6 @@ with open(replay_path, 'r') as f:
 
 strategy = agent.ShipStrategy()
 replayer = Replayer(strategy, replay_json, player_id=1)
-replayer.play(250)
-
+replayer.play(250, print_step=True)
 with PyCallGraph(output=graphviz, config=config):
-  replayer.play(100)
+  replayer.play(100, print_step=True)

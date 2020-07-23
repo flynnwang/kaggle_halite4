@@ -22,8 +22,11 @@ class Replayer:
     self.boards = [parse_board(replay_json, player_id, self.env.configuration, s)
                    for s in range(num_state)]
 
-  def play(self, steps=1):
+  def play(self, steps=1, print_step=False):
     for i in range(steps):
+      if print_step:
+        print("Step %s" % self.step)
+
       self.simulate(i)
       self.step += 1
 
