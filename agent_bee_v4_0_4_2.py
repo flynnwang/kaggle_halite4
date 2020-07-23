@@ -4,6 +4,8 @@
 v4_0_4_2 <- v4_0_4_1
 
 Optimize performance.
+
+* cached shipyard and ship
 """
 
 import random
@@ -259,7 +261,7 @@ class StrategyBase:
   @property
   def my_idle_ships(self):
     """All ships without task assignment."""
-    for ship in self.me.ships:
+    for ship in self.ships:
       if ship.next_action or ship.has_assignment:
         continue
       yield ship
@@ -311,7 +313,7 @@ class StrategyBase:
 
   def get_nearest_home_yard(self, cell):
     if not hasattr(cell, 'home_yard_info'):
-      cell.home_yard_info = self.find_nearest_shipyard(cell, self.me.shipyards)
+      cell.home_yard_info = self.find_nearest_shipyard(cell, self.shipyards)
     return cell.home_yard_info
 
   def get_nearest_enemy_yard(self, cell):
@@ -321,6 +323,10 @@ class StrategyBase:
 
   def update(self, board):
     self.board = board
+
+    # Cache it to eliminate repeated list constructor.
+    self.shipyards = self.me.shipyards
+    self.ships = self.me.ships
 
   def execute(self):
     pass
@@ -360,8 +366,8 @@ class FollowerDetector(StrategyBase):
 
   def update(self, board):
     """Updates follow info with the latest board state."""
-    self.board = board
-    latest_ship_index = {s.id: s for s in self.me.ships}
+    super().update(board)
+    latest_ship_index = {s.id: s for s in self.ships}
 
     # Check last ship positions for follower.
     for ship_id, prev_ship in self.ship_index.items():
@@ -443,7 +449,7 @@ class InitializeFirstShipyard(StrategyBase):
     """Strategy for convert the first shipyard."""
     assert self.num_ships == 1, self.num_ships
 
-    ship = self.me.ships[0]
+    ship = self.ships[0]
     if not self.initial_ship_position:
       self.initial_ship_position = ship.position
 
@@ -490,15 +496,18 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if self.board is None:
       init_globals(board)
 
+    super().update(board)
+
     self.board = board
     self.cost_halite = 0
     self.halite_ratio = -1
     self.num_home_halite_cells = 0
     self.mean_home_halite = 100
+
     self.init_halite_cells()
 
     # Default ship to stay on the same cell without assignment.
-    for ship in self.me.ships:
+    for ship in self.ships:
       ship.has_assignment = False
       ship.target_cell = ship.cell
       ship.next_cell = ship.cell
@@ -541,7 +550,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     # Initialize covered cells by shipyards.
     for cell in self.halite_cells:
-      dist_yards = ((self.manhattan_dist(y, cell), y) for y in self.me.shipyards)
+      dist_yards = ((self.manhattan_dist(y, cell), y) for y in self.shipyards)
       dist_yards = [x for x in dist_yards if x[0] <= self.home_grown_cell_dist]
       dist_yards.sort(key=lambda x: x[0])
       cell.convering_shipyards = dist_yards
@@ -604,7 +613,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return MIN_ENEMY_YARD_TO_MY_YARD
 
     def is_near_my_shipyard(enemy_yard):
-      for yard in self.me.shipyards:
+      for yard in self.shipyards:
         dist = self.manhattan_dist(yard, enemy_yard)
         if dist <= max_bomb_dist():
           return True
@@ -711,7 +720,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return True
 
       dist_yards = [(self.manhattan_dist(y, cell), y)
-                    for y in self.me.shipyards]
+                    for y in self.shipyards]
       dist_yards = sorted(dist_yards, key=lambda x: x[0])
       for dist, yard in dist_yards[:2]:
         if dist not in MANHATTAN_DIST_RANGE:
@@ -732,7 +741,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # Maximize the total value of halite when converting ship.
       total_cell = 0
       total_halite = 0
-      shipyards = self.me.shipyards + [candidate_cell]  # Fake the cell as shipyard.
+      shipyards = self.shipyards + [candidate_cell]  # Fake the cell as shipyard.
       for cell in self.halite_cells:
         if cell.position == candidate_cell.position:
           continue
@@ -761,7 +770,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           continue
 
         # Have a nearby ship.
-        dist_to_yard, _ = self.find_nearest_enemy(cell, self.me.ships)
+        dist_to_yard, _ = self.find_nearest_enemy(cell, self.ships)
         if dist_to_yard > MAX_SHIP_TO_SHIPYARD_DIST:
           continue
 
@@ -775,7 +784,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       ship.cell.is_targetd = True
 
     def call_for_ship(cell):
-      ships = sorted(self.me.ships, key=lambda s: self.manhattan_dist(s, cell))
+      ships = sorted(self.ships, key=lambda s: self.manhattan_dist(s, cell))
       for ship in ships:
         if not has_enough_halite(ship):
           continue
@@ -824,7 +833,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     collect_rate = self.board.configuration.collect_rate
 
     # Skip only convert ships.
-    ships = [s for s in self.me.ships if not s.next_action]
+    ships = [s for s in self.ships if not s.next_action]
 
     def compute_weight(ship, next_position):
       ignore_neighbour_cell_enemy = False
@@ -1003,9 +1012,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if self.num_ships >= 3 and self.step >= 280:
       return
 
-    shipyards = self.me.shipyards
-    random.shuffle(shipyards)
-    for shipyard in shipyards:
+    random.shuffle(self.shipyards)
+    for shipyard in self.shipyards:
       # Only skip for the case where I have any ship.
       if self.num_ships and self.me_halite < spawn_threshold():
         continue
@@ -1045,7 +1053,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return
     ship_next_positions = {
         ship.next_cell.position
-        for ship in self.me.ships
+        for ship in self.ships
         if ship.next_action != ShipAction.CONVERT
     }
 
@@ -1059,7 +1067,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       self.cost_halite += self.c.spawn_cost
       yard.next_action = ShipyardAction.SPAWN
 
-    for yard in self.me.shipyards:
+    for yard in self.shipyards:
       # Skip shipyard already has action.
       if yard.next_action:
         continue
@@ -1086,7 +1094,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     def print_ship_task_type():
       task = Counter()
-      for ship in self.me.ships:
+      for ship in self.ships:
         task[ship.task_type] += 1
       items = sorted(task.items(), key=lambda x: x[0].name)
       print(", ".join("%s=%s(%.0f%%)" % (k.name, v, v / self.num_ships * 100)
@@ -1139,6 +1147,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     opt_steps = optimal_mining_steps(carry, poi.halite, travel)
     if opt_steps < min_mine:
       opt_steps = min_mine
+
     total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * poi.halite)
     return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
@@ -1203,7 +1212,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     halites = [c for c in self.halite_cells if c.halite >= c.keep_halite_value]
 
     # Shipyards is duplicated to allow multiple ships having a same target.
-    shipyards = [y.cell for y in self.me.shipyards] * shipyard_duplicate_num()
+    shipyards = [y.cell for y in self.shipyards] * shipyard_duplicate_num()
 
     # Attack enemy.
     trapped_enemy_ships = list(self.get_trapped_enemy_ships(ATTACK_PER_ENEMY))
@@ -1344,7 +1353,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           # print('defend enemy(%s) by ship(%s, %s)' % (enemy.position, ship.id, ship.position))
           yield ship
 
-    for yard in self.me.shipyards:
+    for yard in self.shipyards:
       yard.is_in_danger = False
       min_enemy_dist, enemy = self.find_nearest_enemy(yard.cell,
                                                       offend_enemy_ships(yard))
@@ -1384,7 +1393,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return (cell.shipyard_id and cell.shipyard.player_id == self.me.id and
               cell.shipyard.next_action == ShipyardAction.SPAWN)
 
-    for ship in self.me.ships:
+    for ship in self.ships:
       cell = ship.next_cell
       if cell and is_my_shipyard_spawning(cell):
         cell.shipyard.next_action = None
