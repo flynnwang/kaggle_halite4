@@ -785,7 +785,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         # Annoy nearby enemy.
         min_enemy_to_yard_dist, min_enemy = self.find_nearest_enemy(cell, self.enemy_ships)
         if (min_enemy and min_enemy_to_yard_dist <= dist_to_yard
-            and min_enemy.halite < ship.halite)):
+            and min_enemy.halite < ship.halite):
           continue
 
         if ship.position == cell.position and not has_enemy_nearby(ship.cell):
