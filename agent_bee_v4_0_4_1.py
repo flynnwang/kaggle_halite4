@@ -3,7 +3,8 @@
 
 v4_0_4_1 <- v4_0_4
 
-* Fix guard with enemy nearby cases.
+* Fix guard with enemy nearby enemy (only ignore at shipyard position).
+* Add followed ship into optimal_assigntment.
 """
 
 import random
@@ -878,7 +879,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       if ship.task_type == ShipTask.GUARD_SHIPYARD:
         wt += 1 / (dist + 1)
-        ignore_neighbour_cell_enemy = True
+        # Only ignore enemy when the ship is on the yard.
+        if next_position == target_cell.position:
+          ignore_neighbour_cell_enemy = True
 
 
       def move_away_from_enemy(enemy, ship, avoid_collision=True):
@@ -1248,6 +1251,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           else:
             # The ship is on a shipyard.
             v = 0
+
+          # If have follower, let the followed ship back.
+          if hasattr(ship, 'follower'):
+            v += self.c.spawn_cost
         elif is_enemy_column(j):
           # If attack enemy
           enemy = poi.ship
@@ -1263,7 +1270,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           yard = poi.shipyard
           v = MIN_WEIGHT
           if (ship.id, yard.id) in guard_paris:
-            v = (self.c.spawn_cost + self.c.convert_cost) / (ship_to_poi or 1)
+            v = (self.c.spawn_cost + self.c.convert_cost + ship.halite) / (ship_to_poi or 1)
+
+            # If selected as guard ship, the followed ship has priority.
+            if hasattr(ship, 'follower'):
+              v += self.c.spawn_cost
 
         C[i, j] = v
 
@@ -1327,6 +1338,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             (dist_to_yard == enemy_to_yard_dist and
              (enemy.halite > 0 and ship.halite < enemy.halite or
               enemy.halite == 0 and ship.halite == 0))):
+          # print('defend enemy(%s) by ship(%s, %s)' % (enemy.position, ship.id, ship.position))
           yield ship
 
     for yard in self.me.shipyards:
@@ -1346,7 +1358,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yard.offend_enemy = enemy
         yield yard, defend_ships
 
-  def send_followed_ship_back_to_shipyard(self):
+  def update_ship_follower(self):
     """If a ship is followed by enemy, send it back home."""
     for ship in self.my_idle_ships:
       if not self.follower_detector.is_followed(ship):
@@ -1357,7 +1369,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         continue
 
       ship.follower = self.follower_detector.get_follower(ship)
-      self.assign_task(ship, yard.cell, ShipTask.RETURN)
+      # self.assign_task(ship, yard.cell, ShipTask.RETURN)
       # print('ship(%s) at %s is followed by enemy(%s) at %s by %s times' %
             # (ship.id, ship.position, ship.follower.id, ship.follower.position,
              # self.follower_detector.follow_count[ship.id]))
@@ -1380,7 +1392,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     if self.first_shipyard_set:
       self.convert_shipyard()
-      self.send_followed_ship_back_to_shipyard()
+      self.update_ship_follower()
       self.spawn_ships()
 
       self.bomb_enemy_shipyard()
