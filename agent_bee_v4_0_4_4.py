@@ -1,21 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 
-v4_0_4_3 <- v4_0_4_2
+v4_0_4_4 <- v4_0_4_3
 
-* Increase attack dist within home yard boundary
-* Keep more for triple covered home cells.
-
-Tournament - ID: 1H7Zv0, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: DapDpz, Name: Halite 4 Dimension
-Status: running | Competitors: 6 | Rank System: trueskill
-
-Total Matches: 299 | Matches Queued: 54
-bee v4.0.4.3                   | jDBt41Ac3AQp   | 28.4375982      | μ=30.675, σ=0.746  | 174
-bee v4.0.1                     | YNG4iIVxq88p   | 26.6980377      | μ=28.844, σ=0.715  | 179
-tom v1.0.0                     | nCMSLw2CwkME   | 24.5014218      | μ=26.600, σ=0.700  | 178
-bee v1.8                       | qBKNAw8VAZ3m   | 22.4767757      | μ=24.559, σ=0.694  | 188
-optimus_mining                 | 5wGpAwrTx26h   | 17.1710166      | μ=19.322, σ=0.717  | 241
-c40                            | CP7aptCr99Qn   | 16.1122639      | μ=18.288, σ=0.725  | 236
 
 """
 
