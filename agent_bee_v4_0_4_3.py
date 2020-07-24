@@ -3,7 +3,8 @@
 
 v4_0_4_3 <- v4_0_4_2
 
-* Increase attack range within home yard boundary (cover by 2 or dist <=2).
+* Increase attack dist within home yard boundary
+* Keep more for triple covered home cells.
 
 """
 
@@ -22,8 +23,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Mute print.
-def print(*args, **kwargs):
-  pass
+# def print(*args, **kwargs):
+  # pass
 
 MIN_WEIGHT = -99999
 
@@ -541,9 +542,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       num_covered = len(cell.convering_shipyards)
       if (num_covered >= 2
           or num_covered > 0 and cell.convering_shipyards[0][0] <= 2):
-        keep = HOME_GROWN_CELL_MIN_HALITE
-        if num_covered >= 2:
-          keep *= 2
+        keep = HOME_GROWN_CELL_MIN_HALITE * num_covered
         threshold = max(keep, threshold)
 
       # Do not go into enemy shipyard for halite.
@@ -1172,7 +1171,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return
 
     adjust = 0
-    if self.num_ships >= 22:
+    if self.num_ships >= 20:
       adjust = 1
     elif self.num_ships >= 27:
       adjust = 2
@@ -1181,10 +1180,28 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     MAX_ATTACK_DIST = 3 + adjust
     MIN_ATTACK_QUADRANT_NUM = 3 - int(self.num_ships >= 35)
 
+    def is_enemy_within_home_boundary(enemy):
+      """1. Within distance of 2 of any shipyard
+         2. double covered by multiple shipyards.
+      """
+      covered = 0
+      self.get_nearest_home_yard(enemy.cell)  # populate cache.
+      for dist, yard in enemy.cell.nearest_home_yards:
+        if dist <= 2:
+          return True
+        if dist <= self.home_grown_cell_dist:
+          covered += 1
+      return covered >= 2
+
     def get_attack_ships(enemy):
+      # Extra attack distance for enemy within home boundary.
+      max_attack_dist= MAX_ATTACK_DIST
+      if enemy.within_home_boundary:
+        max_attack_dist += 1
+
       for ship in self.my_idle_ships:
         dist = self.manhattan_dist(ship, enemy)
-        if dist <= MAX_ATTACK_DIST and ship.halite < enemy.halite:
+        if dist <= max_attack_dist and ship.halite < enemy.halite:
           yield dist, ship
 
     def annotate_by_quadrant(dist_ships, enemy):
@@ -1197,13 +1214,20 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yield (q_exist, dist), ship
 
     for enemy in self.enemy_ships:
+      enemy.within_home_boundary = is_enemy_within_home_boundary(enemy)
       dist_ships = get_attack_ships(enemy)
       dist_ships = list(annotate_by_quadrant(dist_ships, enemy))
       dist_ships.sort(key=lambda x: x[0])
       quadrant_num = len({
           get_quadrant(ship.position - enemy.position) for _, ship in dist_ships
       })
-      if quadrant_num >= MIN_ATTACK_QUADRANT_NUM:
+
+      # Reduce quadrant_num for home boundary enemy.
+      min_attack_quadrant_num = MIN_ATTACK_QUADRANT_NUM
+      # if enemy.within_home_boundary:
+        # min_attack_quadrant_num -= 1
+
+      if quadrant_num >= min_attack_quadrant_num:
         enemy.quadrant_num = quadrant_num
         enemy.attack_ships = [ship for _, ship in dist_ships][:max_attack_num]
         yield enemy

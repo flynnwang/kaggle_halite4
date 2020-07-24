@@ -19,6 +19,10 @@ from kaggle_environments.envs.halite.helpers import *
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Mute print.
+def print(*args, **kwargs):
+  pass
+
 MIN_WEIGHT = -99999
 
 BEGINNING_PHRASE_END_STEP = 60
