@@ -6,6 +6,17 @@ v4_0_4_2 <- v4_0_4_1
 Optimize performance.
 
 * cached nearest shipyards helps
+
+Tournament - ID: 07SrD7, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: h9TnUa, Name: Halite 4 Dimension
+Status: running | Competitors: 6 | Rank System: trueskill
+
+Total Matches: 283 | Matches Queued: 52
+bee v4.0.4.2                   | Rt1ftky0I1Kz   | 28.9336081      | μ=31.189, σ=0.752  | 176
+bee v4.0.1                     | Vrn6cwYYM13i   | 27.5890498      | μ=29.767, σ=0.726  | 168
+tom v1.0.0                     | PbucP5yQqqQz   | 25.8789352      | μ=28.010, σ=0.710  | 157
+bee v1.8                       | m1m8EkthKdRV   | 22.0219620      | μ=24.103, σ=0.694  | 191
+optimus_mining                 | MGxeIHCBlkMo   | 17.5503365      | μ=19.704, σ=0.718  | 220
+c40                            | m0zNXgIYW0HK   | 16.5505709      | μ=18.742, σ=0.731  | 220
 """
 
 import random
@@ -566,10 +577,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     # Initialize covered cells by shipyards.
     for cell in self.halite_cells:
-      dist_yards = ((self.manhattan_dist(y, cell), y) for y in self.shipyards)
-      dist_yards = [x for x in dist_yards if x[0] <= self.home_grown_cell_dist]
-      dist_yards.sort(key=lambda x: x[0])
-      cell.convering_shipyards = dist_yards
+      # Populate cache
+      self.get_nearest_home_yard(cell)
+      home_yards = [x for x in cell.nearest_home_yards
+                    if x[0] <= self.home_grown_cell_dist]
+      cell.convering_shipyards = home_yards
 
     self.mean_halite_value = 0
     if self.halite_cells:
