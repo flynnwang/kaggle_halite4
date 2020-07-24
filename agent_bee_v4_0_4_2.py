@@ -17,6 +17,17 @@ tom v1.0.0                     | PbucP5yQqqQz   | 25.8789352      | μ=28.010, �
 bee v1.8                       | m1m8EkthKdRV   | 22.0219620      | μ=24.103, σ=0.694  | 191
 optimus_mining                 | MGxeIHCBlkMo   | 17.5503365      | μ=19.704, σ=0.718  | 220
 c40                            | m0zNXgIYW0HK   | 16.5505709      | μ=18.742, σ=0.731  | 220
+
+Tournament - ID: 2o1Fhp, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: hWJvuc, Name: Halite 4 Dimension
+Status: running | Competitors: 6 | Rank System: trueskill
+
+Total Matches: 166 | Matches Queued: 49
+bee v4.0.4.2                   | RU4zmeR95EaN   | 28.6239562      | μ=30.988, σ=0.788  | 101
+bee v4.0.1                     | QTyorhkIUoA1   | 26.6873190      | μ=29.018, σ=0.777  | 87
+tom v1.0.0                     | c80KmnnxI5ZW   | 26.4088266      | μ=28.622, σ=0.738  | 112
+bee v1.8                       | 0EpnfYtUiktn   | 23.7842152      | μ=25.967, σ=0.728  | 103
+optimus_mining                 | UHtjRY0o6Kc0   | 16.7882363      | μ=19.021, σ=0.744  | 129
+c40                            | grSYWgqbiIyY   | 16.7057715      | μ=18.963, σ=0.752  | 132
 """
 
 import random
