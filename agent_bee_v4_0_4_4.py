@@ -3,6 +3,8 @@
 
 v4_0_4_4 <- v4_0_4_3
 
+* desc min_collect_rate slowly
+* inc boost_halite_factor slowly
 
 """
 
@@ -532,15 +534,28 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
 
+    MAX_COLLECT_RATE = 0.75
+    MIN_COLLECT_RATE = 0.2
+    STEP_DEC_RATE = (MAX_COLLECT_RATE - MIN_COLLECT_RATE) /  BEGINNING_PHRASE_END_STEP
+
+    def min_collect_rate():
+      return max(MIN_COLLECT_RATE, MAX_COLLECT_RATE - STEP_DEC_RATE * self.step)
+
+    BOOST_STEPS = 80
+    def boost_halite_factor(num_covered):
+      INC_PER_STEP = max((num_covered - 1.5), 0) / BOOST_STEPS
+      factor = INC_PER_STEP * max(0, self.step - BEGINNING_PHRASE_END_STEP) + 1
+      return min(factor, num_covered)
+
     def keep_halite_value(cell):
-      threshold = self.mean_halite_value * 0.7
+      threshold = self.mean_halite_value * min_collect_rate()
       if self.step >= NEAR_ENDING_PHRASE_STEP:
-        return min(40, threshold)
+        return min(25, threshold)
 
       num_covered = len(cell.convering_shipyards)
       if (num_covered >= 2
           or num_covered > 0 and cell.convering_shipyards[0][0] <= 2):
-        keep = HOME_GROWN_CELL_MIN_HALITE * num_covered
+        keep = HOME_GROWN_CELL_MIN_HALITE * boost_halite_factor(num_covered)
         threshold = max(keep, threshold)
 
       # Do not go into enemy shipyard for halite.
