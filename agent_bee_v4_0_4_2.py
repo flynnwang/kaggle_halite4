@@ -93,8 +93,9 @@ def optimal_mining_steps(C, H, rt_travel):
     ch = TURNS_OPTIMAL.shape[0] - 1  # ?
   else:
     ch = int(np.log(C / H) * 2.5 + 5.5)
-    ch = np.clip(ch, 0, TURNS_OPTIMAL.shape[0] - 1)
-  rt_travel = int(np.clip(rt_travel, 0, TURNS_OPTIMAL.shape[1] - 1))
+    ch = min(max(ch, 0), TURNS_OPTIMAL.shape[0] - 1)
+  # rt_travel = int(np.clip(rt_travel, 0, TURNS_OPTIMAL.shape[1] - 1))
+  rt_travel = int(min(max(rt_travel, 0), TURNS_OPTIMAL.shape[1] - 1 ))
   return TURNS_OPTIMAL[ch, rt_travel]
 
 
