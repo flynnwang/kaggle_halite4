@@ -5,7 +5,7 @@ v4_0_4_2 <- v4_0_4_1
 
 Optimize performance.
 
-* cached shipyard and ship
+* cached nearest shipyards helps
 """
 
 import random
@@ -834,9 +834,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     convert_cost = self.board.configuration.convert_cost
     collect_rate = self.board.configuration.collect_rate
 
-    # Skip only convert ships.
-    ships = [s for s in self.ships if not s.next_action]
-
     def compute_weight(ship, next_position):
       ignore_neighbour_cell_enemy = False
       target_cell = ship.target_cell
@@ -932,50 +929,45 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
               wt -= (spawn_cost + ship.halite)
       return wt
 
-    g = nx.Graph()
-    for ship in ships:
-      random.shuffle(POSSIBLE_MOVES)
+    # Skip only convert ships.
+    ships = [s for s in self.ships if not s.next_action]
+    next_positions = {make_move(s.position, move, self.c.size)
+                           for s in ships for move in POSSIBLE_MOVES}
+
+    position_to_index = {pos : i for i, pos in enumerate(next_positions)}
+    C = np.ones((len(ships), len(next_positions))) * MIN_WEIGHT
+    for ship_idx, ship in enumerate(ships):
       for move in POSSIBLE_MOVES:
         next_position = make_move(ship.position, move, self.c.size)
-        wt = compute_weight(ship, next_position)
-        if wt == MIN_WEIGHT:
-          continue
-        wt = int(wt * 100)
-        g.add_edge(ship.id, next_position, weight=(wt if wt != 0 else -1))
-    matches = nx.algorithms.max_weight_matching(g,
-                                                maxcardinality=True,
-                                                weight='weight')
+        poi_idx = position_to_index[next_position]
+        C[ship_idx, poi_idx] = compute_weight(ship, next_position)
 
-    if len(matches) != len(ships):
+    rows, cols = scipy.optimize.linear_sum_assignment(C, maximize=True)
+
+    index_to_position = list(next_positions)
+    for ship_idx, poi_idx in zip(rows, cols):
+      ship = ships[ship_idx]
+      next_position = index_to_position[poi_idx]
+
+      ship.next_cell = self.board[next_position]
+      ship.next_action = direction_to_ship_action(ship.position, next_position,
+                                                  self.c.size)
+      # print(ship.id, 'at', ship.position, 'goto', next_position)
+
+    if len(rows) != len(ships):
       matched_ship_ids = set()
-      for ship_id, next_position in matches:
-        # Assume ship id is str.
-        if not isinstance(ship_id, str):
-          ship_id, next_position = next_position, ship_id
-        matched_ship_ids.add(ship_id)
+      for ship_idx in rows:
+        matched_ship_ids.add(ships[ship_idx].id)
 
       for ship in ships:
         print('ship %s (matchd=%s), at %s, has_assignment=%s, task=%s'
               % (ship.id, ship.id in matched_ship_ids, ship.position,
                  ship.has_assignment, ship.task_type))
-        random.shuffle(POSSIBLE_MOVES)
         for move in POSSIBLE_MOVES:
           next_position = make_move(ship.position, move, self.c.size)
           wt = compute_weight(ship, next_position)
-          print('   to %s, wt=%.2f' % (move, wt))
-
-    assert len(matches) == len(ships), "match=%s, ships=%s" % (len(matches), len(ships))
-
-    for ship_id, next_position in matches:
-      # Assume ship id is str.
-      if not isinstance(ship_id, str):
-        ship_id, next_position = next_position, ship_id
-
-      ship = self.board.ships[ship_id]
-      ship.next_cell = self.board[next_position]
-      ship.next_action = direction_to_ship_action(ship.position, next_position,
-                                                  self.c.size)
-      # print(ship_id, 'at', ship.position, 'goto', next_position)
+          print('   to %s, wt=%.2f' % (next_position, wt))
+    assert len(rows) == len(ships), "match=%s, ships=%s" % (len(rows), len(ships))
 
   def spawn_ships(self):
     """Spawns farmer ships if we have enough money and no collision with my own
