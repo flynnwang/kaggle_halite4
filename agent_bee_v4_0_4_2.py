@@ -69,7 +69,7 @@ TURNS_OPTIMAL = np.array(
 # cached values
 HALITE_RETENSION_BY_DIST = []
 HALITE_GROWTH_BY_DIST = []
-
+MANHATTAN_DISTS = None
 
 def get_quadrant(p: Point):
   if p.x > 0 and p.y >= 0:
@@ -137,6 +137,9 @@ def axis_manhattan_dists(a: Point, b: Point, size):
 
 
 def manhattan_dist(a: Point, b: Point, size):
+  if MANHATTAN_DISTS:
+    return MANHATTAN_DISTS[a.x * size + a.y][b.x * size + b.y]
+
   dist_x, dist_y = axis_manhattan_dists(a, b, size)
   return dist_x + dist_y
 
@@ -187,6 +190,17 @@ def init_globals(board):
     HALITE_RETENSION_BY_DIST = [
         retension_rate_rate**d for d in range(size**2 + 1)
     ]
+
+  global MANHATTAN_DISTS
+  dists = np.zeros((size**2, size**2), dtype=int)
+  with Timer("Init manhattan_dist"):
+    for c1 in board.cells.values():
+      for c2 in board.cells.values():
+        a = c1.position
+        b = c2.position
+        d = manhattan_dist(a, b, size)
+        dists[a.x * size + a.y][b.x * size + b.y] = d
+  MANHATTAN_DISTS = dists.tolist()
 
 
 class ShipTask(Enum):
