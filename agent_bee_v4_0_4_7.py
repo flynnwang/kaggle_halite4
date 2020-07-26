@@ -1192,7 +1192,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # Extra attack distance for enemy within home boundary.
       max_attack_dist= MAX_ATTACK_DIST
       if enemy.within_home_boundary:
-        max_attack_dist += 1
+        max_attack_dist = max(5, max_attack_dist)
 
       for ship in self.my_idle_ships:
         dist = self.manhattan_dist(ship, enemy)
