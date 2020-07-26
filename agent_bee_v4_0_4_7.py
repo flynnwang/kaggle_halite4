@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-v4_0_4_6 <- v4_0_4_6
+v4_0_4_7 <- v4_0_4_6
 
 * Inc min attack dist to 5 for home cells.
 """
