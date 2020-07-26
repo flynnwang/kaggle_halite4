@@ -6,6 +6,17 @@ v4_1_1 <- v4_1_0
 * Keep halite based by ship num, only when ship>=30 add yard.
 * inc attack home enemy with min dist of 5
 
+Tournament - ID: KCmINS, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: TTqWB3, Name: Halite 4 Dimension
+Status: running | Competitors: 6 | Rank System: trueskill
+
+Total Matches: 2778 | Matches Queued: 53
+bee v4.1.1                     | u6eRBH2sG5bw   | 31.7747537      | μ=34.204, σ=0.810  | 1667
+bee v4.0.1                     | O9hZwAbUbIU0   | 26.5747665      | μ=28.733, σ=0.719  | 1662
+tom v1.0.0                     | 0QYfiV055Yo6   | 25.8630926      | μ=28.006, σ=0.714  | 1601
+bee v1.8                       | 37OqwzjLqkfo   | 22.5013806      | μ=24.616, σ=0.705  | 1848
+optimus_mining                 | G3FQEcvSEq3S   | 16.3429961      | μ=18.517, σ=0.725  | 2160
+c40                            | goYHAHcftSxW   | 15.3460571      | μ=17.557, σ=0.737  | 2170
+
 """
 
 import random
