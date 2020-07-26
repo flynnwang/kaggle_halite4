@@ -2,6 +2,7 @@
 """
 v4_1_1 <- v4_1_0
 
+* home grown halite 100
 * Keep halite based by ship num, only when ship>=30 add yard.
 * inc attack home enemy with min dist of 5
 
@@ -533,12 +534,16 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.follower_detector.update(board)
 
   def init_halite_cells(self):
-    HOME_GROWN_CELL_MIN_HALITE = 80
+    HOME_GROWN_CELL_MIN_HALITE = 100
+
+    def home_extend_dist():
+      return self.num_ships // 10
 
     def is_home_grown_cell(cell):
       num_covered = len(cell.convering_shipyards)
       return (num_covered >= 2 or
-              num_covered > 0 and cell.convering_shipyards[0][0] <= 2)
+              (num_covered > 0 and
+               cell.convering_shipyards[0][0] <= home_extend_dist()))
 
     def keep_halite_value(cell):
       threshold = self.mean_halite_value * 0.7
@@ -546,8 +551,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        num_covered = len(cell.convering_shipyards)
-        keep_factor = self.num_ships / 12 + num_covered / 2
+        ship_factor = self.num_ships / 10
+
+        cover_factor = 0
+        if self.num_ships >= 28:
+          num_covered = len(cell.convering_shipyards)
+          cover_factor += num_covered / 3
+
+        keep_factor = ship_factor + cover_factor
         keep_halite = HOME_GROWN_CELL_MIN_HALITE * keep_factor
         threshold = max(keep_halite, threshold)
 
@@ -1223,7 +1234,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # Extra attack distance for enemy within home boundary.
       max_attack_dist = MAX_ATTACK_DIST
       if enemy.within_home_boundary:
-        max_attack_dist += 1
+        max_attack_dist = max(5, max_attack_dist + 1)
 
       for ship in self.my_idle_ships:
         dist = self.manhattan_dist(ship, enemy)
