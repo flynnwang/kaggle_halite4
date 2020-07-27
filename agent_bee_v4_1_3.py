@@ -1234,9 +1234,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * poi.halite)
-    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
+    # return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
+    return total_halite / (ship_to_poi ** 0.2 + opt_steps + poi_to_yard ** 0.2)
     # return total_halite / (ship_to_poi + opt_steps)
-
     # total_halite = poi.halite + enemy_carry
     # return total_halite / (ship_to_poi + 1)
 
@@ -1380,6 +1380,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         elif is_shipyard_column(j):
           # If the target is a shipyard.
           if ship_to_poi > 0:
+            # v = ship.halite / ship_to_poi
             v = ship.halite / ship_to_poi
           else:
             # The ship is on a shipyard.
