@@ -7,6 +7,16 @@ v4_1_4 <- v4_1_3
 * Home ext dist = ship_num/8 + 1
 * increase attack dist.
 
+Tournament - ID: TMM0Mj, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: Pk0M4r, Name: Halite 4 Dimension
+Status: running | Competitors: 6 | Rank System: trueskill
+
+Total Matches: 1393 | Matches Queued: 12
+bee v4.1.4                     | ofwf1pV7slvf   | 30.6463117      | μ=32.937, σ=0.763  | 807
+bee v4.0.1                     | PkbVeAOaUrSr   | 28.2288872      | μ=30.379, σ=0.717  | 811
+tom v1.0.0                     | S1zVmhkqgaOi   | 26.0661018      | μ=28.182, σ=0.705  | 786
+bee v1.8                       | HmrTlJpsmCns   | 23.0046403      | μ=25.094, σ=0.696  | 936
+optimus_mining                 | oBoCHQMwThWL   | 17.9177794      | μ=20.086, σ=0.723  | 1119
+c40                            | 2mJHldDXDsN7   | 15.9138746      | μ=18.145, σ=0.744  | 1113
 """
 
 import random
