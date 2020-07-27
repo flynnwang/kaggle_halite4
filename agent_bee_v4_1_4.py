@@ -3,6 +3,9 @@
 v4_1_4 <- v4_1_3
 
 * Use halite cell as collect weight
+* Keep halite ratio = 0.5
+* Home ext dist = ship_num/8 + 1
+* increase attack dist.
 
 """
 
@@ -569,20 +572,20 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.follower_detector.update(board)
     self.enemy_features.update(board)
 
-  def init_halite_cells(self):
-    HOME_GROWN_CELL_MIN_HALITE = 80
+  def home_extend_dist(self):
+    return self.num_ships // 8 + 1
 
-    def home_extend_dist():
-      return self.num_ships // 10
+  def init_halite_cells(self):
+    HOME_GROWN_CELL_MIN_HALITE = 60
 
     def is_home_grown_cell(cell):
       num_covered = len(cell.convering_shipyards)
       return (num_covered >= 2 or
               (num_covered > 0 and
-               cell.convering_shipyards[0][0] <= home_extend_dist()))
+               cell.convering_shipyards[0][0] <= self.home_extend_dist()))
 
     def keep_halite_value(cell):
-      threshold = self.mean_halite_value * 0.7
+      threshold = self.mean_halite_value * 0.5
       if self.step >= NEAR_ENDING_PHRASE_STEP:
         return min(30, threshold)
 
@@ -599,7 +602,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       # Do not go into enemy shipyard for halite.
       enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
-      if (enemy_yard and enemy_yard_dist <= 5):
+      if (enemy_yard and enemy_yard_dist <= 3):
         ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
         if (alley_yard and enemy_yard_dist < ally_yard_dist):
           # if the cell is nearer to the enemy yard.
@@ -835,8 +838,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             # total_halite += 1.0 / dist
             covered = 1
         total_cell += covered
-      print("convert score for %s, total=%s, s1=%s, s2=%s" %
-            (candidate_cell.position, total_cell, total_halite, total_halite2))
+      # print("convert score for %s, total=%s, s1=%s, s2=%s" %
+            # (candidate_cell.position, total_cell, total_halite, total_halite2))
       return total_halite, total_cell
 
     def nominate_shipyard_positions():
@@ -929,12 +932,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           not hasattr(ship, "follower")):
         return MIN_WEIGHT
 
-      # If stay at current location, prefer not stay...
       dist = manhattan_dist(next_position, target_cell.position, self.c.size)
       ship_dist = self.manhattan_dist(ship, target_cell)
       wt = ship_dist - dist
-      if (ship.task_type == ShipTask.STAY and ship.position == next_position):
-        wt -= 10
+
+      # If stay at current location, prefer not stay...
+      # if (ship.task_type == ShipTask.STAY and ship.position == next_position):
+        # wt -= 10
 
       # If collecting halite
       if ((ship.task_type == ShipTask.GOTO_HALITE or
@@ -1228,14 +1232,26 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     carry = ship and ship.halite or 0
     travel = ship_to_poi + poi_to_yard
+
     opt_steps = optimal_mining_steps(carry, poi.halite, travel)
     if opt_steps < min_mine:
       opt_steps = min_mine
 
+    # def mining_steps(cell):
+      # for s in range(1, 100):
+        # if cell.halite * HALITE_RETENSION_BY_DIST[s] < cell.keep_halite_value:
+          # break
+      # return s
+
+    # opt_steps = mining_steps(poi)
     total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * poi.halite)
+    return total_halite / (ship_to_poi ** 0.7 + opt_steps + poi_to_yard ** 0.3)
     # return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
-    return total_halite / (ship_to_poi ** 0.2 + opt_steps + poi_to_yard ** 0.2)
+    # return total_halite / (ship_to_poi ** 0.1 + opt_steps + poi_to_yard ** 0.1)
+    # return total_halite / (ship_to_poi ** 0.5 + opt_steps + poi_to_yard ** 0.01)
+    # return total_halite / (ship_to_poi ** 0.5 + opt_steps)
+    # return total_halite
     # return total_halite / (ship_to_poi + opt_steps)
     # total_halite = poi.halite + enemy_carry
     # return total_halite / (ship_to_poi + 1)
@@ -1253,7 +1269,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       adjust = 2
     elif self.num_ships >= 35:
       adjust = 3
-    MAX_ATTACK_DIST = 3 + adjust
+    MAX_ATTACK_DIST = 4 + adjust
     MIN_ATTACK_QUADRANT_NUM = 3 - int(self.num_ships >= 35)
 
     def is_enemy_within_home_boundary(enemy):
@@ -1263,7 +1279,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       covered = 0
       self.get_nearest_home_yard(enemy.cell)  # populate cache.
       for dist, yard in enemy.cell.nearest_home_yards:
-        if dist <= 2:
+        if dist <= self.home_extend_dist():
           return True
         if dist <= self.home_grown_cell_dist:
           covered += 1
@@ -1273,7 +1289,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # Extra attack distance for enemy within home boundary.
       max_attack_dist = MAX_ATTACK_DIST
       if enemy.within_home_boundary:
-        max_attack_dist = max(5, max_attack_dist + 1)
+        max_attack_dist = max(6, max_attack_dist)
 
       for ship in self.my_idle_ships:
         dist = self.manhattan_dist(ship, enemy)
