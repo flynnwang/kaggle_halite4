@@ -1,9 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-v4_1_2 <- v4_1_1
+v4_1_3 <- v4_1_2
 
 * Reduce the weight for goto halite.
 
+Tournament - ID: iN1iwv, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: mdxYvi, Name: Halite 4 Dimension
+Status: running | Competitors: 6 | Rank System: trueskill
+
+Total Matches: 436 | Matches Queued: 49
+bee v4.1.3                     | iZZuXV7RmqAq   | 32.1016373      | μ=34.489, σ=0.796  | 275
+tom v1.0.0                     | 4pQ46gdWAFBG   | 27.4403754      | μ=29.608, σ=0.723  | 246
+bee v4.0.1                     | taOJZYMnqPrU   | 26.9660787      | μ=29.143, σ=0.726  | 249
+bee v1.8                       | j0G8Z9ZbwIly   | 22.0521281      | μ=24.181, σ=0.709  | 283
+optimus_mining                 | AGZQkWdMOkbs   | 16.3911321      | μ=18.594, σ=0.734  | 340
+c40                            | SuOn3xY2pYST   | 15.5957638      | μ=17.838, σ=0.748  | 351
 """
 
 import random
