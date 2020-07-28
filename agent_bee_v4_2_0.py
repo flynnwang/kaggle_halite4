@@ -2,9 +2,8 @@
 """
 
 v4_2_0 <- v4_1_0
-Merge v4_1_0 and v4_1_1
 
-*
+* move_away_from_enemy: do not avoid for neighbor cells
 """
 
 import random
@@ -944,9 +943,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return True
 
         if avoid_collision:
-          return True
-
-        return random.random() < AVOID_COLLIDE_RATIO
+          return random.random() < AVOID_COLLIDE_RATIO
+        return False
 
       # If there is an enemy in next_position with lower halite
       if has_enemy_ship(next_cell, self.me):
