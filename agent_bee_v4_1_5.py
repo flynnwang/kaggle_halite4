@@ -5,6 +5,7 @@ v4_1_5 <- v4_1_4
 * Revert to (ship_to_poi + opt_steps + poi_to_yard / 7)
 * Convert shipyard by halite ratio (3.0) when ship_num >= 12
 * Add enemy gradient (no op)
+* avoid ratio = 0.9
 
 """
 
@@ -538,11 +539,11 @@ class GradientMap(StrategyBase):
     self.halite_gradient = None
     self.enemy_gradient = None
 
-  def get_nearby_cells(self, center : Cell, max_dist):
+  def get_nearby_cells(self, center: Cell, max_dist):
     visited = set()
     nearby_cells = []
 
-    def dfs(c : Cell):
+    def dfs(c: Cell):
       if c.position in visited:
         return
       visited.add(c.position)
@@ -555,7 +556,6 @@ class GradientMap(StrategyBase):
 
     dfs(center)
     return nearby_cells
-
 
   def compute_gradient(self, center_cells, max_dist, value_func):
     gradient = np.zeros((self.sz, self.sz))
@@ -574,8 +574,8 @@ class GradientMap(StrategyBase):
           yield center
 
     def halite_value(center, nb_cell):
-        dist = self.manhattan_dist(nb_cell, center) or 1
-        return center.halite / dist
+      dist = self.manhattan_dist(nb_cell, center) or 1
+      return center.halite / dist
 
     self.halite_gradient = self.compute_gradient(halite_cells(),
                                                  HALITE_GRADIENT_DIST,
@@ -584,7 +584,10 @@ class GradientMap(StrategyBase):
   def update(self, board):
     super().update(board)
 
-  def get_next_step_enemy_gradient(self, center_cell, max_dist=2, halite=999999):
+  def get_next_step_enemy_gradient(self,
+                                   center_cell,
+                                   max_dist=2,
+                                   halite=999999):
     """The amount enemy can hurt me."""
 
     def nearby_enemy_cells():
@@ -610,10 +613,9 @@ class GradientMap(StrategyBase):
         return enemy_cost(dist)
 
       avoid = random.random() < AVOID_COLLIDE_RATIO
-      return 0 if avoid else enemy_cost(dist+1)
+      return 0 if avoid else enemy_cost(dist + 1)
 
     return self.compute_gradient(nearby_enemy_cells(), max_dist, enemy_value)
-
 
 
 class ShipStrategy(InitializeFirstShipyard, StrategyBase):
@@ -932,7 +934,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             covered = 1
         total_cell += covered
       # print("convert score for %s, total=%s, s1=%s, s2=%s" %
-            # (candidate_cell.position, total_cell, total_halite, total_halite2))
+      # (candidate_cell.position, total_cell, total_halite, total_halite2))
       return total_halite, total_cell
 
     def nominate_shipyard_positions():
@@ -1031,7 +1033,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       # If stay at current location, prefer not stay...
       # if (ship.task_type == ShipTask.STAY and ship.position == next_position):
-        # wt -= 10
+      # wt -= 10
 
       # If collecting halite
       if ((ship.task_type == ShipTask.GOTO_HALITE or
@@ -1098,7 +1100,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     position_to_index = {pos: i for i, pos in enumerate(next_positions)}
     C = np.ones((len(ships), len(next_positions))) * MIN_WEIGHT
     for ship_idx, ship in enumerate(ships):
-      ship.enemy_gradient = self.gradient_map.get_next_step_enemy_gradient(ship.cell, halite=ship.halite)
+      ship.enemy_gradient = self.gradient_map.get_next_step_enemy_gradient(
+          ship.cell, halite=ship.halite)
 
       for move in POSSIBLE_MOVES:
         next_position = make_move(ship.position, move, self.c.size)
@@ -1308,10 +1311,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       opt_steps = min_mine
 
     # def mining_steps(cell):
-      # for s in range(1, 100):
-        # if cell.halite * HALITE_RETENSION_BY_DIST[s] < cell.keep_halite_value:
-          # break
-      # return s
+    # for s in range(1, 100):
+    # if cell.halite * HALITE_RETENSION_BY_DIST[s] < cell.keep_halite_value:
+    # break
+    # return s
 
     # opt_steps = mining_steps(poi)
     total_halite = (carry + enemy_carry +
@@ -1378,8 +1381,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     def is_enemy_stay_near_my_shipyard(enemy):
       stay_count = self.enemy_features.get_enemy_stay_count(enemy.id)
-      is_next_to_my_shipyad = any([c.shipyard_id and c.shipyard.player_id == self.me.id
-                               for c in get_neighbor_cells(enemy.cell)])
+      is_next_to_my_shipyad = any([
+          c.shipyard_id and c.shipyard.player_id == self.me.id
+          for c in get_neighbor_cells(enemy.cell)
+      ])
       return stay_count >= 3 and is_next_to_my_shipyad
 
     for enemy in self.enemy_ships:
