@@ -3,6 +3,21 @@
 v4_2_1 <- v4_2_0
 
 * convert ship to shipyard when trapped.
+* Reduce bomb to dist 3 and 16 ship
+* Check enemy gradient (check=6, dist=4, min_halite=10) for halite.
+
+
+* Check enemy gradient (check=6, dist=4, min_halite=10) for halite.
+ Total Matches: 354 | Matches Queued: 53
+ bee v4.2.1                     | 1S4mJORIwdgl   | 30.9798881      | μ=33.440, σ=0.820  | 204
+ bee v4.0.1                     | Ht3my7F5oK2n   | 25.4408046      | μ=27.599, σ=0.720  | 215
+ tom v1.0.0                     | m97LmgSMESua   | 25.3773438      | μ=27.523, σ=0.715  | 209
+ bee v1.8                       | YC0cB3EoApcd   | 21.1298893      | μ=23.216, σ=0.695  | 231
+ optimus_mining                 | MlSDbDoSX64O   | 16.3084034      | μ=18.489, σ=0.727  | 266
+ c40                            | OvVx8YqmTmp0   | 14.7150721      | μ=16.918, σ=0.734  | 291
+
+* Check enemy gradient (check=5, dist=4, min_halite=10) for halite.
+
 """
 
 import random
@@ -523,7 +538,7 @@ class GradientMap(StrategyBase):
         gradient[p.x, p.y] += value_func(center, nb_cell)
     return gradient
 
-  def get_enemy_gradient(self, center_cell, max_dist=2, halite=999999):
+  def get_enemy_gradient(self, center_cell, max_dist=2, broadcast_dist=1, halite=999999):
     """The amount enemy can hurt me."""
 
     def nearby_enemy_cells():
@@ -532,7 +547,9 @@ class GradientMap(StrategyBase):
           yield cell
 
     def enemy_cost(dist):
-      return self.c.convert_cost / (dist or 1)
+      if dist > broadcast_dist:
+        return 0
+      return self.c.spawn_cost / (dist or 1)
 
     def enemy_value(enemy_cell, nb_cell):
       enemy = enemy_cell.ship
@@ -542,6 +559,24 @@ class GradientMap(StrategyBase):
       return 0
 
     return self.compute_gradient(nearby_enemy_cells(), max_dist, enemy_value)
+
+  def get_full_map_enemy_gradient(self, max_dist=4, min_halite=10):
+    def all_enemy_cells():
+      for enemy in self.enemy_ships:
+        yield enemy.cell
+
+    def enemy_value(enemy_cell, nb_cell):
+      enemy = enemy_cell.ship
+      dist = self.manhattan_dist(nb_cell, enemy_cell)
+
+      h = enemy.halite
+      if h <= min_halite:
+        h = 0
+      h = min(50, h)
+      hurt_factor = 1 - (h / 50)
+      return hurt_factor * self.c.spawn_cost / (dist + 1)
+
+    return self.compute_gradient(all_enemy_cells(), max_dist, enemy_value)
 
 class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   """Sends every ships to the nearest cell with halite.
@@ -608,12 +643,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         threshold = max(keep_halite, threshold)
 
       # Do not go into enemy shipyard for halite.
-      enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
-      if (enemy_yard and enemy_yard_dist <= 5):
-        ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
-        if (alley_yard and enemy_yard_dist < ally_yard_dist):
-          # if the cell is nearer to the enemy yard.
-          return 1000
+      # enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
+      # if (enemy_yard and enemy_yard_dist <= 5):
+        # ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
+        # if (alley_yard and enemy_yard_dist < ally_yard_dist):
+          # # if the cell is nearer to the enemy yard.
+          # return 1000
 
       return min(threshold, 400)
 
@@ -683,19 +718,20 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       s = len(player.ship_ids) * self.c.spawn_cost
       return h + s
 
-    MIN_ENEMY_YARD_TO_MY_YARD = 5
+    MIN_ENEMY_YARD_TO_MY_YARD = 3
 
-    def max_bomb_dist():
+    def max_bomb_dist(enemy_yard):
       # Don't use bomb if ship group is small.
-      if self.num_ships <= 15:
+      if self.num_ships <= 16:
         return 0
+
       # Only attack nearby enemy yard.
       return MIN_ENEMY_YARD_TO_MY_YARD
 
     def is_near_my_shipyard(enemy_yard):
       for yard in self.shipyards:
         dist = self.manhattan_dist(yard, enemy_yard)
-        if dist <= max_bomb_dist():
+        if dist <= max_bomb_dist(enemy_yard):
           return True
       return False
 
@@ -1313,6 +1349,19 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         enemy.attack_ships = [ship for _, ship in dist_ships][:max_attack_num]
         yield enemy
 
+  def get_ship_halite_pairs(self, ships, halites):
+    CHECK_TRAP_DIST = 7
+    enemy_gradient = self.gradient_map.get_full_map_enemy_gradient(min_halite=10)
+    for poi_idx, cell in enumerate(halites):
+      for ship_idx, ship in enumerate(ships):
+        # Do not go to halite with too many enemy around.
+        dist = self.manhattan_dist(ship, cell)
+        if dist <= CHECK_TRAP_DIST:
+          if enemy_gradient[cell.position.x, cell.position.y] >= 350:
+            continue
+
+        yield ship_idx, poi_idx
+
   def optimal_assignment(self):
     ATTACK_PER_ENEMY = 6
     SHIPYARD_DUPLICATE_NUM = 4
@@ -1324,6 +1373,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     ships = list(self.my_idle_ships)
     halites = [c for c in self.halite_cells if c.halite >= c.keep_halite_value]
+    ship_halite_pairs = set(self.get_ship_halite_pairs(ships, halites))
 
     # Shipyards is duplicated to allow multiple ships having a same target.
     shipyards = [y.cell for y in self.shipyards] * shipyard_duplicate_num()
@@ -1368,8 +1418,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           poi_to_yard = 1
 
         if is_halite_column(j):
-          # If the target is a halite cell, with enemy considered.
-          v = self.halite_per_turn(ship, poi, ship_to_poi, poi_to_yard)
+          if (i, j) not in ship_halite_pairs:
+            v = MIN_WEIGHT
+          else:
+            # If the target is a halite cell, with enemy considered.
+            v = self.halite_per_turn(ship, poi, ship_to_poi, poi_to_yard)
         elif is_shipyard_column(j):
           # If the target is a shipyard.
           if ship_to_poi > 0:
@@ -1516,17 +1569,33 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   def convert_trapped_ship_to_shipyard(self):
 
     def is_ship_trapped(ship):
-      enemy_gradient = self.gradient_map.get_enemy_gradient(ship.cell, halite=ship.halite)
-      for c in get_neighbor_cells(ship.cell):
-        pos = c.position
-        if enemy_gradient[pos.x, pos.y] < self.c.convert_cost:
-          return False
-      return True
+      enemy_nearby_count = 0
+      danger_cell_count = 0
+      enemy_gradient = self.gradient_map.get_enemy_gradient(ship.cell,
+                                                            halite=ship.halite, broadcast_dist=1, max_dist=2)
+      for cell in get_neighbor_cells(ship.cell):
+        if has_enemy_ship(cell, self.me):
+          enemy = cell.ship
+          if enemy.halite < ship.halite:
+            enemy_nearby_count += 1
+            continue
+
+        if enemy_gradient[cell.position.x, cell.position.y] >= self.c.spawn_cost:
+          danger_cell_count += 1
+
+      return (enemy_nearby_count == 4 or
+              (enemy_nearby_count == 3 and danger_cell_count == 1))
+
+    def has_enough_halite(ship):
+      return ship.halite + self.me_halite >= self.c.convert_cost
 
     for ship in self.ships:
-      if is_ship_trapped(ship) and ship.halite >= 100:
+      if (ship.halite >= 100 and ship.next_action != ShipAction.CONVERT
+          and is_ship_trapped(ship) and has_enough_halite(ship)):
         ship.next_action = ShipAction.CONVERT
-        print("Convert ship %s at %s h=%s for trapped." % (ship.id, ship.position, ship.halite))
+        self.cost_halite += (self.c.convert_cost - ship.halite)
+        print("Convert ship in danger %s at %s h=%s for trapped."
+              % (ship.id, ship.position, ship.halite))
 
   def execute(self):
     self.save_for_converting = 0
