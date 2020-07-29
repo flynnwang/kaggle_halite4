@@ -28,6 +28,15 @@ bee v1.8                       | H1xHUyEzL6DC   | 21.1063021      | μ=23.222, �
 optimus_mining                 | eYAH3MriGVX9   | 15.5424968      | μ=17.728, σ=0.729  | 215
 c40                            | O8e4PQL9Fe0F   | 14.7011287      | μ=16.901, σ=0.733  | 215
 
+Tournament - ID: NFO67B, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: YopRrT, Name: Halite 4 Dimension
+Status: running | Competitors: 4 | Rank System: trueskill
+
+Total Matches: 522 | Matches Queued: 12
+bee v4.2.1                     | 6nYMBFOdVwW9   | 31.3746244      | μ=33.725, σ=0.783  | 522
+tom v1.0.0                     | Tqet7Pfgm3hT   | 26.5376284      | μ=28.701, σ=0.721  | 522
+bee v4.1.0                     | Fgrcizf6uwBT   | 22.6477974      | μ=24.887, σ=0.746  | 522
+optimus_mining                 | 1mGAxJxfVUGj   | 7.0448392       | μ=10.498, σ=1.151  | 522
+
 """
 
 import random
