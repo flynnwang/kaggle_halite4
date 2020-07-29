@@ -3,7 +3,7 @@
 v4_2_1 <- v4_2_0
 
 * convert ship to shipyard when trapped.
-* Reduce bomb to dist 3 and 16 ship
+* Reduce bomb to dist 4 and 16 ship
 * Check enemy gradient (check=6, dist=4, min_halite=10) for halite.
 
 
