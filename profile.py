@@ -13,7 +13,8 @@ from replayer import Replayer
 
 REPLAYE_NAME = "1746731"
 
-work_dir = "/ssd/wangfei/repo/flynn/kaggle_halite4/"
+# work_dir = "/ssd/wangfei/repo/flynn/kaggle_halite4/"
+work_dir = "/home/wangfei/repo/flynn/kaggle_halite4"
 replay_path = os.path.join(work_dir, "debug_replay", REPLAYE_NAME+ ".json")
 result_path = os.path.join(work_dir, "%s_%s.png"
                            % ("agent_bee_v4_0_4_2", REPLAYE_NAME))

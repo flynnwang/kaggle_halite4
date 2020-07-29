@@ -16,7 +16,17 @@ v4_2_1 <- v4_2_0
  optimus_mining                 | MlSDbDoSX64O   | 16.3084034      | μ=18.489, σ=0.727  | 266
  c40                            | OvVx8YqmTmp0   | 14.7150721      | μ=16.918, σ=0.734  | 291
 
-* Check enemy gradient (check=5, dist=4, min_halite=10) for halite.
+* Check enemy gradient (check=7, dist=4, min_halite=10) for halite.
+Tournament - ID: LomwnA, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: 7puo42, Name: Halite 4 Dimension
+Status: running | Competitors: 6 | Rank System: trueskill
+
+Total Matches: 275 | Matches Queued: 13
+bee v4.2.1                     | NB1030k6ZqRG   | 31.7453858      | μ=34.375, σ=0.876  | 147
+tom v1.0.0                     | TM8XlwBuCrcj   | 25.7093510      | μ=27.925, σ=0.739  | 165
+bee v4.0.1                     | Ua1YcHUAVTts   | 25.1451353      | μ=27.334, σ=0.730  | 158
+bee v1.8                       | H1xHUyEzL6DC   | 21.1063021      | μ=23.222, σ=0.705  | 196
+optimus_mining                 | eYAH3MriGVX9   | 15.5424968      | μ=17.728, σ=0.729  | 215
+c40                            | O8e4PQL9Fe0F   | 14.7011287      | μ=16.901, σ=0.733  | 215
 
 """
 
@@ -718,7 +728,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       s = len(player.ship_ids) * self.c.spawn_cost
       return h + s
 
-    MIN_ENEMY_YARD_TO_MY_YARD = 3
+    MIN_ENEMY_YARD_TO_MY_YARD = 4
 
     def max_bomb_dist(enemy_yard):
       # Don't use bomb if ship group is small.
