@@ -97,7 +97,8 @@ class Replayer:
     state = self.replay_json['steps'][step][0]
     obs = state['observation']
     obs['player'] = self.player_id
-    return Board(obs, self.env.configuration)
+    actions = [self.replay_json['steps'][step][p]['action'] for p in range(4)]
+    return Board(obs, self.env.configuration, actions)
 
   def simulate(self, step=0):
     board = self.get_board(step)
