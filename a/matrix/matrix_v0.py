@@ -53,29 +53,31 @@ def get_model(input_shape=(32, 32, 6), num_ship_actions=6, num_shipyard_actions=
   # conv6 = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge6)
   # conv6 = Conv2D(512, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv6)
 
-  # up7 = Conv2D(256, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv6))
-  up7 = Conv2D(256, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(pool3))
-  merge7 = concatenate([conv3,up7], axis = 3)
-  conv7 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge7)
-  conv7 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv7)
+  def decoder(input_tensor):
+    # up7 = Conv2D(256, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv6))
+    up7 = Conv2D(256, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(input_tensor))
+    merge7 = concatenate([conv3,up7], axis = 3)
+    conv7 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge7)
+    conv7 = Conv2D(256, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv7)
 
-  up8 = Conv2D(128, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv7))
-  merge8 = concatenate([conv2,up8], axis = 3)
-  conv8 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge8)
-  conv8 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv8)
+    up8 = Conv2D(128, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv7))
+    merge8 = concatenate([conv2,up8], axis = 3)
+    conv8 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge8)
+    conv8 = Conv2D(128, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv8)
 
-  up9 = Conv2D(64, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv8))
-  merge9 = concatenate([conv1,up9], axis = 3)
-  conv9 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge9)
-  conv9 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
-  # conv9 = Conv2D(2, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
+    up9 = Conv2D(64, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv8))
+    merge9 = concatenate([conv1,up9], axis = 3)
+    conv9 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(merge9)
+    conv9 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(conv9)
+    return conv9
 
   # Add a per-pixel classification layer
-  ship_outputs = Conv2D(num_ship_actions, 3, activation="softmax", padding="same", kernel_initializer = 'he_normal')(conv9)
-  shipyard_outputs = Conv2D(num_shipyard_actions, 3, activation="sigmoid", padding="same", kernel_initializer='he_normal')(conv9)
+  action_decoder = decoder(pool3)
+  ship_outputs = Conv2D(num_ship_actions, 3, activation="softmax", padding="same", kernel_initializer = 'he_normal')(action_decoder)
+  shipyard_outputs = Conv2D(num_shipyard_actions, 3, activation="sigmoid", padding="same", kernel_initializer='he_normal')(action_decoder)
 
   critic_conv9 = Conv2D(num_shipyard_actions, 3, activation="relu", padding="same",
-                          kernel_initializer='he_normal')(conv9)
+                          kernel_initializer='he_normal')(decoder(pool3))
   critic_flattend = Flatten()(critic_conv9)
   critic_outputs = tf.keras.layers.Dense(1)(critic_flattend)
 
