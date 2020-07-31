@@ -83,33 +83,6 @@ def get_model(input_shape=(32, 32, 6), num_ship_actions=6, num_shipyard_actions=
   model = keras.Model(inputs, outputs=[ship_outputs, shipyard_outputs, critic_outputs])
   return model
 
-class Replayer:
-
-  def __init__(self, strategy, replay_json, player_id=0):
-    self.strategy = strategy
-    self.replay_json = replay_json
-    self.player_id = player_id
-    self.env = make("halite", configuration=replay_json['configuration'],
-                    steps=replay_json['steps'])
-    self.step = 0
-
-  def get_board(self, step):
-    state = self.replay_json['steps'][step][0]
-    obs = state['observation']
-    obs['player'] = self.player_id
-    actions = [self.replay_json['steps'][step][p]['action'] for p in range(4)]
-    return Board(obs, self.env.configuration, actions)
-
-  def simulate(self, step=0):
-    board = self.get_board(step)
-    self.strategy.update(board)
-    self.strategy.execute()
-    self.step += 1
-
-  def play(self, steps=1):
-    for i in range(steps):
-      self.simulate(i)
-
 
 def cargo(player):
   """Computes the cargo value for a player."""
