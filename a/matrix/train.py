@@ -467,10 +467,11 @@ class Trainer:
       grads = tape.gradient(loss_values, self.model.trainable_variables)
       self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
 
+    self.on_one_step_training_finished()
+
   def on_one_step_training_finished(self):
     self.checkpoint.step.assign_add(1)
-    # if int(self.checkpoint.step) % (10 * 4) == 0:
-    if int(self.checkpoint.step) % 2 == 0:
+    if int(self.checkpoint.step) % (10 * 4) == 0:
       save_path = self.manager.save()
       print("Saved checkpoint for step {}: {}".format(int(self.checkpoint.step), save_path))
 
