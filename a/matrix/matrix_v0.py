@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-
+import os
 import random
 import timeit
 import logging
@@ -260,17 +260,18 @@ SHIP_ACTIONS = list(ShipAction) + [None]
 NUM_SHIP_ACTIONS = len(SHIP_ACTIONS)
 
 
-class ShipStrategy(StrategyBase):
+# MODEL_PATH = '/data/wangfei/data/202007_halite/unet.h5'
+MODEL_PATH = '/home/wangfei/data/20200801_halite/model/unet.h5'
 
-  MODEL_PATH = '/data/wangfei/data/202007_halite/unet.h5'
+class ShipStrategy(StrategyBase):
 
   def __init__(self, model=None):
     super().__init__()
     self.model = model
     if self.model is None:
       self.model = get_model()
-      self.model.load_weights(self.MODEL_PATH)
-
+      assert os.path.exists(MODEL_PATH)
+      self.model.load_weights(MODEL_PATH)
 
   def assign_ship_actions(self, ship_out):
     for ship in self.ships:

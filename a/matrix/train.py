@@ -2,13 +2,15 @@
 
 import os
 
+import json
 import numpy as np
 import tensorflow as tf
 import keras
 from kaggle_environments import evaluate, make
 from kaggle_environments.envs.halite.helpers import *
 
-from matrix_v0 import SHIP_ACTIONS, HALITE_NORMALIZTION_VAL, ModelInput
+from matrix_v0 import (SHIP_ACTIONS, HALITE_NORMALIZTION_VAL, ModelInput,
+                       get_model, OFFSET)
 
 
 def is_current_player(func):
@@ -339,13 +341,14 @@ def gen_player_states(replay_json, player_id, steps):
 
 
 SHIP_ACTION_TO_ACTION_IDX = {a: i for i, a in enumerate(SHIP_ACTIONS)}
-
+EPS = np.finfo(np.float32).eps.item()
+MODEL_CHECKPOINT_DIR = "/home/wangfei/data/20200801_halite/model/unet"
 
 def log_prob(g):
   g = list(g)
   if len(g) == 0:
     return tf.constant(0.0)
-  if np.abs(np.sum(np.array(g))) < eps:
+  if np.abs(np.sum(np.array(g))) < EPS:
     return tf.constant(0.0)
   return tf.math.log(tf.math.reduce_sum(g))
 
@@ -365,10 +368,24 @@ class Trainer:
 
   def __init__(self, model):
     self.model = model
+    assert model
+
     self.optimizer = keras.optimizers.Adam(learning_rate=1e-4)
     self.huber_loss = tf.keras.losses.Huber(
         reduction=tf.keras.losses.Reduction.NONE)
     self.gamma = 0.995  # Discount factor for past rewards
+
+    self.checkpoint = tf.train.Checkpoint(step=tf.Variable(1), model=model)
+    self.manager = tf.train.CheckpointManager(self.checkpoint,
+                                              MODEL_CHECKPOINT_DIR,
+                                              max_to_keep=20)
+
+    # Load existing model if it exists.
+    self.checkpoint.restore(self.manager.latest_checkpoint)
+    if self.manager.latest_checkpoint:
+      print("Restored from {}".format(self.manager.latest_checkpoint))
+    else:
+      print("Initializing model from scratch.")
 
   def get_ship_action_log_probs(self, boards, ship_probs):
 
@@ -385,7 +402,7 @@ class Trainer:
 
   def get_shipyard_action_log_probs(self, boards, yard_probs):
 
-    def get_shipyard_action_probs(board, step_idx):
+    def shipyard_action_probs(board, step_idx):
       for yard in board.current_player.shipyards:
         img_pos = yard.position + OFFSET
         yield yard_probs[step_idx, img_pos.x, img_pos.y, 0]
@@ -411,8 +428,8 @@ class Trainer:
     returns = np.array(returns[::-1])
 
     # Normalize
-    # returns = (returns - np.mean(returns)) / (np.std(returns) + eps)
-    returns = returns / (np.std(returns) + eps)
+    # returns = (returns - np.mean(returns)) / (np.std(returns) + EPS)
+    returns = returns / (np.std(returns) + EPS)
     return returns
 
   def train(self, boards):
@@ -441,27 +458,29 @@ class Trainer:
       # the future rewards.
       critic_losses = self.huber_loss(critic_values, tf.expand_dims(returns, 0))
 
-      print('mean yard_actor_losses', np.mean(yard_actor_losses))
       print('mean ship_actor_losses', np.mean(ship_actor_losses))
-      print('mean, critic_losses', np.mean(critic_losses))
+      print('mean yard_actor_losses', np.mean(yard_actor_losses))
+      print('mean critic_losses', np.mean(critic_losses))
 
       loss_values = sum(ship_actor_losses) + sum(yard_actor_losses) + sum(
           critic_losses)
       grads = tape.gradient(loss_values, self.model.trainable_variables)
       self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
 
+  def on_one_step_training_finished(self):
+    self.checkpoint.step.assign_add(1)
+    # if int(self.checkpoint.step) % (10 * 4) == 0:
+    if int(self.checkpoint.step) % 2 == 0:
+      save_path = self.manager.save()
+      print("Saved checkpoint for step {}: {}".format(int(self.checkpoint.step), save_path))
 
-def train_replayes(trainer, replay_jsons):
+
+def train_on_replays(trainer, replay_jsons):
   for replay_json in replay_jsons:
     total_steps = len(replay_json['steps'])
-    print('start ', replay_json['id'], replay_json['rewards'])
+    print('Start training on', replay_json['id'], replay_json['rewards'])
     for player_id in range(4):
-      print(' replay for player %s' % player_id)
+      print('   replay for player %s' % player_id)
       boards = list(gen_player_states(replay_json, player_id, total_steps))
       assert boards
       trainer.train(boards)
-
-
-# replay_json = env.toJSON()
-# with open("/ssd/wangfei/repo/flynn/kaggle_halite4/debug_replay/20200723_0.json", 'w') as f:
-#     f.write(json.dumps(replay_json))
