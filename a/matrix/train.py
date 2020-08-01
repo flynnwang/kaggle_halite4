@@ -7,6 +7,9 @@ def is_current_player(func):
   def dec(self, unit, *args, **kwargs):
     if unit.player_id != self.current_player_id:
       return
+
+    if self.step == self.configuration.episode_steps - 1:
+      return
     return func(self, unit, *args, **kwargs)
 
   return dec
@@ -21,26 +24,31 @@ class EventBoard(Board):
   ) -> None:
     super().__init__(raw_observation, raw_configuration, next_actions)
     self.step_reward = 0
+    self.debug = True
 
-  def log_reward(self, name, r):
-    print('  %s: r=%s' % (name, r))
+  def log_reward(self, name, unit, r):
+    if not self.debug:
+      return
+    unit_type = 'ship' if isinstance(unit, Ship) else 'yard'
+    print('  %s[%s] at %s %s: r=%s' % (unit_type, unit.id, unit.position,
+                                         name, r))
 
   @is_current_player
   def on_ship_deposite(self, ship, shipyard):
     self.step_reward += ship.halite
-    self.log_reward('on_ship_deposite', ship.halite)
+    self.log_reward('on_ship_deposite', ship, ship.halite)
 
   @is_current_player
   def on_ship_collect(self, ship, delta_halite):
     self.step_reward += delta_halite
-    self.log_reward('on_ship_collect', delta_halite)
+    self.log_reward('on_ship_collect', ship, delta_halite)
 
   @is_current_player
   def on_invalid_convert(self, ship):
     assert ship.halite < self.configuration.convert_cost
     r = -(self.configuration.convert_cost - ship.halite)
     self.step_reward += r
-    self.log_reward('on_invalid_convert', r)
+    self.log_reward('on_invalid_convert', ship, r)
 
   @is_current_player
   def on_ship_move(self, ship):
@@ -48,39 +56,39 @@ class EventBoard(Board):
     MOVE_COST_RATE = 0.01
     r = -max(ship.halite * MOVE_COST_RATE, 1)
     self.step_reward += r
-    self.log_reward('on_ship_move', r)
+    self.log_reward('on_ship_move', ship, r)
 
   @is_current_player
   def on_invalid_spawn(self, shipyard):
     assert shipyard.player.halite < self.configuration.spawn_cost
     r = -(self.configuration.spawn_cost - shipyard.player.halite)
     self.step_reward += r
-    self.log_reward('on_invalid_spawn', r)
+    self.log_reward('on_invalid_spawn', shipyard, r)
 
   @is_current_player
   def on_shipyard_destroid_by_ship(self, shipyard, ship):
     r = -(self.configuration.spawn_cost + self.configuration.convert_cost)
     self.step_reward += r
-    self.log_reward('on_shipyard_destroid_by_ship', r)
+    self.log_reward('on_shipyard_destroid_by_ship', shipyard, r)
 
   @is_current_player
   def on_ship_destroid_with_enemy_shipyard(self, ship, shipyard):
     # TODO(wangfei): add reward for nearby shipyard attack.
     r = 50
     self.step_reward += r
-    self.log_reward('on_ship_destroid_with_enemy_shipyard', r)
+    self.log_reward('on_ship_destroid_with_enemy_shipyard', ship, r)
 
   @is_current_player
   def on_ship_destroid_in_ship_collison(self, ship):
     r = -self.configuration.spawn_cost
     self.step_reward += r
-    self.log_reward('on_ship_destroid_in_ship_collison', r)
+    self.log_reward('on_ship_destroid_in_ship_collison', ship, r)
 
   @is_current_player
-  def on_ship_win_collision(self, winner, total_winning_halite, total_destroied_ship):
+  def on_ship_win_collision(self, ship, total_winning_halite, total_destroied_ship):
     r = total_winning_halite + (self.configuration.spawn_cost * total_destroied_ship)
     self.step_reward += r
-    self.log_reward('on_ship_win_collision', r)
+    self.log_reward('on_ship_win_collision', ship, r)
 
   def next(self):
     """
@@ -115,7 +123,7 @@ class EventBoard(Board):
           player._halite -= spawn_cost
           board._add_ship(Ship(ShipId(create_uid()), shipyard.position, 0, player.id, board))
           # Clear the shipyard's action so it doesn't repeat the same action automatically
-          shipyard.next_action = None
+          # shipyard.next_action = None  # Do not clear action, will be use it for backprop
 
       for ship in player.ships:
         if ship.next_action == ShipAction.CONVERT:
@@ -212,7 +220,7 @@ class EventBoard(Board):
         ship._halite += delta_halite
         cell._halite -= delta_halite
         # Clear the ship's action so it doesn't repeat the same action automatically
-        ship.next_action = None
+        # ship.next_action = None  # do not clear
 
     # Regenerate halite in cells
     for cell in board.cells.values():
@@ -223,7 +231,6 @@ class EventBoard(Board):
         assert cell.halite >= 0
 
     board._step += 1
-
     return board
 
 
@@ -242,7 +249,11 @@ class Replayer:
     state = self.replay_json['steps'][step][0]
     obs = state['observation']
     obs['player'] = self.player_id
-    actions = [self.replay_json['steps'][step][p]['action'] for p in range(4)]
+
+    actions = None
+    if step + 1 < self.total_steps:
+      actions = [self.replay_json['steps'][step+1][p]['action']
+                 for p in range(4)]
     return board_cls(obs, self.env.configuration, actions)
 
   def check_board_valid(self):
@@ -262,6 +273,17 @@ class Replayer:
     for i in range(steps):
       self.simulate(i)
 
+
+class Trainer:
+
+  def __init__(self, model):
+    self.model = model
+
+  def get_player_history(self, player_id):
+    pass
+
+
+  # def train(self, replay_json):
 
 
 

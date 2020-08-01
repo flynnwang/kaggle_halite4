@@ -79,10 +79,13 @@ def get_model(input_shape=(32, 32, 6), num_ship_actions=6, num_shipyard_actions=
   critic_conv9 = Conv2D(num_shipyard_actions, 3, activation="relu", padding="same",
                           kernel_initializer='he_normal')(decoder(pool3))
   critic_flattend = Flatten()(critic_conv9)
-  critic_outputs = tf.keras.layers.Dense(1)(critic_flattend)
+  critic_dennse = tf.keras.layers.Dense(32, activation='relu')(critic_flattend)
+  critic_dennse = tf.keras.layers.Dense(32, activation='relu')(critic_dennse)
+  critic_outputs = tf.keras.layers.Dense(1)(critic_dennse)
 
   # Define the model
   model = keras.Model(inputs, outputs=[ship_outputs, shipyard_outputs, critic_outputs])
+  # model = keras.Model(inputs, outputs=[ship_outputs, shipyard_outputs])
   return model
 
 
@@ -261,11 +264,12 @@ class ShipStrategy(StrategyBase):
 
   MODEL_PATH = '/data/wangfei/data/202007_halite/unet.h5'
 
-  def __init__(self):
+  def __init__(self, model=None):
     super().__init__()
-    # self.model = keras.models.load_model(self.MODEL_PATH)
-    self.model = get_model()
-    self.model.load_weights(self.MODEL_PATH)
+    self.model = model
+    if self.model is None:
+      self.model = get_model()
+      self.model.load_weights(self.MODEL_PATH)
 
 
   def assign_ship_actions(self, ship_out):
