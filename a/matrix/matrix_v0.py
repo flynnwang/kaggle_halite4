@@ -72,13 +72,12 @@ def get_model(input_shape=(32, 32, 6), num_ship_actions=6, num_shipyard_actions=
     return conv9
 
   # Add a per-pixel classification layer
-  action_decoder = decoder(pool3)
-  ship_outputs = Conv2D(num_ship_actions, 3, activation="softmax", padding="same", kernel_initializer = 'he_normal')(action_decoder)
-  shipyard_outputs = Conv2D(num_shipyard_actions, 3, activation="sigmoid", padding="same", kernel_initializer='he_normal')(action_decoder)
+  # action_decoder = decoder(pool3)
+  ship_outputs = Conv2D(num_ship_actions, 3, activation="softmax", padding="same", kernel_initializer = 'he_normal')(decoder(pool3))
+  shipyard_outputs = Conv2D(num_shipyard_actions, 3, activation="sigmoid", padding="same", kernel_initializer='he_normal')(decoder(pool3))
 
-  critic_conv9 = Conv2D(num_shipyard_actions, 3, activation="relu", padding="same",
-                          kernel_initializer='he_normal')(decoder(pool3))
-  critic_flattend = Flatten()(critic_conv9)
+  critic_pool = decoder(pool3)
+  critic_flattend = Flatten()(critic_pool)
   critic_dennse = tf.keras.layers.Dense(32, activation='relu')(critic_flattend)
   critic_dennse = tf.keras.layers.Dense(32, activation='relu')(critic_dennse)
   critic_outputs = tf.keras.layers.Dense(1)(critic_dennse)
