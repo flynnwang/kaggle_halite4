@@ -27,11 +27,11 @@ def simulate(output_path):
   return replay_json
 
 
-def run_lsd(output_dir, times):
+def run_lsd(output_dir, times, model_dir):
   if not os.path.exists(output_dir):
     os.makedirs(output_dir)
 
-  trainer = Trainer(get_model())
+  trainer = Trainer(get_model(), model_dir)
   mat.STRATEGY = mat.ShipStrategy(trainer.model)
   for i in range(times):
     time_tag = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -48,9 +48,10 @@ def main():
   parser = argparse.ArgumentParser()
   parser.add_argument('-a', '--agent')
   parser.add_argument('-o', '--output_dir', required=True)
+  parser.add_argument('-m', '--model_dir', required=True)
   parser.add_argument('-t', '--times', required=True, type=int)
   args = parser.parse_args()
-  run_lsd(args.output_dir, args.times)
+  run_lsd(args.output_dir, args.times, args.model_dir)
 
 
 if __name__ == "__main__":

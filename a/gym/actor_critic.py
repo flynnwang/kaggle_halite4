@@ -1,3 +1,5 @@
+
+import gym
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
@@ -94,9 +96,23 @@ while True:  # Run until solved
       # the future rewards.
       critic_losses.append(
           huber_loss(tf.expand_dims(value, 0), tf.expand_dims(ret, 0)))
+      print('tf.expand_dims(value, 0).shape', tf.expand_dims(value, 0).shape)
+      print('tf.expand_dims(ret, 0).shape', tf.expand_dims(ret, 0).shape)
+
+
+
+    print('mean actor_losses', np.mean(actor_losses),
+          'mean critic_losses', np.mean(critic_losses))
+
+    cc = np.array(critic_value_history)
+    positive = len(cc[cc > 0])
+    negative = len(cc[cc < 0])
+    zero = len(cc) - positive - negative
+    print('critic_value_history +%s, -%s, zero=%s' % (positive, negative, zero))
 
     # Backpropagation
     loss_value = sum(actor_losses) + sum(critic_losses)
+    print('loss_value', loss_value.numpy())
     grads = tape.gradient(loss_value, model.trainable_variables)
     optimizer.apply_gradients(zip(grads, model.trainable_variables))
 

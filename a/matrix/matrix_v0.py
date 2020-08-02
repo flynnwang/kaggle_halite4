@@ -26,7 +26,7 @@ HALITE_NORMALIZTION_VAL = 500.0
 TOTAL_STEPS = 400
 
 # num_classes = 4 move + 1 stay + 1 convert + 1 spawn
-def get_model(input_shape=(32, 32, 6), num_ship_actions=6, num_shipyard_actions=1):
+def get_model_bak(input_shape=(32, 32, 5), num_ship_actions=6, num_shipyard_actions=1):
   inputs = Input(shape=input_shape)
 
   conv1 = Conv2D(64, 3, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(inputs)
@@ -80,12 +80,87 @@ def get_model(input_shape=(32, 32, 6), num_ship_actions=6, num_shipyard_actions=
   critic_flattend = Flatten()(critic_pool)
   critic_dennse = tf.keras.layers.Dense(32, activation='relu')(critic_flattend)
   critic_dennse = tf.keras.layers.Dense(32, activation='relu')(critic_dennse)
-  critic_outputs = tf.keras.layers.Dense(1)(critic_dennse)
+  critic_outputs = tf.keras.layers.Dense(1, activation="linear")(critic_dennse)
 
   # Define the model
   model = keras.Model(inputs, outputs=[ship_outputs, shipyard_outputs, critic_outputs])
   # model = keras.Model(inputs, outputs=[ship_outputs, shipyard_outputs])
   return model
+
+def get_model(input_shape=(32, 32, 5), num_ship_actions=6, num_shipyard_actions=1):
+  from keras import layers
+  inputs = keras.Input(shape=input_shape)
+
+  ### [First half of the network: downsampling inputs] ###
+
+  # Entry block
+  x = layers.Conv2D(32, 3, strides=2, padding="same")(inputs)
+  x = layers.BatchNormalization()(x)
+  x = layers.Activation("relu")(x)
+
+  previous_block_activation = x  # Set aside residual
+
+  # Blocks 1, 2, 3 are identical apart from the feature depth.
+  for filters in [64, 128, 256]:
+    x = layers.Activation("relu")(x)
+    x = layers.SeparableConv2D(filters, 3, padding="same")(x)
+    x = layers.BatchNormalization()(x)
+
+    x = layers.Activation("relu")(x)
+    x = layers.SeparableConv2D(filters, 3, padding="same")(x)
+    x = layers.BatchNormalization()(x)
+
+    x = layers.MaxPooling2D(3, strides=2, padding="same")(x)
+
+    # Project residual
+    residual = layers.Conv2D(filters, 1, strides=2, padding="same")(
+      previous_block_activation
+    )
+    x = layers.add([x, residual])  # Add back residual
+    previous_block_activation = x  # Set aside next residual
+
+  ### [Second half of the network: upsampling inputs] ###
+
+  def decoder(x):
+    previous_block_activation = x  # Set aside residual
+    for filters in [256, 128, 64, 32]:
+      x = layers.Activation("relu")(x)
+      x = layers.Conv2DTranspose(filters, 3, padding="same")(x)
+      x = layers.BatchNormalization()(x)
+
+      x = layers.Activation("relu")(x)
+      x = layers.Conv2DTranspose(filters, 3, padding="same")(x)
+      x = layers.BatchNormalization()(x)
+
+      x = layers.UpSampling2D(2)(x)
+
+      # Project residual
+      residual = layers.UpSampling2D(2)(previous_block_activation)
+      residual = layers.Conv2D(filters, 1, padding="same")(residual)
+      x = layers.add([x, residual])  # Add back residual
+      previous_block_activation = x  # Set aside next residual
+    return x
+
+  encoder_end = x
+  ship_outputs = Conv2D(num_ship_actions, 3, activation="softmax",
+                        padding="same")(decoder(encoder_end))
+  shipyard_outputs = Conv2D(num_shipyard_actions, 3, activation="sigmoid",
+                            padding="same")(decoder(encoder_end))
+
+  # critic_input = decoder(encoder_end)
+  critic_input = encoder_end
+  critic_flattend = Flatten()(critic_input)
+  critic_dennse = tf.keras.layers.Dense(1024, activation='relu')(critic_flattend)
+  critic_dennse = tf.keras.layers.Dense(512, activation='relu')(critic_dennse)
+  critic_dennse = tf.keras.layers.Dense(512, activation='relu')(critic_dennse)
+  critic_dennse = tf.keras.layers.Dense(256, activation='relu')(critic_dennse)
+  critic_dennse = tf.keras.layers.Dense(128, activation='relu')(critic_dennse)
+  critic_outputs = tf.keras.layers.Dense(1)(critic_dennse)
+
+  # Define the model
+  model = keras.Model(inputs, outputs=[ship_outputs, shipyard_outputs, critic_outputs])
+  return model
+
 
 
 def cargo(player):
@@ -117,10 +192,10 @@ class ModelInput:
     enemy_ship_map = self.enemy_ship_map()
     enemy_shipyard_map = self.enemy_shipyard_map()
 
-    aux_map = self.get_auxiliary_map()
+    # aux_map = self.get_auxiliary_map()
 
     maps = [halites, my_ship_map, my_shipyard_map, enemy_ship_map,
-            enemy_shipyard_map, aux_map]
+            enemy_shipyard_map]#, aux_map]
     v = np.stack([shift(m, OFFSET) for m in maps])
     if move_axis:
       v = np.moveaxis(v, 0, -1)
