@@ -13,10 +13,10 @@ import matrix_v0 as mat
 from matrix_v0 import agent, get_model
 from train import Trainer, gen_replays, train_on_replays
 
-BATCH_SIZE = 1
+BATCH_SIZE = 25
 
 def simulate(output_path):
-  env = make("halite", {'episodeSteps': 400}, debug=True)
+  env = make("halite", {'episodeSteps': 60}, debug=True)
   # TODO: why there ase multi-processes running?
   env.run([agent] * 4)
 

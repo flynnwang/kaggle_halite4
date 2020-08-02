@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import random
 
 import json
 import numpy as np
@@ -24,32 +25,35 @@ EPS = np.finfo(np.float32).eps.item()
 def is_current_player(func):
 
   def dec(self, unit, *args, **kwargs):
-    if unit and unit.player_id != self.current_player_id:
-      return
-
-    # if self.step == self.configuration.episode_steps - 1:
-      # return
+    if unit:
+      if isinstance(unit, Player):
+        player_id = unit.id
+      else:
+        player_id = unit.player_id
+      if player_id != self.current_player_id:
+        return
     return func(self, unit, *args, **kwargs)
 
   return dec
 
 def get_last_step_reward(last_board):
+  # No last step reward
+  return 0
+
   c = last_board.configuration
   me = last_board.current_player
 
-  def get_player_reward(player):
+  def get_elimination_penality(player):
     if is_player_eliminated(player, c.spawn_cost):
-      failed_steps = last_board.step - c.episode_steps - 1
-      return failed_steps
+      return (c.episode_steps - 1 - last_board.step)
     return 0
     # return player.halite
 
-  # Use total deposite as inital optimization object.
-  # return np.sqrt(last_board.total_deposite)
-  # return np.sqrt(last_board.total_collect) + last_board.total_deposite
-  # total_reward = (last_board.total_collect * 0.5 + last_board.total_deposite
-                  # + me.halite)
-  total_reward = me.halite + last_board.total_deposite + get_player_reward(me)
+  halite = np.sqrt(me.halite) / 10
+  deposite = np.sqrt(last_board.total_deposite) * 10
+  collect = np.sqrt(last_board.total_collect)
+  penality = 0 #get_elimination_penality(me)
+  total_reward = halite + collect + deposite - penality
   return total_reward
   # return 0
 
@@ -77,27 +81,27 @@ class EventBoard(Board):
     self.total_collect = 0
 
   def log_reward(self, name, unit, r):
-    if not self.debug:
+    if not self.debug or r == 0:
       return
 
     if unit:
       unit_type = 'ship' if isinstance(unit, Ship) else 'yard'
-      print('  %s[%s] at %s %s: r=%s' %
-            (unit_type, unit.id, unit.position, name, r))
+      print('  S=%s: %s[%s] at %s %s: r=%s' %
+            (self.step, unit_type, unit.id, unit.position, name, r))
     else:
-      print("  %s, r=%s" % (name, r))
+      print("  S=%s: %s, r=%s" % (self.step, name, r))
 
   def on_step_finished(self):
     # If having money but not convert into shipyard.
     me = self.current_player
-    # if len(me.shipyard_ids) == 0 and me.halite > self.configuration.convert_cost:
-      # self.step_reward -= 1
-      # self.log_reward("not converting shipyard ", unit=None, r=-1)
+    if len(me.shipyard_ids) == 0 and me.halite > self.configuration.convert_cost:
+      self.step_reward -= 1
+      self.log_reward("not converting shipyard ", unit=None, r=-1)
 
-    # if (len(me.shipyard_ids) > 0 and me.halite > self.configuration.spawn_cost
-        # and len(me.ship_ids) == 0):
-      # self.step_reward -= 1
-      # self.log_reward("not spawn ship ", unit=None, r=-1)
+    if (len(me.shipyard_ids) > 0 and me.halite > self.configuration.spawn_cost
+        and len(me.ship_ids) == 0):
+      self.step_reward -= 1
+      self.log_reward("not spawn ship ", unit=None, r=-1)
 
     # if len(me.shipyard_ids) > 0:
       # self.step_reward += 1
@@ -111,8 +115,10 @@ class EventBoard(Board):
 
   @is_current_player
   def on_ship_deposite(self, ship, shipyard):
+    if ship.halite:
+      print('deposite by ship %s from player %s h=%s' % (ship.id, ship.player_id, ship.halite))
     deposite = ship.halite
-    self.step_reward += deposite
+    self.step_reward += deposite * 2
     self.total_deposite += deposite
     self.log_reward('on_ship_deposite', ship, ship.halite)
 
@@ -122,17 +128,22 @@ class EventBoard(Board):
     self.total_collect += delta_halite
     self.log_reward('on_ship_collect', ship, delta_halite)
 
-  def on_hand_left_over_halite(self, deposite_halite):
+  @is_current_player
+  def on_hand_left_over_halite(self, player, deposite_halite):
+    # r = 1 if deposite_halite > 0 else 
     r = 0
-    self.step_reward = deposite_halite
+    self.step_reward += r
     self.total_deposite += deposite_halite
     self.log_reward('on_hand_left_over_halite', None, r)
+    self.log_reward('on_hand_left_over_halite.deposite', None, deposite_halite)
+
 
   @is_current_player
   def on_invalid_convert(self, ship):
     assert ship.halite < self.configuration.convert_cost
     # r = -(self.configuration.convert_cost - ship.halite)
-    r = -1
+    # r = -1
+    r = 0
     self.step_reward += r
     self.log_reward('on_invalid_convert', ship, r)
 
@@ -142,7 +153,8 @@ class EventBoard(Board):
     MOVE_COST_RATE = 0.01
     # r = -max(ship.halite * MOVE_COST_RATE, 1)
     # r = -50
-    r = -1
+    # r = -1
+    r = 0
     self.step_reward += r
     self.log_reward('on_ship_move', ship, r)
 
@@ -150,8 +162,8 @@ class EventBoard(Board):
   def on_ship_stay(self, ship):
     """Add some stay cost."""
     r = 0
-    if ship.cell.halite == 0:
-      r = -1
+    # if ship.cell.halite == 0:
+      # r = -1
     self.step_reward += r
     self.log_reward('on_ship_stay', ship, r)
 
@@ -160,7 +172,8 @@ class EventBoard(Board):
     assert shipyard.player.halite < self.configuration.spawn_cost
     # r = -(self.configuration.spawn_cost - shipyard.player.halite)
     # r = -50
-    r = -1
+    # r = -1
+    r = 0
     self.step_reward += r
     self.log_reward('on_invalid_spawn', shipyard, r)
 
@@ -173,7 +186,7 @@ class EventBoard(Board):
   @is_current_player
   def on_ship_destroid_with_enemy_shipyard(self, ship, shipyard):
     # TODO(wangfei): add reward for nearby shipyard attack.
-    r = 1
+    r = 0
     self.step_reward += r
     self.log_reward('on_ship_destroid_with_enemy_shipyard', ship, r)
 
@@ -262,11 +275,12 @@ class EventBoard(Board):
         if ship.next_action == None:
           self.on_ship_stay(ship)
 
+      if player.id == self.current_player.id:
+        self.on_hand_left_over_halite(player, leftover_convert_halite)
 
-        self.on_hand_left_over_halite(leftover_convert_halite)
-        player._halite += leftover_convert_halite
-        # Lets just check and make sure.
-        assert player.halite >= 0
+      player._halite += leftover_convert_halite
+      # Lets just check and make sure.
+      assert player.halite >= 0
 
     def resolve_collision(
         ships: List[Ship]) -> Tuple[Optional[Ship], List[Ship]]:
@@ -417,20 +431,13 @@ def gen_player_states(replay_json, player_id, steps, debug=False):
     #         print('Step #', board.step)
     board.next()
     prev = board
+    # print('S=%s, board.total_deposite=' % (i), board.total_deposite)
     yield board
 
     if is_player_eliminated(board.current_player,
                             board.configuration.spawn_cost):
       break
   board.step_reward += get_last_step_reward(board)
-
-def log_prob(g):
-  g = list(g)
-  if len(g) == 0:
-    return tf.constant(0.0)
-  if np.abs(np.sum(np.array(g))) < EPS:
-    return tf.constant(0.0)
-  return tf.math.log(tf.math.reduce_sum(g))
 
 
 def gen_replays(path, replayer_id=None):
@@ -446,6 +453,9 @@ def gen_replays(path, replayer_id=None):
 
 class Trainer:
 
+  BORRD_POSITIONS = [Point(i, j) for i in range(BOARD_SIZE)
+                     for j in range(BOARD_SIZE)]
+
   def __init__(self, model, model_dir):
     self.model = model
     assert model
@@ -453,7 +463,7 @@ class Trainer:
     self.optimizer = keras.optimizers.Adam(learning_rate=3e-5)
     # self.huber_loss = tf.keras.losses.Huber(reduction=tf.keras.losses.Reduction.NONE)
     self.huber_loss = tf.keras.losses.Huber()
-    self.gamma = 0.995  # Discount factor for past rewards
+    self.gamma = 0.99  # Discount factor for past rewards
 
     self.checkpoint = tf.train.Checkpoint(step=tf.Variable(0), model=model)
     self.manager = tf.train.CheckpointManager(self.checkpoint,
@@ -483,34 +493,42 @@ class Trainer:
                                      get_shipyard_units)
 
   def get_action_log_probs(self, boards, unit_probs, action_to_idx, get_units):
+    # Sample non-actionable cells for fast training.
+    N_SAMPLE = 50
 
     def unit_action_probs(board, step_idx):
       position_to_unit = {u.position : u for u in get_units(board)}
-      for i in range(BOARD_SIZE):
-        for j in range(BOARD_SIZE):
-          position = Point(i, j)
-          unit = position_to_unit.get(position)
-          if not unit:
-            # Because it won't affect the state of the board and action won't be
-            # recorded for non-unit cells, thus it's generated during training.
-            action_probs = unit_probs[step_idx, position.x, position.y, :]
-            action_idx = np.random.choice(len(action_to_idx), p=action_probs.numpy())
-            yield action_probs[action_idx]
-          else:
-            # Same here, since None or False will not affect the board,
-            # it's sampled again here.
-            if unit.next_action is None:
-              action_probs = unit_probs[step_idx, position.x, position.y, -2:]
-              probs = np.array([action_probs[-2], action_probs[-1]])
-              probs = probs / np.sum(probs)
-              action_idx = np.random.choice(2, p=probs)
-              yield action_probs[action_idx]
-            else:
-              action_idx = action_to_idx[unit.next_action]
-              yield unit_probs[step_idx, position.x, position.y, action_idx]
+
+      positions = (random.sample(self.BORRD_POSITIONS, N_SAMPLE)
+                   if len(boards) > 150
+                   else self.BORRD_POSITIONS)
+      for position in positions:
+      # for position in not_actionable_cells:
+        if position in position_to_unit:
+          continue
+
+        # Because it won't affect the state of the board and action won't be
+        # recorded for non-unit cells, thus it's generated during training.
+        action_probs = unit_probs[step_idx, position.x, position.y, :]
+        action_idx = np.random.choice(len(action_to_idx), p=action_probs.numpy())
+        yield action_probs[action_idx]
+
+      for position, unit in position_to_unit.items():
+        if unit.next_action is None:
+          # Same here, since None or False will not affect the board,
+          # it's sampled again here.
+          action_probs = unit_probs[step_idx, position.x, position.y, -2:]
+          probs = np.array([action_probs[-2], action_probs[-1]])
+          probs = probs / np.sum(probs)
+          action_idx = np.random.choice(2, p=probs)
+          yield action_probs[action_idx]
+        else:
+          action_idx = action_to_idx[unit.next_action]
+          yield unit_probs[step_idx, position.x, position.y, action_idx]
 
     action_log_probs = [
-        log_prob(unit_action_probs(b, i)) for i, b in enumerate(boards)
+        tf.math.log(tf.math.reduce_sum(list(unit_action_probs(b, i))))
+        for i, b in enumerate(boards)
     ]
     return tf.convert_to_tensor(action_log_probs)
 
@@ -535,21 +553,21 @@ class Trainer:
 
     positive = len(returns[returns > 0])
     negative = len(returns[returns < 0])
-    zero = len(returns) - positive - negative
     print('reward at step=%s for player[%s]= %.2f; total_deposite=%.0f, total_collect=%.0f' %
           (board.step, board.current_player.id, returns[-1],
            board.total_deposite, board.total_collect))
 
 
     # Normalize
-    returns = (returns - mean_return) / (std_return + EPS)
-    # returns = returns / (std_return + EPS)
+    # returns = (returns - mean_return) / (std_return + EPS)
+
+    # Do not use mean normalization which will move bad situation as positve.
+    returns = returns / (std_return + EPS)
 
     p2 = len(returns[returns > 0])
     n2 = len(returns[returns < 0])
-    zero = len(returns) - p2 - n2
-    print('Return(mean=%.3f, std=%.3f, +%s, -%s, Z=%s), normalized return=(+%s, -%s, Z=%s)'
-          % (mean_return, std_return, positive, negative, zero, p2, n2, zero))
+    print('Return(mean=%.3f, std=%.3f, +%s, -%s), normalized return=(+%s, -%s)'
+          % (mean_return, std_return, positive, negative, p2, n2))
 
     return returns
 
@@ -585,9 +603,8 @@ class Trainer:
         cc = critic_values[:, 0].numpy()
         positive = len(cc[cc > 0])
         negative = len(cc[cc < 0])
-        zero = len(cc) - positive - negative
         print('p[%s] mean critic_losses' % rollout_idx, np.mean(critic_losses),
-              'mean critic values:', np.mean(cc), ' +%s, -%s, Z=%s' % (positive, negative, zero))
+              'mean critic values:', np.mean(cc), ' +%s, -%s' % (positive, negative))
 
         loss = sum(ship_actor_losses) + sum(yard_actor_losses) + critic_losses
         grad_values.append(tape.gradient(loss, self.model.trainable_variables))
@@ -599,7 +616,7 @@ class Trainer:
 
   def on_episode_training_finished(self):
     self.checkpoint.step.assign_add(1)
-    if int(self.checkpoint.step) % 50 == 0:
+    if int(self.checkpoint.step) % 20 == 0:
       save_path = self.manager.save()
       print("Saved checkpoint for step {}: {}".format(int(self.checkpoint.step), save_path))
 
