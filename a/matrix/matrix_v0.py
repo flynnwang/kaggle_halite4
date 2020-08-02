@@ -18,10 +18,8 @@ import tensorflow as tf
 from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Dropout, UpSampling2D, concatenate, Flatten
 
 
-OFFSET = Point(5, 5)
-
 BOARD_SIZE = 21
-INPUT_MAP_SIZE = (32, 32)
+INPUT_MAP_SIZE = (BOARD_SIZE, BOARD_SIZE)
 HALITE_NORMALIZTION_VAL = 500.0
 TOTAL_STEPS = 400
 
@@ -87,9 +85,15 @@ def get_model_bak(input_shape=(32, 32, 5), num_ship_actions=6, num_shipyard_acti
   # model = keras.Model(inputs, outputs=[ship_outputs, shipyard_outputs])
   return model
 
-def get_model(input_shape=(32, 32, 5), num_ship_actions=6, num_shipyard_actions=1):
+def get_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 5),
+              num_ship_actions=6, num_shipyard_actions=1,
+              ):
   from keras import layers
   inputs = keras.Input(shape=input_shape)
+
+  # ((top_pad, bottom_pad), (left_pad, right_pad))
+  input_padding = ((5, 6), (5, 6))
+  x = layers.ZeroPadding2D(input_padding)(inputs)
 
   ### [First half of the network: downsampling inputs] ###
 
@@ -139,7 +143,7 @@ def get_model(input_shape=(32, 32, 5), num_ship_actions=6, num_shipyard_actions=
       residual = layers.Conv2D(filters, 1, padding="same")(residual)
       x = layers.add([x, residual])  # Add back residual
       previous_block_activation = x  # Set aside next residual
-    return x
+    return layers.Cropping2D(input_padding)(x)
 
   encoder_end = x
   ship_outputs = Conv2D(num_ship_actions, 3, activation="softmax",
@@ -196,7 +200,7 @@ class ModelInput:
 
     maps = [halites, my_ship_map, my_shipyard_map, enemy_ship_map,
             enemy_shipyard_map]#, aux_map]
-    v = np.stack([shift(m, OFFSET) for m in maps])
+    v = np.stack(maps)
     if move_axis:
       v = np.moveaxis(v, 0, -1)
     return v
@@ -239,9 +243,9 @@ class ModelInput:
     v = np.zeros(shape=INPUT_MAP_SIZE)
     for ship in self.board.players[player_id].ships:
       position = ship.position
-      # v[position.x, position.y] = (ship.halite + 100) / HALITE_NORMALIZTION_VAL
-      v[position.x, position.y] = (-1 if ship.halite == 0 else
-                                   (ship.halite / HALITE_NORMALIZTION_VAL))
+      v[position.x, position.y] = ship.halite / HALITE_NORMALIZTION_VAL + 1.0
+      # v[position.x, position.y] = (-1 if ship.halite == 0 else
+                                   # (ship.halite / HALITE_NORMALIZTION_VAL))
     return v
 
   def player_shipyard_map(self, player_id):
@@ -349,7 +353,7 @@ class ShipStrategy(StrategyBase):
 
   def assign_ship_actions(self, ship_out):
     for ship in self.ships:
-      position = ship.position + OFFSET
+      position = ship.position
       ship_action_prob = ship_out[0][position.x, position.y, :NUM_SHIP_ACTIONS]
 
       # TODO(wangfei): use maximize when deply
@@ -358,7 +362,7 @@ class ShipStrategy(StrategyBase):
 
   def assign_shipyard_actions(self, yard_out):
     for yard in self.shipyards:
-      position = yard.position + OFFSET
+      position = yard.position
       prob = yard_out[0][position.x, position.y, 0]
 
       # TODO(wangfei): use maximize when deply

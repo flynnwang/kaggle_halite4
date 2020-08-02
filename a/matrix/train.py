@@ -10,7 +10,7 @@ from kaggle_environments import evaluate, make
 from kaggle_environments.envs.halite.helpers import *
 
 from matrix_v0 import (SHIP_ACTIONS, SHIPYARD_ACTIONS, HALITE_NORMALIZTION_VAL,
-                       ModelInput, get_model, OFFSET)
+                       ModelInput, get_model)
 
 
 
@@ -41,15 +41,15 @@ def get_last_step_reward(last_board):
     if is_player_eliminated(player, c.spawn_cost):
       failed_steps = last_board.step - c.episode_steps - 1
       return failed_steps
-    return player.halite
+    return 0
+    # return player.halite
 
   # Use total deposite as inital optimization object.
   # return np.sqrt(last_board.total_deposite)
   # return np.sqrt(last_board.total_collect) + last_board.total_deposite
-  total_reward = (last_board.total_collect * 0.5 + last_board.total_deposite
-                  + me.halite)
-  if total_reward == 0:
-    return -10
+  # total_reward = (last_board.total_collect * 0.5 + last_board.total_deposite
+                  # + me.halite)
+  total_reward = me.halite + last_board.total_deposite + get_player_reward(me)
   return total_reward
   # return 0
 
@@ -124,6 +124,7 @@ class EventBoard(Board):
 
   def on_hand_left_over_halite(self, deposite_halite):
     r = 0
+    self.step_reward = deposite_halite
     self.total_deposite += deposite_halite
     self.log_reward('on_hand_left_over_halite', None, r)
 
@@ -132,7 +133,8 @@ class EventBoard(Board):
     assert ship.halite < self.configuration.convert_cost
     # r = -(self.configuration.convert_cost - ship.halite)
     # r = -1
-    r = -50
+    # r = -50
+    r = 0
     self.step_reward += r
     self.log_reward('on_invalid_convert', ship, r)
 
@@ -142,7 +144,7 @@ class EventBoard(Board):
     MOVE_COST_RATE = 0.01
     # r = -max(ship.halite * MOVE_COST_RATE, 1)
     # r = -50
-    r = 0
+    r = -1
     self.step_reward += r
     self.log_reward('on_ship_move', ship, r)
 
@@ -150,8 +152,8 @@ class EventBoard(Board):
   def on_ship_stay(self, ship):
     """Add some stay cost."""
     r = 0
-    # if ship.cell.halite == 0:
-      # r = -50
+    if ship.cell.halite == 0:
+      r = -1
     self.step_reward += r
     self.log_reward('on_ship_stay', ship, r)
 
@@ -179,7 +181,7 @@ class EventBoard(Board):
 
   @is_current_player
   def on_ship_destroid_in_ship_collison(self, ship):
-    r = -self.configuration.spawn_cost
+    r = -(self.configuration.spawn_cost + ship.halite)
     self.step_reward += r
     self.log_reward('on_ship_destroid_in_ship_collison', ship, r)
 
@@ -453,7 +455,7 @@ class Trainer:
     self.optimizer = keras.optimizers.Adam(learning_rate=3e-5)
     # self.huber_loss = tf.keras.losses.Huber(reduction=tf.keras.losses.Reduction.NONE)
     self.huber_loss = tf.keras.losses.Huber()
-    self.gamma = 0.99  # Discount factor for past rewards
+    self.gamma = 0.995  # Discount factor for past rewards
 
     self.checkpoint = tf.train.Checkpoint(step=tf.Variable(0), model=model)
     self.manager = tf.train.CheckpointManager(self.checkpoint,
@@ -472,7 +474,7 @@ class Trainer:
     def ship_action_probs(board, step_idx):
       for ship in board.current_player.ships:
         action_idx = SHIP_ACTION_TO_ACTION_IDX[ship.next_action]
-        img_pos = ship.position + OFFSET
+        img_pos = ship.position
         yield ship_probs[step_idx, img_pos.x, img_pos.y, action_idx]
 
     action_log_probs = [
@@ -485,7 +487,7 @@ class Trainer:
     def shipyard_action_probs(board, step_idx):
       for yard in board.current_player.shipyards:
         action_idx = SHIPYARD_ACTION_TO_ACTION_IDX[yard.next_action]
-        img_pos = yard.position + OFFSET
+        img_pos = yard.position
         prob = yard_probs[step_idx, img_pos.x, img_pos.y, 0]
         yield prob if action_idx == 0 else (1 - prob)
 
@@ -516,75 +518,66 @@ class Trainer:
     positive = len(returns[returns > 0])
     negative = len(returns[returns < 0])
     zero = len(returns) - positive - negative
-    print('reward at last step=%s for player %s: return=%.3f(mean=%.3f, std=%.3f, +%s, -%s, zero=%s), total_deposite=%.0f' %
-          (board.step, board.current_player.id, returns[-1], mean_return, std_return,
-           positive, negative, zero, board.total_deposite))
+    print('reward at step=%s for player[%s]= %.2f; total_deposite=%.0f, total_collect=%.0f' %
+          (board.step, board.current_player.id, returns[-1],
+           board.total_deposite, board.total_collect))
+
 
     # Normalize
-    # returns = (returns - mean_return) / (std_return + EPS)
-    returns = returns / (std_return + EPS)
+    returns = (returns - mean_return) / (std_return + EPS)
+    # returns = returns / (std_return + EPS)
+
+    p2 = len(returns[returns > 0])
+    n2 = len(returns[returns < 0])
+    zero = len(returns) - p2 - n2
+    print('Return(mean=%.3f, std=%.3f, +%s, -%s, Z=%s), normalized return=(+%s, -%s, Z=%s)'
+          % (mean_return, std_return, positive, negative, zero, p2, n2, zero))
+
     return returns
 
-  def train(self, player_boards, player_id):
-    player_returns = [self.get_returns(boards) for boards in player_boards]
-
+  def train(self, player_boards):
     def get_player_inputs(boards):
       return np.array([ModelInput(b).get_input() for b in boards],
                       dtype=np.float32)
 
-    player_inputs = [get_player_inputs(boards) for boards in player_boards]
+    grad_values = []
+    for rollout_idx, boards in enumerate(player_boards):
+      returns = self.get_returns(boards)
 
-    with tf.GradientTape() as tape:
-      player_preds = [self.model(X) for X in player_inputs]
+      with tf.GradientTape() as tape:
+        X = get_player_inputs(boards)
+        (ship_probs, yard_probs, critic_values) = self.model(X)
 
-      loss_values = None
-      for i, ((ship_probs, yard_probs, critic_values), returns, boards) in enumerate(zip(player_preds, player_returns, player_boards)):
         ship_action_log_probs = self.get_ship_action_log_probs(boards, ship_probs)
         yard_action_log_probs = self.get_shipyard_action_log_probs(
             boards, yard_probs)
 
-        # Calculating loss values to update our network.
-
-        # At this point in history, the critic estimated that we would get a
-        # total reward = `value` in the future. We took an action with log probability
-        # of `log_prob` and ended up recieving a total reward = `ret`.
-        # The actor must be updated so that it predicts an action that leads to
-        # high rewards (compared to critic's estimate) with high probability.
         diff = returns - critic_values[:, 0]
         print('mean diff', np.mean(diff))
         ship_actor_losses = -ship_action_log_probs * diff
         yard_actor_losses = -yard_action_log_probs * diff
+        print('p[%s] mean ship_actor_losses' % rollout_idx, np.mean(ship_actor_losses))
+        print('p[%s] mean yard_actor_losses' % rollout_idx , np.mean(yard_actor_losses))
 
-        print('p[%s] mean ship_actor_losses' % player_id, np.mean(ship_actor_losses))
-        print('p[%s] mean yard_actor_losses' % player_id , np.mean(yard_actor_losses))
 
-        # The critic must be updated so that it predicts a better estimate of
-        # the future rewards.
-        # critic_losses = self.huber_loss(critic_values[:, 0], returns)
-        critic_losses = [self.huber_loss(tf.expand_dims(x, 0), tf.expand_dims(y, 0))
-                         for x, y in zip(critic_values[:, 0], returns)]
-        print('critic_values.shape', critic_values[:, 0].shape, 'return.shape',
-              returns.shape, 'critic_losses.shape', np.array(critic_losses).shape)
-        print('returns [:10]', returns[-10:])
-        print('critic [:10]', critic_values[-10:, 0].numpy())
+        critic_losses = self.huber_loss(critic_values[:, 0], returns)
 
+        print('returns [:10]', returns[-5:])
+        print('critic [:10]', critic_values[-5:, 0].numpy())
         cc = critic_values[:, 0].numpy()
         positive = len(cc[cc > 0])
         negative = len(cc[cc < 0])
         zero = len(cc) - positive - negative
-        print('p[%s] mean critic_losses' % player_id, np.mean(critic_losses),
-              self.huber_loss(critic_values[:, 0], returns).numpy(),
-              'mean critic values:', np.mean(cc), ' +%s, -%s, zero=%s' % (positive, negative, zero))
+        print('p[%s] mean critic_losses' % rollout_idx, np.mean(critic_losses),
+              'mean critic values:', np.mean(cc), ' +%s, -%s, Z=%s' % (positive, negative, zero))
 
-        tmp = sum(ship_actor_losses) + sum(yard_actor_losses) + sum(critic_losses)
-        # tmp = ship_actor_losses + yard_actor_losses + critic_losses
-        assert len(player_boards) == 1
-        loss_values = tmp
+        loss = sum(ship_actor_losses) + sum(yard_actor_losses) + critic_losses
+        grad_values.append(tape.gradient(loss, self.model.trainable_variables))
 
-      grads = tape.gradient(loss_values, self.model.trainable_variables)
+    for i, grads in enumerate(grad_values):
+      print("Apply gradient for rollout: %s" % i)
       self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
-
-    self.on_episode_training_finished()
+      self.on_episode_training_finished()
 
   def on_episode_training_finished(self):
     self.checkpoint.step.assign_add(1)
@@ -594,18 +587,30 @@ class Trainer:
 
 
 def train_on_replays(trainer, replay_jsons):
-  for replay_json in replay_jsons:
-    total_steps = len(replay_json['steps'])
-    print('Start training on', replay_json['id'], replay_json['rewards'],
-          'total_steps:', total_steps)
 
-    num_players = len(replay_json['rewards'])
-    player_id = np.random.choice(num_players)
-    boards = list(gen_player_states(replay_json, player_id, total_steps))
-    trainer.train([boards], player_id)
+  def gen_player_boards():
+    for replay_json in replay_jsons:
+      total_steps = len(replay_json['steps'])
+      print('Start training on', replay_json['id'], replay_json['rewards'],
+            'total_steps:', total_steps)
 
-    # for player_id in range(num_players):
+      num_players = len(replay_json['rewards'])
+
+      # player_id = np.random.choice(num_players)
       # boards = list(gen_player_states(replay_json, player_id, total_steps))
-      # assert boards
-      # # player_boards[player_id] = boards
       # trainer.train([boards], player_id)
+
+      player_ids = list(range(num_players))
+
+      # np.random.shuffle(player_ids)
+      # for player_id in player_ids:
+        # boards = list(gen_player_states(replay_json, player_id, total_steps))
+        # assert boards
+        # trainer.train([boards], player_id)
+
+      for player_id in player_ids:
+        boards = list(gen_player_states(replay_json, player_id, total_steps))
+        assert boards
+        yield boards
+
+  trainer.train(gen_player_boards())
