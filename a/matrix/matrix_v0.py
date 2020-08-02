@@ -23,6 +23,20 @@ INPUT_MAP_SIZE = (BOARD_SIZE, BOARD_SIZE)
 HALITE_NORMALIZTION_VAL = 500.0
 TOTAL_STEPS = 400
 
+# Shipyard actions + no spawn (None) + NOT_ACTIONABLE (False)
+SHIPYARD_ACTIONS = list(ShipyardAction) + [None, False]
+NUM_SHIPYARD_ACTIONS = len(SHIPYARD_ACTIONS)
+
+
+# Ship actions + stay (None) + NOT_ACTIONABLE (False)
+SHIP_ACTIONS = list(ShipAction) + [None, False]
+NUM_SHIP_ACTIONS = len(SHIP_ACTIONS)
+
+
+# MODEL_PATH = '/data/wangfei/data/202007_halite/unet.h5'
+MODEL_PATH = '/home/wangfei/data/20200801_halite/model/unet.h5'
+
+
 # num_classes = 4 move + 1 stay + 1 convert + 1 spawn
 def get_model_bak(input_shape=(32, 32, 5), num_ship_actions=6, num_shipyard_actions=1):
   inputs = Input(shape=input_shape)
@@ -86,8 +100,8 @@ def get_model_bak(input_shape=(32, 32, 5), num_ship_actions=6, num_shipyard_acti
   return model
 
 def get_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 5),
-              num_ship_actions=6, num_shipyard_actions=1,
-              ):
+              num_ship_actions=NUM_SHIP_ACTIONS,
+              num_shipyard_actions=NUM_SHIPYARD_ACTIONS):
   from keras import layers
   inputs = keras.Input(shape=input_shape)
 
@@ -148,7 +162,7 @@ def get_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 5),
   encoder_end = x
   ship_outputs = Conv2D(num_ship_actions, 3, activation="softmax",
                         padding="same")(decoder(encoder_end))
-  shipyard_outputs = Conv2D(num_shipyard_actions, 3, activation="sigmoid",
+  shipyard_outputs = Conv2D(num_shipyard_actions, 3, activation="softmax",
                             padding="same")(decoder(encoder_end))
 
   # critic_input = decoder(encoder_end)
@@ -331,16 +345,6 @@ class StrategyBase:
     self.execute()
 
 
-SHIPYARD_ACTIONS = list(ShipyardAction) + [None]
-NUM_SHIPYARD_ACTIONS = len(SHIPYARD_ACTIONS)
-
-SHIP_ACTIONS = list(ShipAction) + [None]
-NUM_SHIP_ACTIONS = len(SHIP_ACTIONS)
-
-
-# MODEL_PATH = '/data/wangfei/data/202007_halite/unet.h5'
-MODEL_PATH = '/home/wangfei/data/20200801_halite/model/unet.h5'
-
 class ShipStrategy(StrategyBase):
 
   def __init__(self, model=None):
@@ -351,30 +355,27 @@ class ShipStrategy(StrategyBase):
       assert os.path.exists(MODEL_PATH)
       self.model.load_weights(MODEL_PATH)
 
-  def assign_ship_actions(self, ship_out):
-    for ship in self.ships:
-      position = ship.position
-      ship_action_prob = ship_out[0][position.x, position.y, :NUM_SHIP_ACTIONS]
+  def assign_unti_actions(self, units, unit_probs, actions):
+    for unit in units:
+      position = unit.position
+      unit_action_probs = unit_probs[0][position.x, position.y, :]
 
       # TODO(wangfei): use maximize when deply
-      action_idx = np.random.choice(NUM_SHIP_ACTIONS, p=ship_action_prob)
-      ship.next_action = SHIP_ACTIONS[action_idx]
+      action_idx = np.random.choice(len(actions), p=unit_action_probs)
+      action = actions[action_idx]
 
-  def assign_shipyard_actions(self, yard_out):
-    for yard in self.shipyards:
-      position = yard.position
-      prob = yard_out[0][position.x, position.y, 0]
-
-      # TODO(wangfei): use maximize when deply
-      action_idx = np.random.choice(NUM_SHIPYARD_ACTIONS, p=[prob, 1-prob])
-      yard.next_action = SHIPYARD_ACTIONS[action_idx]
+      unit.next_action = None
+      if action != None and action != False:
+        unit.next_action = action
 
   def execute(self):
     model_input = ModelInput(self.board)
     input = model_input.get_input(move_axis=True)
-    ship_out, yard_out, _ = self.model.predict(np.expand_dims(input, axis=0))
-    self.assign_ship_actions(ship_out)
-    self.assign_shipyard_actions(yard_out)
+    ship_probs, yard_probs, _ = self.model.predict(np.expand_dims(input, axis=0))
+
+    me = self.board.current_player
+    self.assign_unti_actions(me.ships, ship_probs, SHIP_ACTIONS)
+    self.assign_unti_actions(me.shipyards, yard_probs, SHIPYARD_ACTIONS)
 
 
 STRATEGY = None

@@ -13,7 +13,7 @@ import matrix_v0 as mat
 from matrix_v0 import agent, get_model
 from train import Trainer, gen_replays, train_on_replays
 
-BATCH_SIZE = 10
+BATCH_SIZE = 1
 
 def simulate(output_path):
   env = make("halite", {'episodeSteps': 400}, debug=True)

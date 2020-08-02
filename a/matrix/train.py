@@ -10,7 +10,7 @@ from kaggle_environments import evaluate, make
 from kaggle_environments.envs.halite.helpers import *
 
 from matrix_v0 import (SHIP_ACTIONS, SHIPYARD_ACTIONS, HALITE_NORMALIZTION_VAL,
-                       ModelInput, get_model)
+                       ModelInput, get_model, BOARD_SIZE)
 
 
 
@@ -132,9 +132,7 @@ class EventBoard(Board):
   def on_invalid_convert(self, ship):
     assert ship.halite < self.configuration.convert_cost
     # r = -(self.configuration.convert_cost - ship.halite)
-    # r = -1
-    # r = -50
-    r = 0
+    r = -1
     self.step_reward += r
     self.log_reward('on_invalid_convert', ship, r)
 
@@ -162,7 +160,7 @@ class EventBoard(Board):
     assert shipyard.player.halite < self.configuration.spawn_cost
     # r = -(self.configuration.spawn_cost - shipyard.player.halite)
     # r = -50
-    r = 0
+    r = -1
     self.step_reward += r
     self.log_reward('on_invalid_spawn', shipyard, r)
 
@@ -470,29 +468,49 @@ class Trainer:
       print("Initializing model from scratch.")
 
   def get_ship_action_log_probs(self, boards, ship_probs):
+    def get_ship_units(board):
+      return board.current_player.ships
 
-    def ship_action_probs(board, step_idx):
-      for ship in board.current_player.ships:
-        action_idx = SHIP_ACTION_TO_ACTION_IDX[ship.next_action]
-        img_pos = ship.position
-        yield ship_probs[step_idx, img_pos.x, img_pos.y, action_idx]
-
-    action_log_probs = [
-        log_prob(ship_action_probs(b, i)) for i, b in enumerate(boards)
-    ]
-    return tf.convert_to_tensor(action_log_probs)
+    return self.get_action_log_probs(boards, ship_probs,
+                                     SHIP_ACTION_TO_ACTION_IDX, get_ship_units)
 
   def get_shipyard_action_log_probs(self, boards, yard_probs):
+    def get_shipyard_units(board):
+      return board.current_player.shipyards
 
-    def shipyard_action_probs(board, step_idx):
-      for yard in board.current_player.shipyards:
-        action_idx = SHIPYARD_ACTION_TO_ACTION_IDX[yard.next_action]
-        img_pos = yard.position
-        prob = yard_probs[step_idx, img_pos.x, img_pos.y, 0]
-        yield prob if action_idx == 0 else (1 - prob)
+    return self.get_action_log_probs(boards, yard_probs,
+                                     SHIPYARD_ACTION_TO_ACTION_IDX,
+                                     get_shipyard_units)
+
+  def get_action_log_probs(self, boards, unit_probs, action_to_idx, get_units):
+
+    def unit_action_probs(board, step_idx):
+      position_to_unit = {u.position : u for u in get_units(board)}
+      for i in range(BOARD_SIZE):
+        for j in range(BOARD_SIZE):
+          position = Point(i, j)
+          unit = position_to_unit.get(position)
+          if not unit:
+            # Because it won't affect the state of the board and action won't be
+            # recorded for non-unit cells, thus it's generated during training.
+            action_probs = unit_probs[step_idx, position.x, position.y, :]
+            action_idx = np.random.choice(len(action_to_idx), p=action_probs.numpy())
+            yield action_probs[action_idx]
+          else:
+            # Same here, since None or False will not affect the board,
+            # it's sampled again here.
+            if unit.next_action is None:
+              action_probs = unit_probs[step_idx, position.x, position.y, -2:]
+              probs = np.array([action_probs[-2], action_probs[-1]])
+              probs = probs / np.sum(probs)
+              action_idx = np.random.choice(2, p=probs)
+              yield action_probs[action_idx]
+            else:
+              action_idx = action_to_idx[unit.next_action]
+              yield unit_probs[step_idx, position.x, position.y, action_idx]
 
     action_log_probs = [
-        log_prob(shipyard_action_probs(b, i)) for i, b in enumerate(boards)
+        log_prob(unit_action_probs(b, i)) for i, b in enumerate(boards)
     ]
     return tf.convert_to_tensor(action_log_probs)
 
@@ -543,9 +561,9 @@ class Trainer:
     grad_values = []
     for rollout_idx, boards in enumerate(player_boards):
       returns = self.get_returns(boards)
+      X = get_player_inputs(boards)
 
       with tf.GradientTape() as tape:
-        X = get_player_inputs(boards)
         (ship_probs, yard_probs, critic_values) = self.model(X)
 
         ship_action_log_probs = self.get_ship_action_log_probs(boards, ship_probs)
