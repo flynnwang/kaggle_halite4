@@ -9,15 +9,16 @@ from multiprocessing import Pool
 from kaggle_environments import evaluate, make
 from kaggle_environments.envs.halite.helpers import *
 
-BATCH_SIZE = 1
+BATCH_SIZE = 12
 EPISODE_STEPS = 60
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"]="3"
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
 
 def simulate(args):
   output_path, model_dir = args
-  # Ignore GPU when running trajectories.
-  import os
-  os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
-  os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
   from train import Trainer
   import matrix_v0 as mat
@@ -49,7 +50,7 @@ def run_lsd(output_dir, model_dir):
 
   def gen_simulations():
     sim_args = list(gen_simulation_args())
-    with Pool(processes=1) as pool:
+    with Pool(processes=6) as pool:
       for replay_json in pool.imap_unordered(simulate, sim_args):
         pass
 

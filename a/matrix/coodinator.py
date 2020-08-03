@@ -14,11 +14,10 @@ def run(episode_dir, model_dir, batch):
     batch_dir = os.path.join(episode_dir, time_tag)
 
     lsd_proc = subprocess.Popen(["python3", "lsd.py", "-o", batch_dir, '-m', model_dir])
-    train_proc = subprocess.Popen(["python3", "batch_train.py", "-e", batch_dir, '-m', model_dir])
-
     lsd_proc.wait()
     print("All episodes generation finished: ", batch_dir)
 
+    train_proc = subprocess.Popen(["python3", "batch_train.py", "-e", batch_dir, '-m', model_dir])
     train_proc.wait()
     print("One training batch finished: ", batch_dir)
 
@@ -34,5 +33,3 @@ def main():
 
 if __name__ == "__main__":
   main()
-
-

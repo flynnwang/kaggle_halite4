@@ -131,7 +131,7 @@ class EventBoard(Board):
 
   @is_current_player
   def on_hand_left_over_halite(self, player, deposite_halite):
-    # r = 1 if deposite_halite > 0 else 
+    # r = 1 if deposite_halite > 0 else
     r = 0
     self.step_reward += r
     self.total_deposite += deposite_halite
@@ -456,54 +456,80 @@ def gen_replays(path, replayer_id=None):
     yield replay_json
 
 
+def compute_returns(boards, gamma=0.995):
+  step_rewards = np.array([b.step_reward for b in boards], dtype=np.float32)
+  step_rewards /= HALITE_NORMALIZTION_VAL
+
+  # Calculate expected value from rewards
+  # - At each timestep what was the total reward received after that timestep
+  # - Rewards in the past are discounted by multiplying them with gamma
+  # - These are the labels for our critic
+  returns = []
+  discounted_sum = 0
+  for r in step_rewards[::-1]:
+    discounted_sum = r + gamma * discounted_sum
+    returns.append(discounted_sum)
+  returns = np.array(returns[::-1])
+  return returns
+
+
 class Trainer:
 
   BORRD_POSITIONS = [Point(i, j) for i in range(BOARD_SIZE)
                      for j in range(BOARD_SIZE)]
 
-  def __init__(self, model, model_dir):
+  def __init__(self, model, model_dir, return_params=None):
     self.model = model
     if self.model is None:
       self.model = get_model()
     assert self.model
 
+    self.return_params = return_params
     self.optimizer = keras.optimizers.Adam(learning_rate=3e-5)
     # self.huber_loss = tf.keras.losses.Huber(reduction=tf.keras.losses.Reduction.NONE)
     self.huber_loss = tf.keras.losses.Huber()
-    self.gamma = 0.99  # Discount factor for past rewards
 
-    self.checkpoint = tf.train.Checkpoint(step=tf.Variable(0), model=self.model)
-    self.manager = tf.train.CheckpointManager(self.checkpoint,
-                                              model_dir,
-                                              max_to_keep=20)
+    if model_dir:
+      self.checkpoint = tf.train.Checkpoint(step=tf.Variable(0), model=self.model)
+      self.manager = tf.train.CheckpointManager(self.checkpoint,
+                                                model_dir,
+                                                max_to_keep=20)
 
-    # Load existing model if it exists.
-    self.checkpoint.restore(self.manager.latest_checkpoint)
-    if self.manager.latest_checkpoint:
-      print("Restored from {}".format(self.manager.latest_checkpoint))
-    else:
-      print("Initializing model from scratch.")
+      # Load existing model if it exists.
+      self.checkpoint.restore(self.manager.latest_checkpoint)
+      if self.manager.latest_checkpoint:
+        print("Restored from {}".format(self.manager.latest_checkpoint))
+      else:
+        print("Initializing model from scratch.")
 
   def get_ship_action_log_probs(self, boards, ship_probs):
     def get_ship_units(board):
       return board.current_player.ships
 
-    return self.get_action_log_probs(boards, ship_probs,
+    log_probs, correct_rate = self.get_action_log_probs(boards, ship_probs,
                                      SHIP_ACTION_TO_ACTION_IDX, get_ship_units)
+    print("Non action ship cells precision: ", correct_rate)
+    return log_probs
 
   def get_shipyard_action_log_probs(self, boards, yard_probs):
     def get_shipyard_units(board):
       return board.current_player.shipyards
 
-    return self.get_action_log_probs(boards, yard_probs,
+    log_probs, correct_rate =  self.get_action_log_probs(boards, yard_probs,
                                      SHIPYARD_ACTION_TO_ACTION_IDX,
                                      get_shipyard_units)
+    print("Non action shipyard cells precision: ", correct_rate)
+    return log_probs
 
   def get_action_log_probs(self, boards, unit_probs, action_to_idx, get_units):
     # Sample non-actionable cells for fast training.
     N_SAMPLE = 50
+    non_unit_cells = 0
+    correct_non_unit_actions = 0
 
     def unit_action_probs(board, step_idx):
+      nonlocal non_unit_cells, correct_non_unit_actions
+
       position_to_unit = {u.position : u for u in get_units(board)}
 
       positions = (random.sample(self.BORRD_POSITIONS, N_SAMPLE)
@@ -514,10 +540,14 @@ class Trainer:
         if position in position_to_unit:
           continue
 
+        non_unit_cells += 1
+
         # Because it won't affect the state of the board and action won't be
         # recorded for non-unit cells, thus it's generated during training.
         action_probs = unit_probs[step_idx, position.x, position.y, :]
         action_idx = np.random.choice(len(action_to_idx), p=action_probs.numpy())
+        if action_idx == len(action_to_idx) -1:
+          correct_non_unit_actions += 1
         yield action_probs[action_idx]
 
       for position, unit in position_to_unit.items():
@@ -533,60 +563,51 @@ class Trainer:
           action_idx = action_to_idx[unit.next_action]
           yield unit_probs[step_idx, position.x, position.y, action_idx]
 
-    def log_prob(g):
-      g = list(g)
-      if len(g) == 0:
-        return tf.constant(0.0)
-      if np.abs(np.sum(np.array(g))) < EPS:
-        return tf.constant(0.0)
-      return tf.math.log(tf.math.reduce_sum(g))
+    # def log_prob(g):
+      # g = list(g)
+      # if len(g) == 0:
+        # return tf.constant(0.0)
+      # if np.abs(np.sum(np.array(g))) < EPS:
+        # return tf.constant(0.0)
+      # This is bug!
+      # return tf.math.log(tf.math.reduce_sum(g))
 
 
-    action_log_probs = [
-        log_prob(unit_action_probs(b, i))
-        for i, b in enumerate(boards)
-    ]
-    return tf.convert_to_tensor(action_log_probs)
+    def gen_action_log_probs():
+      for i, b in enumerate(boards):
+        log_probs = [tf.math.log(prob) for prob in unit_action_probs(b, i)]
+        yield tf.math.reduce_sum(log_probs)
+
+    log_probs = tf.convert_to_tensor(list(gen_action_log_probs()))
+
+    print('non_unit_cells = %s, correct_non_unit_actions=%s'% (non_unit_cells, correct_non_unit_actions))
+    non_action_cell_correct_rate = correct_non_unit_actions / non_unit_cells
+    return log_probs, non_action_cell_correct_rate
 
   def get_returns(self, boards):
-    step_rewards = np.array([b.step_reward for b in boards], dtype=np.float32)
-    step_rewards /= HALITE_NORMALIZTION_VAL
-
-    # Calculate expected value from rewards
-    # - At each timestep what was the total reward received after that timestep
-    # - Rewards in the past are discounted by multiplying them with gamma
-    # - These are the labels for our critic
-    returns = []
-    discounted_sum = 0
-    for r in step_rewards[::-1]:
-      discounted_sum = r + self.gamma * discounted_sum
-      returns.append(discounted_sum)
-    returns = np.array(returns[::-1])
-
-    mean_return = np.mean(returns)
-    std_return = np.std(returns)
     board = boards[-1]
-
-    positive = len(returns[returns > 0])
-    negative = len(returns[returns < 0])
     print('\nPlayer[%s] finished at step=%s: total_deposite=%.0f, total_collect=%.0f' %
           (board.current_player.id, board.step, board.total_deposite, board.total_collect))
 
+    returns = compute_returns(boards)
 
     # Normalize
-    returns = (returns - mean_return) / (std_return + EPS)
+    if self.return_params:
+      mean_return, std_return = self.return_params
 
-    # Do not use mean normalization which will move bad situation as positve.
-    # returns = returns / (std_return + EPS)
+      positive = len(returns[returns > 0])
+      negative = len(returns[returns < 0])
+      returns = (returns - mean_return) / (std_return + EPS)
 
-    p2 = len(returns[returns > 0])
-    n2 = len(returns[returns < 0])
-    print('Return (mean=%.3f, std=%.3f, +%s, -%s), normalized return=(+%s, -%s)'
-          % (mean_return, std_return, positive, negative, p2, n2))
-
+      p2 = len(returns[returns > 0])
+      n2 = len(returns[returns < 0])
+      print('Episode return(+%s, -%s), normalized(+%s, -%s)'
+            % (positive, negative, p2, n2))
     return returns
 
   def train(self, player_boards, apply_grad=True):
+    """Player boards is [player1_boards, player2_bords ...]"""
+
     def get_player_inputs(boards):
       return np.array([ModelInput(b).get_input() for b in boards],
                       dtype=np.float32)
@@ -604,11 +625,13 @@ class Trainer:
             boards, yard_probs)
 
         diff = returns - critic_values[:, 0]
-        print('mean diff', np.mean(diff))
+        print('mean diff', np.mean(diff), 'shape:', diff.shape)
         ship_actor_losses = -ship_action_log_probs * diff
         yard_actor_losses = -yard_action_log_probs * diff
-        print('p[%s] mean ship_actor_losses' % rollout_idx, np.mean(ship_actor_losses))
-        print('p[%s] mean yard_actor_losses' % rollout_idx , np.mean(yard_actor_losses))
+        print('p[%s] mean ship_actor_losses(n=%s, shape=%s)' % (rollout_idx, len(ship_actor_losses), ship_actor_losses.shape),
+              np.mean(ship_actor_losses))
+        print('p[%s] mean yard_actor_losses(n=%s, shape=%s)' % (rollout_idx, len(yard_actor_losses), yard_actor_losses.shape),
+              np.mean(yard_actor_losses))
 
 
         critic_losses = self.huber_loss(critic_values[:, 0], returns)
@@ -622,8 +645,20 @@ class Trainer:
               ', mean predicted critic values:', np.mean(cc),
               ' +%s, -%s' % (positive, negative))
 
-        loss = sum(ship_actor_losses) + sum(yard_actor_losses) + critic_losses
-        grad_values.append(tape.gradient(loss, self.model.trainable_variables))
+        # Ship loss and shipyard loss is too large.
+        # ship_loss = sum(ship_actor_losses)
+        # yard_loss = sum(yard_actor_losses)
+        ship_loss = tf.math.reduce_mean(ship_actor_losses)
+        yard_loss = tf.math.reduce_mean(yard_actor_losses)
+
+        loss_regularization = tf.math.add_n(self.model.losses)
+        loss = (ship_loss + yard_loss + critic_losses + loss_regularization)
+        gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables), 2000)
+
+        print("Loss: ship=%.2f, yard=%.2f, critic=%.2f, regu=%.2f, gradient_norm=%.3f"
+              % (ship_loss, yard_loss, critic_losses, loss_regularization, global_norm))
+
+        grad_values.append(gradients)
 
     if apply_grad:
       for i, grads in enumerate(grad_values):

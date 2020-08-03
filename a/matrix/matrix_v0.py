@@ -17,6 +17,7 @@ import keras
 from keras import layers
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Dropout, UpSampling2D, concatenate, Flatten
+from keras.regularizers import l2
 
 
 BOARD_SIZE = 21
@@ -168,12 +169,17 @@ def get_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 5),
   # critic_input = decoder(encoder_end)
   critic_input = encoder_end
   critic_flattend = Flatten()(critic_input)
-  critic_dennse = tf.keras.layers.Dense(1024, activation='relu')(critic_flattend)
-  critic_dennse = tf.keras.layers.Dense(512, activation='relu')(critic_dennse)
-  critic_dennse = tf.keras.layers.Dense(512, activation='relu')(critic_dennse)
-  critic_dennse = tf.keras.layers.Dense(256, activation='relu')(critic_dennse)
-  critic_dennse = tf.keras.layers.Dense(128, activation='relu')(critic_dennse)
-  critic_outputs = tf.keras.layers.Dense(1)(critic_dennse)
+  critic_dennse = tf.keras.layers.Dense(1024, activation='relu',
+                                        kernel_regularizer=l2(1e-4),
+                                        bias_regularizer=l2(1e-4))(critic_flattend)
+  critic_dennse = Dropout(0.5)(critic_dennse)
+  critic_dennse = tf.keras.layers.Dense(512, activation='relu',
+                                        kernel_regularizer=l2(1e-4),
+                                        bias_regularizer=l2(1e-4))(critic_dennse)
+  critic_dennse = Dropout(0.5)(critic_dennse)
+  critic_outputs = tf.keras.layers.Dense(1,
+                                         kernel_regularizer=l2(1e-4),
+                                         bias_regularizer=l2(1e-4))(critic_dennse)
 
   # Define the model
   model = keras.Model(inputs, outputs=[ship_outputs, shipyard_outputs, critic_outputs])
