@@ -14,6 +14,7 @@ from kaggle_environments.envs.halite.helpers import *
 from kaggle_environments import evaluate, make
 
 import keras
+from keras import layers
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Dropout, UpSampling2D, concatenate, Flatten
 
@@ -102,7 +103,6 @@ def get_model_bak(input_shape=(32, 32, 5), num_ship_actions=6, num_shipyard_acti
 def get_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 5),
               num_ship_actions=NUM_SHIP_ACTIONS,
               num_shipyard_actions=NUM_SHIPYARD_ACTIONS):
-  from keras import layers
   inputs = keras.Input(shape=input_shape)
 
   # ((top_pad, bottom_pad), (left_pad, right_pad))

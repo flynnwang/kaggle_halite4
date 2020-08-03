@@ -37,11 +37,9 @@ def is_current_player(func):
   return dec
 
 def get_last_step_reward(last_board):
-  # No last step reward
-  return 0
-
   c = last_board.configuration
   me = last_board.current_player
+  return 0
 
   def get_elimination_penality(player):
     if is_player_eliminated(player, c.spawn_cost):
@@ -49,9 +47,10 @@ def get_last_step_reward(last_board):
     return 0
     # return player.halite
 
-  halite = np.sqrt(me.halite) / 10
-  deposite = np.sqrt(last_board.total_deposite) * 10
-  collect = np.sqrt(last_board.total_collect)
+  # halite = np.sqrt(me.halite) / 10
+  halite = 0
+  deposite = last_board.total_deposite
+  collect = last_board.total_collect / 5
   penality = 0 #get_elimination_penality(me)
   total_reward = halite + collect + deposite - penality
   return total_reward
@@ -94,14 +93,15 @@ class EventBoard(Board):
   def on_step_finished(self):
     # If having money but not convert into shipyard.
     me = self.current_player
-    if len(me.shipyard_ids) == 0 and me.halite > self.configuration.convert_cost:
-      self.step_reward -= 1
-      self.log_reward("not converting shipyard ", unit=None, r=-1)
+    # if (len(me.ship_ids) > 0 and len(me.shipyard_ids) == 0
+        # and me.halite > self.configuration.convert_cost * 2):
+      # self.step_reward -= 1
+      # self.log_reward("not converting shipyard ", unit=None, r=-1)
 
-    if (len(me.shipyard_ids) > 0 and me.halite > self.configuration.spawn_cost
-        and len(me.ship_ids) == 0):
-      self.step_reward -= 1
-      self.log_reward("not spawn ship ", unit=None, r=-1)
+    # if (len(me.shipyard_ids) > 0 and me.halite > self.configuration.spawn_cost
+        # and len(me.ship_ids) == 0):
+      # self.step_reward -= 1
+      # self.log_reward("not spawn ship ", unit=None, r=-1)
 
     # if len(me.shipyard_ids) > 0:
       # self.step_reward += 1
@@ -124,7 +124,8 @@ class EventBoard(Board):
 
   @is_current_player
   def on_ship_collect(self, ship, delta_halite):
-    self.step_reward += delta_halite
+    COLLECT_DISCOUNT = 0.1
+    self.step_reward += delta_halite * COLLECT_DISCOUNT
     self.total_collect += delta_halite
     self.log_reward('on_ship_collect', ship, delta_halite)
 
@@ -151,19 +152,19 @@ class EventBoard(Board):
   def on_ship_move(self, ship):
     """Add some move cost."""
     MOVE_COST_RATE = 0.01
-    # r = -max(ship.halite * MOVE_COST_RATE, 1)
+    r = -max(ship.halite * MOVE_COST_RATE, 1)
     # r = -50
     # r = -1
-    r = 0
+    # r = 0
     self.step_reward += r
     self.log_reward('on_ship_move', ship, r)
 
   @is_current_player
-  def on_ship_stay(self, ship):
+  def on_ship_stay(self, ship, delta_halite):
     """Add some stay cost."""
     r = 0
-    # if ship.cell.halite == 0:
-      # r = -1
+    if delta_halite == 0:
+      r = -1
     self.step_reward += r
     self.log_reward('on_ship_stay', ship, r)
 
@@ -192,15 +193,19 @@ class EventBoard(Board):
 
   @is_current_player
   def on_ship_destroid_in_ship_collison(self, ship):
+    COLLISION_DISCOUNT = 0.25
     r = -(self.configuration.spawn_cost + ship.halite)
+    r *= COLLISION_DISCOUNT
     self.step_reward += r
     self.log_reward('on_ship_destroid_in_ship_collison', ship, r)
 
   @is_current_player
   def on_ship_win_collision(self, ship, total_winning_halite,
                             total_destroied_ship):
+    COLLISION_DISCOUNT = 0.25
     r = total_winning_halite + (self.configuration.spawn_cost *
                                 total_destroied_ship)
+    r *= COLLISION_DISCOUNT
     self.step_reward += r
     self.log_reward('on_ship_win_collision', ship, r)
 
@@ -272,9 +277,6 @@ class EventBoard(Board):
           # We don't set the new cell's ship_id here as it would be overwritten by another ship in the case of collision.
           # Later we'll iterate through all ships and re-set the cell._ship_id as appropriate.
 
-        if ship.next_action == None:
-          self.on_ship_stay(ship)
-
       if player.id == self.current_player.id:
         self.on_hand_left_over_halite(player, leftover_convert_halite)
 
@@ -343,13 +345,17 @@ class EventBoard(Board):
     for ship in board.ships.values():
       cell = ship.cell
       delta_halite = int(cell.halite * configuration.collect_rate)
-      if ship.next_action not in ShipAction.moves(
-      ) and cell.shipyard_id is None and delta_halite > 0:
+      if (ship.next_action not in ShipAction.moves()
+          and cell.shipyard_id is None and delta_halite > 0):
         self.on_ship_collect(ship, delta_halite)
         ship._halite += delta_halite
         cell._halite -= delta_halite
         # Clear the ship's action so it doesn't repeat the same action automatically
         # ship.next_action = None  # do not clear
+
+      if ship.next_action not in ShipAction.moves():
+        self.on_ship_stay(ship, delta_halite)
+
 
     # Regenerate halite in cells
     for cell in board.cells.values():
@@ -361,8 +367,6 @@ class EventBoard(Board):
 
     self.on_step_finished()
     board._step += 1
-    # board.total_deposite = self.total_deposite
-    # board.total_collect = self.total_collect
     return board
 
 
@@ -416,7 +420,8 @@ def is_player_eliminated(player, spawn_cost):
           (len(player.shipyard_ids) == 0 or player.halite < spawn_cost))
 
 
-def gen_player_states(replay_json, player_id, steps, debug=False):
+def gen_player_states(replay_json, player_id, steps=None, debug=False):
+  steps = len(replay_json['steps'])
   replayer = Replayer(None, replay_json, player_id)
   # start from 1 because there ase only 399 actions.
   prev = None
@@ -458,14 +463,16 @@ class Trainer:
 
   def __init__(self, model, model_dir):
     self.model = model
-    assert model
+    if self.model is None:
+      self.model = get_model()
+    assert self.model
 
     self.optimizer = keras.optimizers.Adam(learning_rate=3e-5)
     # self.huber_loss = tf.keras.losses.Huber(reduction=tf.keras.losses.Reduction.NONE)
     self.huber_loss = tf.keras.losses.Huber()
     self.gamma = 0.99  # Discount factor for past rewards
 
-    self.checkpoint = tf.train.Checkpoint(step=tf.Variable(0), model=model)
+    self.checkpoint = tf.train.Checkpoint(step=tf.Variable(0), model=self.model)
     self.manager = tf.train.CheckpointManager(self.checkpoint,
                                               model_dir,
                                               max_to_keep=20)
@@ -526,8 +533,17 @@ class Trainer:
           action_idx = action_to_idx[unit.next_action]
           yield unit_probs[step_idx, position.x, position.y, action_idx]
 
+    def log_prob(g):
+      g = list(g)
+      if len(g) == 0:
+        return tf.constant(0.0)
+      if np.abs(np.sum(np.array(g))) < EPS:
+        return tf.constant(0.0)
+      return tf.math.log(tf.math.reduce_sum(g))
+
+
     action_log_probs = [
-        tf.math.log(tf.math.reduce_sum(list(unit_action_probs(b, i))))
+        log_prob(unit_action_probs(b, i))
         for i, b in enumerate(boards)
     ]
     return tf.convert_to_tensor(action_log_probs)
@@ -553,25 +569,24 @@ class Trainer:
 
     positive = len(returns[returns > 0])
     negative = len(returns[returns < 0])
-    print('reward at step=%s for player[%s]= %.2f; total_deposite=%.0f, total_collect=%.0f' %
-          (board.step, board.current_player.id, returns[-1],
-           board.total_deposite, board.total_collect))
+    print('\nPlayer[%s] finished at step=%s: total_deposite=%.0f, total_collect=%.0f' %
+          (board.current_player.id, board.step, board.total_deposite, board.total_collect))
 
 
     # Normalize
-    # returns = (returns - mean_return) / (std_return + EPS)
+    returns = (returns - mean_return) / (std_return + EPS)
 
     # Do not use mean normalization which will move bad situation as positve.
-    returns = returns / (std_return + EPS)
+    # returns = returns / (std_return + EPS)
 
     p2 = len(returns[returns > 0])
     n2 = len(returns[returns < 0])
-    print('Return(mean=%.3f, std=%.3f, +%s, -%s), normalized return=(+%s, -%s)'
+    print('Return (mean=%.3f, std=%.3f, +%s, -%s), normalized return=(+%s, -%s)'
           % (mean_return, std_return, positive, negative, p2, n2))
 
     return returns
 
-  def train(self, player_boards):
+  def train(self, player_boards, apply_grad=True):
     def get_player_inputs(boards):
       return np.array([ModelInput(b).get_input() for b in boards],
                       dtype=np.float32)
@@ -598,30 +613,34 @@ class Trainer:
 
         critic_losses = self.huber_loss(critic_values[:, 0], returns)
 
-        print('returns [:10]', returns[-5:])
-        print('critic [:10]', critic_values[-5:, 0].numpy())
+        print('returns [-5:]', returns[-5:])
+        print('critic [-5:]', critic_values[-5:, 0].numpy())
         cc = critic_values[:, 0].numpy()
         positive = len(cc[cc > 0])
         negative = len(cc[cc < 0])
         print('p[%s] mean critic_losses' % rollout_idx, np.mean(critic_losses),
-              'mean critic values:', np.mean(cc), ' +%s, -%s' % (positive, negative))
+              ', mean predicted critic values:', np.mean(cc),
+              ' +%s, -%s' % (positive, negative))
 
         loss = sum(ship_actor_losses) + sum(yard_actor_losses) + critic_losses
         grad_values.append(tape.gradient(loss, self.model.trainable_variables))
 
-    for i, grads in enumerate(grad_values):
-      print("Apply gradient for rollout: %s" % i)
-      self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
-      self.on_episode_training_finished()
+    if apply_grad:
+      for i, grads in enumerate(grad_values):
+        self.apply_grad(grads)
 
-  def on_episode_training_finished(self):
+    return grad_values
+
+  def apply_grad(self, grads):
+    self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
+
+  def on_batch_finished(self):
     self.checkpoint.step.assign_add(1)
-    if int(self.checkpoint.step) % 20 == 0:
-      save_path = self.manager.save()
-      print("Saved checkpoint for step {}: {}".format(int(self.checkpoint.step), save_path))
+    save_path = self.manager.save()
+    print("Saved checkpoint for step {}: {}".format(int(self.checkpoint.step), save_path))
 
 
-def train_on_replays(trainer, replay_jsons):
+def train_on_replays(model_dir, replay_jsons):
 
   def gen_player_boards():
     for replay_json in replay_jsons:
@@ -648,4 +667,7 @@ def train_on_replays(trainer, replay_jsons):
         assert boards
         yield boards
 
+  trainer = Trainer(None, model_dir)
   trainer.train(gen_player_boards())
+  trainer.on_batch_finished()
+

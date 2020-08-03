@@ -1,13 +1,13 @@
-from matrix_v0 import get_model, MODEL_PATH
+# from matrix_v0 import get_model
 
+MODEL_PATH = "/home/wangfei/data/20200801_halite/model/unet_v14"
 
-model = get_model()
-print(MODEL_PATH)
-model.save_weights(MODEL_PATH)
-model.load_weights(MODEL_PATH)
+# model = get_model()
+# print(MODEL_PATH)
+# model.save_weights(MODEL_PATH)
+# model.load_weights(MODEL_PATH)
 
+import train
 
-
-import time
-
-time.sleep(300)
+t = train.Trainer(None, MODEL_PATH)
+t.on_batch_finished()
