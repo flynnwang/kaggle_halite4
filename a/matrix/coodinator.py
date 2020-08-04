@@ -13,14 +13,11 @@ def run(episode_dir, model_dir, batch):
     time_tag = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     batch_dir = os.path.join(episode_dir, time_tag)
 
-    lsd_proc = subprocess.Popen(["python3", "lsd.py", "-o", batch_dir, '-m', model_dir])
-    lsd_proc.wait()
+    subprocess.check_call(["python3", "lsd.py", "-o", batch_dir, '-m', model_dir])
     print("All episodes generation finished: ", batch_dir)
 
-    train_proc = subprocess.Popen(["python3", "batch_train.py", "-e", batch_dir, '-m', model_dir])
-    train_proc.wait()
+    subprocess.check_call(["python3", "batch_train.py", "-e", batch_dir, '-m', model_dir])
     print("One training batch finished: ", batch_dir)
-
 
 def main():
   parser = argparse.ArgumentParser()

@@ -486,7 +486,7 @@ class Trainer:
 
     self.return_params = return_params
     self.optimizer = keras.optimizers.Adam(learning_rate=3e-5)
-    # self.huber_loss = tf.keras.losses.Huber(reduction=tf.keras.losses.Reduction.NONE)
+    # self.huber_loss = tf.keras.losses.Huber(reduction=tf.keras.losses.Reduction.SUM)
     self.huber_loss = tf.keras.losses.Huber()
 
     if model_dir:
@@ -502,26 +502,28 @@ class Trainer:
       else:
         print("Initializing model from scratch.")
 
-  def get_ship_action_log_probs(self, boards, ship_probs):
+  def get_ship_actor_loss(self, boards, ship_probs, critic_diffs):
     def get_ship_units(board):
       return board.current_player.ships
 
-    log_probs, correct_rate = self.get_action_log_probs(boards, ship_probs,
-                                     SHIP_ACTION_TO_ACTION_IDX, get_ship_units)
+    loses, correct_rate = self.get_actor_loss(boards, ship_probs,
+                                                        SHIP_ACTION_TO_ACTION_IDX,
+                                                        get_ship_units,
+                                                        critic_diffs)
     print("Non action ship cells precision: ", correct_rate)
-    return log_probs
+    return loses
 
-  def get_shipyard_action_log_probs(self, boards, yard_probs):
+  def get_shipyard_actor_loss(self, boards, yard_probs, critic_diffs):
     def get_shipyard_units(board):
       return board.current_player.shipyards
 
-    log_probs, correct_rate =  self.get_action_log_probs(boards, yard_probs,
+    loses, correct_rate =  self.get_actor_loss(boards, yard_probs,
                                      SHIPYARD_ACTION_TO_ACTION_IDX,
-                                     get_shipyard_units)
+                                     get_shipyard_units, critic_diffs)
     print("Non action shipyard cells precision: ", correct_rate)
-    return log_probs
+    return loses
 
-  def get_action_log_probs(self, boards, unit_probs, action_to_idx, get_units):
+  def get_actor_loss(self, boards, unit_probs, action_to_idx, get_units, critic_diffs):
     # Sample non-actionable cells for fast training.
     N_SAMPLE = 50
     non_unit_cells = 0
@@ -555,7 +557,10 @@ class Trainer:
           # Same here, since None or False will not affect the board,
           # it's sampled again here.
           action_probs = unit_probs[step_idx, position.x, position.y, -2:]
-          probs = np.array([action_probs[-2], action_probs[-1]])
+
+          # adding EPS in case of zero
+          probs = np.array([action_probs[-2], action_probs[-1]]) + EPS
+          # TODO(wangfei): need damping factor here
           probs = probs / np.sum(probs)
           action_idx = np.random.choice(2, p=probs)
           yield action_probs[action_idx]
@@ -573,16 +578,16 @@ class Trainer:
       # return tf.math.log(tf.math.reduce_sum(g))
 
 
-    def gen_action_log_probs():
-      for i, b in enumerate(boards):
-        log_probs = [tf.math.log(prob) for prob in unit_action_probs(b, i)]
-        yield tf.math.reduce_sum(log_probs)
+    def gen_action_loses():
+      for i, (b, critic_diff) in enumerate(zip(boards, critic_diffs)):
+        for prob in unit_action_probs(b, i):
+          # Adding EPS in case of zero
+          yield -tf.math.log(prob + EPS) * critic_diff
 
-    log_probs = tf.convert_to_tensor(list(gen_action_log_probs()))
-
-    print('non_unit_cells = %s, correct_non_unit_actions=%s'% (non_unit_cells, correct_non_unit_actions))
+    action_losses = tf.convert_to_tensor(list(gen_action_loses()))
+    action_loss = tf.math.reduce_mean(action_losses)
     non_action_cell_correct_rate = correct_non_unit_actions / non_unit_cells
-    return log_probs, non_action_cell_correct_rate
+    return action_loss, non_action_cell_correct_rate
 
   def get_returns(self, boards):
     board = boards[-1]
@@ -619,44 +624,29 @@ class Trainer:
 
       with tf.GradientTape() as tape:
         (ship_probs, yard_probs, critic_values) = self.model(X)
+        diffs = returns - critic_values[:, 0]
 
-        ship_action_log_probs = self.get_ship_action_log_probs(boards, ship_probs)
-        yard_action_log_probs = self.get_shipyard_action_log_probs(
-            boards, yard_probs)
-
-        diff = returns - critic_values[:, 0]
-        print('mean diff', np.mean(diff), 'shape:', diff.shape)
-        ship_actor_losses = -ship_action_log_probs * diff
-        yard_actor_losses = -yard_action_log_probs * diff
-        print('p[%s] mean ship_actor_losses(n=%s, shape=%s)' % (rollout_idx, len(ship_actor_losses), ship_actor_losses.shape),
-              np.mean(ship_actor_losses))
-        print('p[%s] mean yard_actor_losses(n=%s, shape=%s)' % (rollout_idx, len(yard_actor_losses), yard_actor_losses.shape),
-              np.mean(yard_actor_losses))
-
-
+        ship_actor_loss = self.get_ship_actor_loss(boards, ship_probs, diffs)
+        yard_actor_loss = self.get_shipyard_actor_loss(boards, yard_probs, diffs)
         critic_losses = self.huber_loss(critic_values[:, 0], returns)
+        loss_regularization = tf.math.add_n(self.model.losses)
+        loss = (ship_actor_loss + yard_actor_loss + critic_losses + loss_regularization)
+        gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables), 2000)
 
         print('returns [-5:]', returns[-5:])
         print('critic [-5:]', critic_values[-5:, 0].numpy())
         cc = critic_values[:, 0].numpy()
         positive = len(cc[cc > 0])
         negative = len(cc[cc < 0])
-        print('p[%s] mean critic_losses' % rollout_idx, np.mean(critic_losses),
-              ', mean predicted critic values:', np.mean(cc),
-              ' +%s, -%s' % (positive, negative))
+        print('p[%s] critic_losses' % rollout_idx, np.sum(critic_losses),
+              ', mean predicted critic:', np.mean(cc), ' +%s, -%s' % (positive, negative))
 
-        # Ship loss and shipyard loss is too large.
-        # ship_loss = sum(ship_actor_losses)
-        # yard_loss = sum(yard_actor_losses)
-        ship_loss = tf.math.reduce_mean(ship_actor_losses)
-        yard_loss = tf.math.reduce_mean(yard_actor_losses)
-
-        loss_regularization = tf.math.add_n(self.model.losses)
-        loss = (ship_loss + yard_loss + critic_losses + loss_regularization)
-        gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables), 2000)
-
+        print('mean diffs', np.mean(diffs), 'shape:', diffs.shape)
+        print('p[%s] ship_actor_loss: %.2f' % (rollout_idx, ship_actor_loss))
+        print('p[%s] yard_actor_loss: %.2f' % (rollout_idx, yard_actor_loss))
         print("Loss: ship=%.2f, yard=%.2f, critic=%.2f, regu=%.2f, gradient_norm=%.3f"
-              % (ship_loss, yard_loss, critic_losses, loss_regularization, global_norm))
+              % (ship_actor_loss, yard_actor_loss, critic_losses,
+                 loss_regularization, global_norm))
 
         grad_values.append(gradients)
 
