@@ -9,7 +9,7 @@ from multiprocessing import Pool
 from kaggle_environments import evaluate, make
 from kaggle_environments.envs.halite.helpers import *
 
-BATCH_SIZE = 12
+BATCH_SIZE = 120
 EPISODE_STEPS = 60
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"]="3"

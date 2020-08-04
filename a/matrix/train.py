@@ -93,6 +93,16 @@ class EventBoard(Board):
   def on_step_finished(self):
     # If having money but not convert into shipyard.
     me = self.current_player
+    if len(me.shipyard_ids) == 0:
+      r = -500
+      self.step_reward += r
+      self.log_reward("no shipyard", unit=None, r=r)
+
+    if len(me.ship_ids) == 0:
+      r = -500
+      self.step_reward += r
+      self.log_reward("no ship", unit=None, r=r)
+
     # if (len(me.ship_ids) > 0 and len(me.shipyard_ids) == 0
         # and me.halite > self.configuration.convert_cost * 2):
       # self.step_reward -= 1
@@ -179,6 +189,13 @@ class EventBoard(Board):
     self.log_reward('on_invalid_spawn', shipyard, r)
 
   @is_current_player
+  def on_shipyard_spawn(self, shipyard):
+    # r = -self.configuration.spawn_cost * 0.1
+    r = 0
+    self.step_reward += r
+    self.log_reward('on_shipyard_spawn', shipyard, r)
+
+  @is_current_player
   def on_shipyard_destroid_by_ship(self, shipyard, ship):
     r = -(self.configuration.spawn_cost + self.configuration.convert_cost)
     self.step_reward += r
@@ -193,7 +210,7 @@ class EventBoard(Board):
 
   @is_current_player
   def on_ship_destroid_in_ship_collison(self, ship):
-    COLLISION_DISCOUNT = 0.25
+    COLLISION_DISCOUNT = 0.5
     r = -(self.configuration.spawn_cost + ship.halite)
     r *= COLLISION_DISCOUNT
     self.step_reward += r
@@ -243,6 +260,7 @@ class EventBoard(Board):
           board._add_ship(
               Ship(ShipId(create_uid()), shipyard.position, 0, player.id,
                    board))
+          self.on_shipyard_spawn(shipyard)
           # Clear the shipyard's action so it doesn't repeat the same action automatically
           # shipyard.next_action = None  # Do not clear action, will be use it for backprop
 
@@ -510,7 +528,7 @@ class Trainer:
                                                         SHIP_ACTION_TO_ACTION_IDX,
                                                         get_ship_units,
                                                         critic_diffs)
-    print("Non action ship cells precision: ", correct_rate)
+    # print("Non action ship cells precision: ", correct_rate)
     return loses
 
   def get_shipyard_actor_loss(self, boards, yard_probs, critic_diffs):
@@ -520,7 +538,7 @@ class Trainer:
     loses, correct_rate =  self.get_actor_loss(boards, yard_probs,
                                      SHIPYARD_ACTION_TO_ACTION_IDX,
                                      get_shipyard_units, critic_diffs)
-    print("Non action shipyard cells precision: ", correct_rate)
+    # print("Non action shipyard cells precision: ", correct_rate)
     return loses
 
   def get_actor_loss(self, boards, unit_probs, action_to_idx, get_units, critic_diffs):
@@ -534,39 +552,39 @@ class Trainer:
 
       position_to_unit = {u.position : u for u in get_units(board)}
 
-      positions = (random.sample(self.BORRD_POSITIONS, N_SAMPLE)
-                   if len(boards) > 150
-                   else self.BORRD_POSITIONS)
-      for position in positions:
-      # for position in not_actionable_cells:
-        if position in position_to_unit:
-          continue
+      # positions = (random.sample(self.BORRD_POSITIONS, N_SAMPLE)
+                   # if len(boards) > 150
+                   # else self.BORRD_POSITIONS)
+      # for position in positions:
+      # # for position in not_actionable_cells:
+        # if position in position_to_unit:
+          # continue
 
-        non_unit_cells += 1
+        # non_unit_cells += 1
 
-        # Because it won't affect the state of the board and action won't be
-        # recorded for non-unit cells, thus it's generated during training.
-        action_probs = unit_probs[step_idx, position.x, position.y, :]
-        action_idx = np.random.choice(len(action_to_idx), p=action_probs.numpy())
-        if action_idx == len(action_to_idx) -1:
-          correct_non_unit_actions += 1
-        yield action_probs[action_idx]
+        # # Because it won't affect the state of the board and action won't be
+        # # recorded for non-unit cells, thus it's generated during training.
+        # action_probs = unit_probs[step_idx, position.x, position.y, :]
+        # action_idx = np.random.choice(len(action_to_idx), p=action_probs.numpy())
+        # if action_idx == len(action_to_idx) -1:
+          # correct_non_unit_actions += 1
+        # yield action_probs[action_idx]
 
       for position, unit in position_to_unit.items():
-        if unit.next_action is None:
-          # Same here, since None or False will not affect the board,
-          # it's sampled again here.
-          action_probs = unit_probs[step_idx, position.x, position.y, -2:]
+        # if unit.next_action is None:
+          # # Same here, since None or False will not affect the board,
+          # # it's sampled again here.
+          # action_probs = unit_probs[step_idx, position.x, position.y, -2:]
 
-          # adding EPS in case of zero
-          probs = np.array([action_probs[-2], action_probs[-1]]) + EPS
-          # TODO(wangfei): need damping factor here
-          probs = probs / np.sum(probs)
-          action_idx = np.random.choice(2, p=probs)
-          yield action_probs[action_idx]
-        else:
-          action_idx = action_to_idx[unit.next_action]
-          yield unit_probs[step_idx, position.x, position.y, action_idx]
+          # # adding EPS in case of zero
+          # probs = np.array([action_probs[-2], action_probs[-1]]) + EPS
+          # # TODO(wangfei): need damping factor here
+          # probs = probs / np.sum(probs)
+          # action_idx = np.random.choice(2, p=probs)
+          # yield action_probs[action_idx]
+        # else:
+        action_idx = action_to_idx[unit.next_action]
+        yield unit_probs[step_idx, position.x, position.y, action_idx]
 
     # def log_prob(g):
       # g = list(g)
@@ -584,10 +602,14 @@ class Trainer:
           # Adding EPS in case of zero
           yield -tf.math.log(prob + EPS) * critic_diff
 
-    action_losses = tf.convert_to_tensor(list(gen_action_loses()))
+    action_losses = list(gen_action_loses())
+    if len(action_losses) == 0:
+      return 0.0, 0.0
+
+    action_losses = tf.convert_to_tensor(action_losses)
     action_loss = tf.math.reduce_mean(action_losses)
-    non_action_cell_correct_rate = correct_non_unit_actions / non_unit_cells
-    return action_loss, non_action_cell_correct_rate
+    # non_action_cell_correct_rate = correct_non_unit_actions / non_unit_cells
+    return action_loss, 0.0 # non_action_cell_correct_rate
 
   def get_returns(self, boards):
     board = boards[-1]
@@ -630,7 +652,7 @@ class Trainer:
         yard_actor_loss = self.get_shipyard_actor_loss(boards, yard_probs, diffs)
         critic_losses = self.huber_loss(critic_values[:, 0], returns)
         loss_regularization = tf.math.add_n(self.model.losses)
-        loss = (ship_actor_loss + yard_actor_loss + critic_losses + loss_regularization)
+        loss = (ship_actor_loss + yard_actor_loss + 2*critic_losses + loss_regularization)
         gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables), 2000)
 
         print('returns [-5:]', returns[-5:])
@@ -642,10 +664,8 @@ class Trainer:
               ', mean predicted critic:', np.mean(cc), ' +%s, -%s' % (positive, negative))
 
         print('mean diffs', np.mean(diffs), 'shape:', diffs.shape)
-        print('p[%s] ship_actor_loss: %.2f' % (rollout_idx, ship_actor_loss))
-        print('p[%s] yard_actor_loss: %.2f' % (rollout_idx, yard_actor_loss))
         print("Loss: ship=%.2f, yard=%.2f, critic=%.2f, regu=%.2f, gradient_norm=%.3f"
-              % (ship_actor_loss, yard_actor_loss, critic_losses,
+              % (ship_actor_loss, yard_actor_loss, 2 * critic_losses,
                  loss_regularization, global_norm))
 
         grad_values.append(gradients)

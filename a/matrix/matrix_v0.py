@@ -26,12 +26,13 @@ HALITE_NORMALIZTION_VAL = 500.0
 TOTAL_STEPS = 400
 
 # Shipyard actions + no spawn (None) + NOT_ACTIONABLE (False)
-SHIPYARD_ACTIONS = list(ShipyardAction) + [None, False]
+# SHIPYARD_ACTIONS = list(ShipyardAction) + [None, False]
+SHIPYARD_ACTIONS = list(ShipyardAction) + [None]
 NUM_SHIPYARD_ACTIONS = len(SHIPYARD_ACTIONS)
 
 
 # Ship actions + stay (None) + NOT_ACTIONABLE (False)
-SHIP_ACTIONS = list(ShipAction) + [None, False]
+SHIP_ACTIONS = list(ShipAction) + [None]
 NUM_SHIP_ACTIONS = len(SHIP_ACTIONS)
 
 
@@ -366,13 +367,16 @@ class ShipStrategy(StrategyBase):
       position = unit.position
       unit_action_probs = unit_probs[0][position.x, position.y, :]
 
-      # TODO(wangfei): use maximize when deply
-      action_idx = np.random.choice(len(actions), p=unit_action_probs)
-      action = actions[action_idx]
+      # Eposilon exploration.
+      sample_probs = 0.9 * unit_action_probs + 0.1 * (np.ones(len(actions)) / len(actions))
+      sample_probs = sample_probs / np.sum(sample_probs)
 
-      unit.next_action = None
-      if action != None and action != False:
-        unit.next_action = action
+      # Just random explore. will divergence
+      # sample_probs = np.ones(len(actions)) / len(actions)
+
+      # TODO(wangfei): use maximize when deply
+      action_idx = np.random.choice(len(actions), p=sample_probs)
+      unit.next_action = actions[action_idx]
 
   def execute(self):
     model_input = ModelInput(self.board)

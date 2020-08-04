@@ -96,6 +96,9 @@ while True:  # Run until solved
       # the future rewards.
       critic_losses.append(
           huber_loss(tf.expand_dims(value, 0), tf.expand_dims(ret, 0)))
+
+      print('actior loss', actor_losses[-1])
+      print('critic loss', critic_losses[-1])
       print('tf.expand_dims(value, 0).shape', tf.expand_dims(value, 0).shape)
       print('tf.expand_dims(ret, 0).shape', tf.expand_dims(ret, 0).shape)
 
