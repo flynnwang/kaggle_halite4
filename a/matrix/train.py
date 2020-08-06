@@ -37,35 +37,8 @@ def is_current_player(func):
   return dec
 
 def get_last_step_reward(last_board):
-  c = last_board.configuration
-  me = last_board.current_player
   return 0
 
-  def get_elimination_penality(player):
-    if is_player_eliminated(player, c.spawn_cost):
-      return (c.episode_steps - 1 - last_board.step)
-    return 0
-    # return player.halite
-
-  # halite = np.sqrt(me.halite) / 10
-  halite = 0
-  deposite = last_board.total_deposite
-  collect = last_board.total_collect / 5
-  penality = 0 #get_elimination_penality(me)
-  total_reward = halite + collect + deposite - penality
-  return total_reward
-  # return 0
-
-  # player_rewards = [get_player_reward(p) for p in last_board.players.values()]
-  # sorted_rewards = sorted(player_rewards, reverse=True)
-  # max_reward = max(player_rewards)
-
-  # current_player_reward = player_rewards[last_board.current_player.id]
-
-  # # If current player is the absolute 1st.
-  # if current_player_reward == max_reward and max_reward > sorted_rewards[1]:
-    # return np.sqrt(max_reward) + 500
-  # return -np.sqrt(max_reward - current_player_reward) - 500
 
 class EventBoard(Board):
 
@@ -91,81 +64,38 @@ class EventBoard(Board):
       print("  S=%s: %s, r=%s" % (self.step, name, r))
 
   def on_step_finished(self):
-    # If having money but not convert into shipyard.
-    me = self.current_player
-    if len(me.shipyard_ids) == 0:
-      r = -500
-      self.step_reward += r
-      self.log_reward("no shipyard", unit=None, r=r)
-
-    if len(me.ship_ids) == 0:
-      r = -500
-      self.step_reward += r
-      self.log_reward("no ship", unit=None, r=r)
-
-    # if (len(me.ship_ids) > 0 and len(me.shipyard_ids) == 0
-        # and me.halite > self.configuration.convert_cost * 2):
-      # self.step_reward -= 1
-      # self.log_reward("not converting shipyard ", unit=None, r=-1)
-
-    # if (len(me.shipyard_ids) > 0 and me.halite > self.configuration.spawn_cost
-        # and len(me.ship_ids) == 0):
-      # self.step_reward -= 1
-      # self.log_reward("not spawn ship ", unit=None, r=-1)
-
-    # if len(me.shipyard_ids) > 0:
-      # self.step_reward += 1
-      # self.log_reward("having at least one shipyard", unit=None, r=1)
-
-    # if len(me.ship_ids) > 0:
-      # self.step_reward += 1
-      # self.log_reward("having at least one ship", unit=None, r=1)
-
-
+    pass
 
   @is_current_player
   def on_ship_deposite(self, ship, shipyard):
     if ship.halite:
       print('deposite by ship %s from player %s h=%s' % (ship.id, ship.player_id, ship.halite))
     deposite = ship.halite
-    self.step_reward += deposite * 2
+    self.step_reward += deposite
     self.total_deposite += deposite
     self.log_reward('on_ship_deposite', ship, ship.halite)
 
   @is_current_player
   def on_ship_collect(self, ship, delta_halite):
-    COLLECT_DISCOUNT = 0.1
+    COLLECT_DISCOUNT = 0
     self.step_reward += delta_halite * COLLECT_DISCOUNT
     self.total_collect += delta_halite
     self.log_reward('on_ship_collect', ship, delta_halite)
 
   @is_current_player
   def on_hand_left_over_halite(self, player, deposite_halite):
-    # r = 1 if deposite_halite > 0 else
-    r = 0
+    r = deposite_halite
     self.step_reward += r
     self.total_deposite += deposite_halite
     self.log_reward('on_hand_left_over_halite', None, r)
-    self.log_reward('on_hand_left_over_halite.deposite', None, deposite_halite)
 
-
-  @is_current_player
-  def on_invalid_convert(self, ship):
-    assert ship.halite < self.configuration.convert_cost
-    # r = -(self.configuration.convert_cost - ship.halite)
-    # r = -1
-    r = 0
-    self.step_reward += r
-    self.log_reward('on_invalid_convert', ship, r)
 
   @is_current_player
   def on_ship_move(self, ship):
     """Add some move cost."""
-    MOVE_COST_RATE = 0.01
-    r = -max(ship.halite * MOVE_COST_RATE, 1)
-    # r = -50
-    # r = -1
-    # r = 0
+    # MOVE_COST_RATE = 0
+    # r = -max(ship.halite * MOVE_COST_RATE, 1)
+    r = 0
     self.step_reward += r
     self.log_reward('on_ship_move', ship, r)
 
@@ -173,20 +103,8 @@ class EventBoard(Board):
   def on_ship_stay(self, ship, delta_halite):
     """Add some stay cost."""
     r = 0
-    if delta_halite == 0:
-      r = -1
     self.step_reward += r
     self.log_reward('on_ship_stay', ship, r)
-
-  @is_current_player
-  def on_invalid_spawn(self, shipyard):
-    assert shipyard.player.halite < self.configuration.spawn_cost
-    # r = -(self.configuration.spawn_cost - shipyard.player.halite)
-    # r = -50
-    # r = -1
-    r = 0
-    self.step_reward += r
-    self.log_reward('on_invalid_spawn', shipyard, r)
 
   @is_current_player
   def on_shipyard_spawn(self, shipyard):
@@ -204,25 +122,24 @@ class EventBoard(Board):
   @is_current_player
   def on_ship_destroid_with_enemy_shipyard(self, ship, shipyard):
     # TODO(wangfei): add reward for nearby shipyard attack.
-    r = 0
+    r = -(self.configuration.spawn_cost + ship.halite)
     self.step_reward += r
     self.log_reward('on_ship_destroid_with_enemy_shipyard', ship, r)
 
   @is_current_player
   def on_ship_destroid_in_ship_collison(self, ship):
-    COLLISION_DISCOUNT = 0.5
     r = -(self.configuration.spawn_cost + ship.halite)
-    r *= COLLISION_DISCOUNT
     self.step_reward += r
     self.log_reward('on_ship_destroid_in_ship_collison', ship, r)
 
   @is_current_player
   def on_ship_win_collision(self, ship, total_winning_halite,
                             total_destroied_ship):
-    COLLISION_DISCOUNT = 0.25
-    r = total_winning_halite + (self.configuration.spawn_cost *
-                                total_destroied_ship)
-    r *= COLLISION_DISCOUNT
+    # COLLISION_DISCOUNT = 0.25
+    # r = total_winning_halite + (self.configuration.spawn_cost *
+                                # total_destroied_ship)
+    # r *= COLLISION_DISCOUNT
+    r = 0
     self.step_reward += r
     self.log_reward('on_ship_win_collision', ship, r)
 
@@ -251,9 +168,6 @@ class EventBoard(Board):
       leftover_convert_halite = 0
 
       for shipyard in player.shipyards:
-        if shipyard.next_action == ShipyardAction.SPAWN and player.halite < spawn_cost:
-          self.on_invalid_spawn(shipyard)
-
         if shipyard.next_action == ShipyardAction.SPAWN and player.halite >= spawn_cost:
           # Handle SPAWN actions
           player._halite -= spawn_cost
@@ -266,10 +180,6 @@ class EventBoard(Board):
 
       for ship in player.ships:
         if ship.next_action == ShipAction.CONVERT:
-          if ship.cell.shipyard_id or (ship.halite +
-                                       player.halite) < convert_cost:
-            self.on_invalid_convert(ship)
-
           # Can't convert on an existing shipyard but you can use halite in a ship to fund conversion
           if ship.cell.shipyard_id is None and (ship.halite +
                                                 player.halite) >= convert_cost:
