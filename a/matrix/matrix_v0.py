@@ -40,6 +40,128 @@ NUM_SHIP_ACTIONS = len(SHIP_ACTIONS)
 MODEL_PATH = '/home/wangfei/data/20200801_halite/model/unet.h5'
 
 
+def get_unet_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 3), num_ship_actions=6,
+                   num_shipyard_actions=2, input_padding=((5, 6), (5, 6))):
+  inputs = Input(shape=input_shape)
+  x = layers.ZeroPadding2D(input_padding)(inputs)
+  x = layers.Conv2D(32, 1, strides=1, padding="same")(x)
+  x = layers.BatchNormalization()(x)
+  x = layers.Activation("relu")(x)
+
+  conv1 = Conv2D(64,
+                 3,
+                 activation='relu',
+                 padding='same',
+                 kernel_initializer='he_normal')(x)
+  conv1 = Conv2D(64,
+                 3,
+                 activation='relu',
+                 padding='same',
+                 kernel_initializer='he_normal')(conv1)
+  conv1 = layers.BatchNormalization()(conv1)
+  pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+  conv2 = Conv2D(128,
+                 3,
+                 activation='relu',
+                 padding='same',
+                 kernel_initializer='he_normal')(pool1)
+  conv2 = Conv2D(128,
+                 3,
+                 activation='relu',
+                 padding='same',
+                 kernel_initializer='he_normal')(conv2)
+  conv2 = layers.BatchNormalization()(conv2)
+  pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+  conv3 = Conv2D(256,
+                 3,
+                 activation='relu',
+                 padding='same',
+                 kernel_initializer='he_normal')(pool2)
+  conv3 = Conv2D(256,
+                 3,
+                 activation='relu',
+                 padding='same',
+                 kernel_initializer='he_normal')(conv3)
+  conv3 = layers.BatchNormalization()(conv3)
+  pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
+
+  def decoder(input_tensor):
+    # up7 = Conv2D(256, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv6))
+    up7 = Conv2D(256,
+                 2,
+                 activation='relu',
+                 padding='same',
+                 kernel_initializer='he_normal')(
+                     UpSampling2D(size=(2, 2))(input_tensor))
+
+    merge7 = concatenate([conv3, up7], axis=3)
+    conv7 = Conv2D(256,
+                   3,
+                   activation='relu',
+                   padding='same',
+                   kernel_initializer='he_normal')(merge7)
+    conv7 = Conv2D(256,
+                   3,
+                   activation='relu',
+                   padding='same',
+                   kernel_initializer='he_normal')(conv7)
+    conv7 = layers.BatchNormalization()(conv7)
+
+    up8 = Conv2D(128,
+                 2,
+                 activation='relu',
+                 padding='same',
+                 kernel_initializer='he_normal')(UpSampling2D(size=(2,
+                                                                    2))(conv7))
+    merge8 = concatenate([conv2, up8], axis=3)
+    conv8 = Conv2D(128,
+                   3,
+                   activation='relu',
+                   padding='same',
+                   kernel_initializer='he_normal')(merge8)
+    conv8 = Conv2D(128,
+                   3,
+                   activation='relu',
+                   padding='same',
+                   kernel_initializer='he_normal')(conv8)
+    conv8 = layers.BatchNormalization()(conv8)
+
+    up9 = Conv2D(64,
+                 2,
+                 activation='relu',
+                 padding='same',
+                 kernel_initializer='he_normal')(UpSampling2D(size=(2,
+                                                                    2))(conv8))
+    merge9 = concatenate([conv1, up9], axis=3)
+    conv9 = Conv2D(64,
+                   3,
+                   activation='relu',
+                   padding='same',
+                   kernel_initializer='he_normal')(merge9)
+    conv9 = Conv2D(64,
+                   3,
+                   activation='relu',
+                   padding='same',
+                   kernel_initializer='he_normal')(conv9)
+    conv9 = layers.BatchNormalization()(conv9)
+    return layers.Cropping2D(input_padding)(conv9)
+
+  ship_outputs = Conv2D(num_ship_actions, 3, activation="softmax", padding="same",
+                        kernel_initializer = 'he_normal')(decoder(pool3))
+
+  # TODO: use sigmoid for shipyard
+  shipyard_outputs = Conv2D(num_shipyard_actions, 3, activation="softmax",
+                            padding="same", kernel_initializer='he_normal')(decoder(pool3))
+  critic_outputs = Conv2D(1, 3, activation="linear",
+                            padding="same", kernel_initializer='he_normal')(decoder(pool3))
+  model = keras.Model(inputs, outputs=[ship_outputs, shipyard_outputs, critic_outputs])
+
+  # for pixel segmentation.
+  # outputs = layers.Conv2D(num_classes, 1, activation="softmax",
+                          # padding="same")(decoder(pool3))
+  # model = keras.Model(inputs, outputs)
+  return model
+
 # num_classes = 4 move + 1 stay + 1 convert + 1 spawn
 def get_model_bak(input_shape=(32, 32, 5), num_ship_actions=6, num_shipyard_actions=1):
   inputs = Input(shape=input_shape)
@@ -211,16 +333,11 @@ class ModelInput:
     halites = self.halite_cell_map()
 
     me = self.board.current_player
-    my_ship_map = self.player_ship_map(player_id=me.id)
-    my_shipyard_map = self.player_shipyard_map(player_id=me.id)
-
-    enemy_ship_map = self.enemy_ship_map()
-    enemy_shipyard_map = self.enemy_shipyard_map()
-
+    ship_map = self.player_ship_map(player_id=me.id)
+    shipyard_map = self.player_shipyard_map(player_id=me.id)
     # aux_map = self.get_auxiliary_map()
 
-    maps = [halites, my_ship_map, my_shipyard_map, enemy_ship_map,
-            enemy_shipyard_map]#, aux_map]
+    maps = [halites, ship_map, shipyard_map]#, aux_map]
     v = np.stack(maps)
     if move_axis:
       v = np.moveaxis(v, 0, -1)
@@ -260,38 +377,22 @@ class ModelInput:
       v[position.x, position.y] = cell.halite / HALITE_NORMALIZTION_VAL
     return v
 
-  def player_ship_map(self, player_id):
+  def player_ship_map(self, current_player_id):
     v = np.zeros(shape=INPUT_MAP_SIZE)
-    for ship in self.board.players[player_id].ships:
-      position = ship.position
-      v[position.x, position.y] = ship.halite / HALITE_NORMALIZTION_VAL + 1.0
-      # v[position.x, position.y] = (-1 if ship.halite == 0 else
-                                   # (ship.halite / HALITE_NORMALIZTION_VAL))
+    for player in self.board.players.values():
+      is_current_player = 1 if player.id == current_player_id else -1
+      for ship in player.ships:
+        position = ship.position
+        v[position.x, position.y] = (is_current_player * ship.halite / HALITE_NORMALIZTION_VAL + 1.0)
     return v
 
-  def player_shipyard_map(self, player_id):
+  def player_shipyard_map(self, current_player_id):
     v = np.zeros(shape=INPUT_MAP_SIZE)
-    for yard in self.board.players[player_id].shipyards:
-      position = yard.position
-      v[position.x, position.y] = 1
-    return v
-
-  def enemy_ship_map(self, player_id=None):
-    current_player_id = self.board.current_player.id
-    v = np.zeros(shape=INPUT_MAP_SIZE)
-    for player in self.board.opponents:
-      if player_id != None and player.id != player_id:
-        continue
-      v += self.player_ship_map(player_id=player.id)
-    return v
-
-  def enemy_shipyard_map(self, player_id=None):
-    current_player_id = self.board.current_player.id
-    v = np.zeros(shape=INPUT_MAP_SIZE)
-    for player in self.board.opponents:
-      if player_id != None and player.id != player_id:
-        continue
-      v += self.player_shipyard_map(player_id=player.id)
+    for player in self.board.players.values():
+      is_current_player = 1 if player.id == current_player_id else -1
+      for yard in player.shipyards:
+        position = yard.position
+        v[position.x, position.y] = is_current_player
     return v
 
 
