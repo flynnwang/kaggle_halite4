@@ -51,6 +51,16 @@ class EventBoard(Board):
     self.debug = True
     self.total_deposite = 0
     self.total_collect = 0
+    self.unit_rewards = {}  # unit_id -> reward at this step.
+
+  def _delete_ship(self, ship: Ship) -> None:
+    if ship.next_action != ShipAction.CONVERT:
+      self.unit_rewards[ship.id] = -(self.configuration.spawn_cost + ship.halite)
+    super(EventBoard)._delete_ship(ship)
+
+  def _delete_shipyard(self, shipyard: Shipyard) -> None:
+    self.unit_rewards[shipyard.id] = -(self.configuration.spawn_cost + self.configuration.convert_cost)
+    super(EventBoard)._delete_shipyard(shipyard)
 
   def log_reward(self, name, unit, r):
     if not self.debug or r == 0:
@@ -63,17 +73,22 @@ class EventBoard(Board):
     else:
       print("  S=%s: %s, r=%s" % (self.step, name, r))
 
+
+
   def on_step_finished(self):
     pass
 
   @is_current_player
   def on_ship_deposite(self, ship, shipyard):
+    self.unit_rewards[ship.id] = ship.halite
+
     if ship.halite:
       print('deposite by ship %s from player %s h=%s' % (ship.id, ship.player_id, ship.halite))
     deposite = ship.halite
     self.step_reward += deposite
     self.total_deposite += deposite
     self.log_reward('on_ship_deposite', ship, ship.halite)
+
 
   @is_current_player
   def on_ship_collect(self, ship, delta_halite):
@@ -88,7 +103,6 @@ class EventBoard(Board):
     self.step_reward += r
     self.total_deposite += deposite_halite
     self.log_reward('on_hand_left_over_halite', None, r)
-
 
   @is_current_player
   def on_ship_move(self, ship):
