@@ -40,8 +40,10 @@ NUM_SHIP_ACTIONS = len(SHIP_ACTIONS)
 MODEL_PATH = '/home/wangfei/data/20200801_halite/model/unet.h5'
 
 
-def get_unet_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 3), num_ship_actions=6,
-                   num_shipyard_actions=2, input_padding=((5, 6), (5, 6))):
+def get_unet_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 3),
+                   num_ship_actions=NUM_SHIP_ACTIONS,
+                   num_shipyard_actions=NUM_SHIPYARD_ACTIONS,
+                   input_padding=((5, 6), (5, 6))):
   inputs = Input(shape=input_shape)
   x = layers.ZeroPadding2D(input_padding)(inputs)
   x = layers.Conv2D(32, 1, strides=1, padding="same")(x)
@@ -469,14 +471,14 @@ class ShipStrategy(StrategyBase):
       unit_action_probs = unit_probs[0][position.x, position.y, :]
 
       # Eposilon exploration.
-      sample_probs = 0.9 * unit_action_probs + 0.1 * (np.ones(len(actions)) / len(actions))
-      sample_probs = sample_probs / np.sum(sample_probs)
+      # sample_probs = 0.9 * unit_action_probs + 0.1 * (np.ones(len(actions)) / len(actions))
+      # sample_probs = sample_probs / np.sum(sample_probs)
 
       # Just random explore. will divergence
       # sample_probs = np.ones(len(actions)) / len(actions)
 
       # TODO(wangfei): use maximize when deply
-      action_idx = np.random.choice(len(actions), p=sample_probs)
+      action_idx = np.random.choice(len(actions), p=unit_action_probs)
       unit.next_action = actions[action_idx]
 
   def execute(self):

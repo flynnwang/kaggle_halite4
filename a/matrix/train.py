@@ -51,15 +51,34 @@ class EventBoard(Board):
     self.debug = True
     self.total_deposite = 0
     self.total_collect = 0
-    self.unit_rewards = {}  # unit_id -> reward at this step.
+    self.unit_rewards = {}  # unit_id -> (reward, position)
+    self.shipyard_id_to_ship_id = {}  # record the convertion event
+
+  def add_unit_reward(self, unit, reward):
+    r, _ = self.unit_rewards.get(unit.id, (0, unit.position))
+    r += reward
+    self.unit_rewards[unit.id] = (r, unit.position)
 
   def _delete_ship(self, ship: Ship) -> None:
-    if ship.next_action != ShipAction.CONVERT:
-      self.unit_rewards[ship.id] = -(self.configuration.spawn_cost + ship.halite)
+    if ship.next_action == ShipAction.CONVERT:
+      # TODO(wangfei): use a larger penalty after learning mining.
+      r = -50
+      self.add_unit_reward(ship, r)
+
+      # Assume the shipyard has been built
+      self.shipyard_id_to_ship_id[ship.cell.shipyard.id] = ship.id
+    else:
+      # Blame ship itself for the lose.
+      r = -(self.configuration.spawn_cost + ship.halite)
+      self.add_unit_reward(ship, r)
+
     super(EventBoard)._delete_ship(ship)
 
   def _delete_shipyard(self, shipyard: Shipyard) -> None:
-    self.unit_rewards[shipyard.id] = -(self.configuration.spawn_cost + self.configuration.convert_cost)
+    # TODO(wangfei): add nearby ships for penalty.
+    # r = -(self.configuration.spawn_cost + self.configuration.convert_cost)
+    r = 0
+    self.add_unit_reward(shipyard, r)
     super(EventBoard)._delete_shipyard(shipyard)
 
   def log_reward(self, name, unit, r):
@@ -80,10 +99,16 @@ class EventBoard(Board):
 
   @is_current_player
   def on_ship_deposite(self, ship, shipyard):
-    self.unit_rewards[ship.id] = ship.halite
+    # SHIP_REWARD_RATIO = 6 / 7
+    deposite = ship.halite
+    ship_reward = deposite * SHIP_REWARD_RATIO
+    yard_reward = deposite - ship_reward
+    self.add_unit_reward(ship, ship_reward)
+    self.add_unit_reward(shipyard, yard_reward)
 
     if ship.halite:
       print('deposite by ship %s from player %s h=%s' % (ship.id, ship.player_id, ship.halite))
+
     deposite = ship.halite
     self.step_reward += deposite
     self.total_deposite += deposite
@@ -122,6 +147,10 @@ class EventBoard(Board):
 
   @is_current_player
   def on_shipyard_spawn(self, shipyard):
+    # TODO(wangfei): add it later, after agent learned how to collet halite.
+    # r = -self.configuration.spawn_cost
+    # self.add_unit_reward(shipyard, r)
+
     # r = -self.configuration.spawn_cost * 0.1
     r = 0
     self.step_reward += r
@@ -398,21 +427,40 @@ def gen_replays(path, replayer_id=None):
     yield replay_json
 
 
-def compute_returns(boards, gamma=0.995):
-  step_rewards = np.array([b.step_reward for b in boards], dtype=np.float32)
-  step_rewards /= HALITE_NORMALIZTION_VAL
+def compute_returns(boards, gamma=0.99):
+  unit_rewards = {}
 
-  # Calculate expected value from rewards
-  # - At each timestep what was the total reward received after that timestep
-  # - Rewards in the past are discounted by multiplying them with gamma
-  # - These are the labels for our critic
-  returns = []
-  discounted_sum = 0
-  for r in step_rewards[::-1]:
-    discounted_sum = r + gamma * discounted_sum
-    returns.append(discounted_sum)
-  returns = np.array(returns[::-1])
-  return returns
+  # Merges all shipyard to ship events.
+  shipyard_id_to_ship_id = {}
+  for b in boards:
+    shipyard_id_to_ship_id.update(b.shipyard_id_to_ship_id)
+
+  # Assign original unit reward.
+  for b in boards:
+    for uid, r in b.unit_rewards.items():
+      if uid not in unit_rewards:
+        unit_rewards[uid] = np.zeros(len(boards), dtype=np.float32)
+      unit_rewards[uid][b.step] += r
+
+      # Add future events of a shipyard to the convert ship
+      source_uid = shipyard_id_to_ship_id.get(uid)
+      if source_uid:
+        unit_rewards[source_uid][b.step] += r
+
+  for k in list(unit_rewards.keys()):
+    # Calculate expected value from rewards
+    # - At each timestep what was the total reward received after that timestep
+    # - Rewards in the past are discounted by multiplying them with gamma
+    # - These are the labels for our critic
+    returns = []
+    discounted_sum = 0
+    for r in unit_rewards[k][::-1]:
+      discounted_sum = r + gamma * discounted_sum
+      returns.append(discounted_sum)
+
+    returns = np.array(returns[::-1])
+    unit_rewards[k] = rewards / HALITE_NORMALIZTION_VAL
+  return unit_rewards, set(shipyard_id_to_ship_id.keys())
 
 
 class Trainer:
@@ -540,21 +588,21 @@ class Trainer:
     print('\nPlayer[%s] finished at step=%s: total_deposite=%.0f, total_collect=%.0f' %
           (board.current_player.id, board.step, board.total_deposite, board.total_collect))
 
-    returns = compute_returns(boards)
-
+    unit_rewards, shipyard_ids = compute_returns(boards)
+    unit_critics = np.zeros((len(boards, BOARD_SIZE, BOARD_SIZE)))
     # Normalize
     if self.return_params:
-      mean_return, std_return = self.return_params
+      ship_norm, yard_norm = self.return_params
 
-      positive = len(returns[returns > 0])
-      negative = len(returns[returns < 0])
-      returns = (returns - mean_return) / (std_return + EPS)
+      def normalize(uid, returns):
+        mean, std = (yard_norm if uid in shipyard_ids else ship_norm)
+        return (returns - mean) / (std + EPS)
 
-      p2 = len(returns[returns > 0])
-      n2 = len(returns[returns < 0])
-      print('Episode return(+%s, -%s), normalized(+%s, -%s)'
-            % (positive, negative, p2, n2))
-    return returns
+      unit_rewards = {uid: normalize(uid, returns)
+                      for uid, returns in unit_rewards.items()}
+    return unit_rewards
+
+  #TODO: 1. finish optimization (train), 2. finish aggr of avg returns.
 
   def train(self, player_boards, apply_grad=True):
     """Player boards is [player1_boards, player2_bords ...]"""
