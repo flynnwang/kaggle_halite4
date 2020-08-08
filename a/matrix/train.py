@@ -486,7 +486,7 @@ class Trainer:
       self.checkpoint = tf.train.Checkpoint(step=tf.Variable(0), model=self.model)
       self.manager = tf.train.CheckpointManager(self.checkpoint,
                                                 model_dir,
-                                                max_to_keep=20)
+                                                max_to_keep=100)
 
       # Load existing model if it exists.
       self.checkpoint.restore(self.manager.latest_checkpoint)
@@ -513,17 +513,31 @@ class Trainer:
         critic = critic_values[step_idx, position.x, position.y, 0]
         yield prob, ret, critic, entropy
 
+
+    # critic loss analysis
+    n_pos = 0
+    n_neg = 0
+    threshold = 1
+
     def gen_action_loses():
+      nonlocal n_pos, n_neg
       for i, b in enumerate(boards):
         for prob, ret, critic, entropy in gen_action_probs(b, i):
           # Adding EPS in case of zero
           # diff = ret - critic
-          diff = tf.clip_by_value(ret - critic, -0.1, 0.1)
+          diff = tf.clip_by_value(ret - critic, -0.2, 0.2)
           # print('before clip: ', ret -critic)
           actor_loss = -tf.math.log(prob + EPS) * diff
           # critic_loss = self.huber_loss(np.expand_dims(ret, 0),
                                         # np.expand_dims(critic, 0))
           critic_loss = tf.nn.l2_loss(ret - critic)
+
+          # critic loss analysis
+          d = ret - critic
+          if d > threshold:
+            n_pos += 1
+          if d < -threshold:
+            n_neg += 1
 
           if random.random() < 0.002:
             print("prob=%.5f, ret=%.5f, critic=%.5f, critic_loss=%.5f, entropy=%.5f"
@@ -541,6 +555,12 @@ class Trainer:
     actor_losses = tf.math.reduce_sum(actor_losses)
 
 
+    n_critic_losses = len(critic_losses)
+    safe_pct = (n_critic_losses - n_pos - n_neg) / n_critic_losses * 100
+    print("critic_losses: n=%s safe pct=%.1f%%, >%s=%s(%.1f%%), <-%s=%s(%.1f%%)"
+          % (n_critic_losses, safe_pct, threshold, n_pos, n_pos/ n_critic_losses * 100,
+             threshold, n_neg, n_neg / n_critic_losses * 100))
+
     critic_losses = tf.convert_to_tensor(critic_losses)
     # critic_losses = tf.math.reduce_mean(critic_losses)
     critic_losses = tf.math.reduce_sum(critic_losses)
@@ -548,7 +568,6 @@ class Trainer:
     entropy_losses = tf.convert_to_tensor(entropy_losses)
     # entropy_losses = tf.math.reduce_mean(entropy_losses)
     entropy_losses = tf.math.reduce_sum(entropy_losses)
-
 
     cc = np.array(critic_values)
     positive = len(cc[cc > 0])
@@ -565,10 +584,6 @@ class Trainer:
     return actor_losses, critic_losses, entropy_losses
 
   def get_returns(self, boards):
-    board = boards[-1]
-    print('\nPlayer[%s] finished at step=%s: total_deposite=%.0f, total_collect=%.0f' %
-          (board.current_player.id, board.step, board.total_deposite, board.total_collect))
-
     ship_returns = compute_returns(boards)
 
     # Normalize
@@ -600,12 +615,20 @@ class Trainer:
         ship_actor_loss, ship_critic_loss, ship_entropy_loss = self.get_ship_losses(boards, ship_probs, ship_returns, critic_values)
 
         loss_regularization = tf.math.add_n(self.model.losses)
-        loss = (ship_actor_loss * 1e-3 + ship_critic_loss + 1e-2 * ship_entropy_loss + loss_regularization)
+
+        ENTROPY_LOSS_WEIGHT = 1e-4
+        SHIP_ACTOR_LOSS_WEIGHT = 1e-2
+        loss = (ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT + ship_critic_loss
+                + ENTROPY_LOSS_WEIGHT * ship_entropy_loss + loss_regularization)
         gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables), 1000)
 
-        print("Loss = %.5f: ship_actor=%.5f, ship_critic=%.5f, ship_entropy_loss=%.5f, regu=%.5f, gradient_norm=%.3f"
-              % (loss, ship_actor_loss * 1e-3, ship_critic_loss,
-                 1e-2*ship_entropy_loss, loss_regularization, global_norm))
+
+        board = boards[-1]
+        print(('\nPlayer[%s] finished at step=%s: total_deposite=%.0f, total_collect=%.0f'
+              '\nLoss = %.5f: ship_actor=%.5f, ship_critic=%.5f, ship_entropy_loss=%.5f, regu=%.5f, gradient_norm=%.3f')
+              % (board.current_player.id, board.step, board.total_deposite, board.total_collect,
+                 loss, ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT, ship_critic_loss,
+                 ENTROPY_LOSS_WEIGHT*ship_entropy_loss, loss_regularization, global_norm))
 
         grad_values.append(gradients)
 

@@ -9,8 +9,9 @@ import uuid
 
 def run(episode_dir, model_dir, batch):
 
-  epsilon = 1.0
-  epsilon_decay = 0.998
+  # epsilon = 1.0
+  epsilon = 0.1
+  epsilon_decay = 0.995
 
   for b in range(batch):
     time_tag = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
