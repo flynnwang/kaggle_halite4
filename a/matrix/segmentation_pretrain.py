@@ -63,7 +63,7 @@ with open(example_path, 'r') as f:
 PLAYER_ID = player_id = 0
 total_steps = len(replay_json['steps'])
 
-g = gen_player_states(replay_json, player_id, total_steps, debug=False)
+g = gen_player_states(replay_json, player_id, debug=False)
 boards = list(g)
 
 # In[37]:

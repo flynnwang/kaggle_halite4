@@ -14,9 +14,7 @@ from matrix_v0 import (SHIP_ACTIONS, SHIPYARD_ACTIONS, HALITE_NORMALIZTION_VAL,
                        ModelInput, get_model, BOARD_SIZE)
 
 
-
 SHIP_ACTION_TO_ACTION_IDX = {a: i for i, a in enumerate(SHIP_ACTIONS)}
-SHIPYARD_ACTION_TO_ACTION_IDX = {a: i for i, a in enumerate(SHIPYARD_ACTIONS)}
 
 EPS = np.finfo(np.float32).eps.item()
 # MODEL_CHECKPOINT_DIR = "/home/wangfei/data/20200801_halite/model/unet_v2"
@@ -51,35 +49,13 @@ class EventBoard(Board):
     self.debug = True
     self.total_deposite = 0
     self.total_collect = 0
-    self.unit_rewards = {}  # unit_id -> (reward, position)
+    self.ship_rewards = {}  # unit_id -> (reward, position)
     self.shipyard_id_to_ship_id = {}  # record the convertion event
+    self.new_ship_ids = set()
 
-  def add_unit_reward(self, unit, reward):
-    r, _ = self.unit_rewards.get(unit.id, (0, unit.position))
-    r += reward
-    self.unit_rewards[unit.id] = (r, unit.position)
-
-  def _delete_ship(self, ship: Ship) -> None:
-    if ship.next_action == ShipAction.CONVERT:
-      # TODO(wangfei): use a larger penalty after learning mining.
-      r = -50
-      self.add_unit_reward(ship, r)
-
-      # Assume the shipyard has been built
-      self.shipyard_id_to_ship_id[ship.cell.shipyard.id] = ship.id
-    else:
-      # Blame ship itself for the lose.
-      r = -(self.configuration.spawn_cost + ship.halite)
-      self.add_unit_reward(ship, r)
-
-    super(EventBoard)._delete_ship(ship)
-
-  def _delete_shipyard(self, shipyard: Shipyard) -> None:
-    # TODO(wangfei): add nearby ships for penalty.
-    # r = -(self.configuration.spawn_cost + self.configuration.convert_cost)
-    r = 0
-    self.add_unit_reward(shipyard, r)
-    super(EventBoard)._delete_shipyard(shipyard)
+  def add_ship_reward(self, unit, reward):
+    reward += self.ship_rewards.get(unit.id, 0)
+    self.ship_rewards[unit.id] = reward
 
   def log_reward(self, name, unit, r):
     if not self.debug or r == 0:
@@ -101,15 +77,8 @@ class EventBoard(Board):
   def on_ship_deposite(self, ship, shipyard):
     # SHIP_REWARD_RATIO = 6 / 7
     deposite = ship.halite
-    ship_reward = deposite * SHIP_REWARD_RATIO
-    yard_reward = deposite - ship_reward
-    self.add_unit_reward(ship, ship_reward)
-    self.add_unit_reward(shipyard, yard_reward)
+    self.add_ship_reward(ship, deposite)
 
-    if ship.halite:
-      print('deposite by ship %s from player %s h=%s' % (ship.id, ship.player_id, ship.halite))
-
-    deposite = ship.halite
     self.step_reward += deposite
     self.total_deposite += deposite
     self.log_reward('on_ship_deposite', ship, ship.halite)
@@ -117,6 +86,9 @@ class EventBoard(Board):
 
   @is_current_player
   def on_ship_collect(self, ship, delta_halite):
+    r = delta_halite * 0.03
+    self.add_ship_reward(ship, r)
+
     COLLECT_DISCOUNT = 0
     self.step_reward += delta_halite * COLLECT_DISCOUNT
     self.total_collect += delta_halite
@@ -132,6 +104,8 @@ class EventBoard(Board):
   @is_current_player
   def on_ship_move(self, ship):
     """Add some move cost."""
+    # Do we need this?
+    self.add_ship_reward(ship, -1)
     # MOVE_COST_RATE = 0
     # r = -max(ship.halite * MOVE_COST_RATE, 1)
     r = 0
@@ -149,7 +123,7 @@ class EventBoard(Board):
   def on_shipyard_spawn(self, shipyard):
     # TODO(wangfei): add it later, after agent learned how to collet halite.
     # r = -self.configuration.spawn_cost
-    # self.add_unit_reward(shipyard, r)
+    # self.add_shipyard_reward(shipyard, r)
 
     # r = -self.configuration.spawn_cost * 0.1
     r = 0
@@ -158,12 +132,21 @@ class EventBoard(Board):
 
   @is_current_player
   def on_shipyard_destroid_by_ship(self, shipyard, ship):
+    # TODO(wangfei): add nearby ships for penalty.
+    # r = -(self.configuration.spawn_cost + self.configuration.convert_cost)
+    # r = 0
+    # self.add_unit_reward(shipyard, r)
+
     r = -(self.configuration.spawn_cost + self.configuration.convert_cost)
     self.step_reward += r
     self.log_reward('on_shipyard_destroid_by_ship', shipyard, r)
 
   @is_current_player
   def on_ship_destroid_with_enemy_shipyard(self, ship, shipyard):
+    if ship.id in self.new_ship_ids:
+      # Do not give penality for new ship.
+      return
+
     # TODO(wangfei): add reward for nearby shipyard attack.
     r = -(self.configuration.spawn_cost + ship.halite)
     self.step_reward += r
@@ -171,7 +154,10 @@ class EventBoard(Board):
 
   @is_current_player
   def on_ship_destroid_in_ship_collison(self, ship):
+    # Blame ship itself for the lose.
     r = -(self.configuration.spawn_cost + ship.halite)
+    self.add_ship_reward(ship, r)
+
     self.step_reward += r
     self.log_reward('on_ship_destroid_in_ship_collison', ship, r)
 
@@ -214,8 +200,10 @@ class EventBoard(Board):
         if shipyard.next_action == ShipyardAction.SPAWN and player.halite >= spawn_cost:
           # Handle SPAWN actions
           player._halite -= spawn_cost
+          new_ship_id = ShipId(create_uid())
+          self.new_ship_ids.add(new_ship_id)
           board._add_ship(
-              Ship(ShipId(create_uid()), shipyard.position, 0, player.id,
+              Ship(new_ship_id, shipyard.position, 0, player.id,
                    board))
           self.on_shipyard_spawn(shipyard)
           # Clear the shipyard's action so it doesn't repeat the same action automatically
@@ -226,6 +214,13 @@ class EventBoard(Board):
           # Can't convert on an existing shipyard but you can use halite in a ship to fund conversion
           if ship.cell.shipyard_id is None and (ship.halite +
                                                 player.halite) >= convert_cost:
+
+            # TODO(wangfei): use a larger penalty after learning mining.
+            # r = -self.configuration.convert_cost
+            # r = 0
+            # self.add_ship_reward(ship, r)
+            # print("convert ship")
+
             # Handle CONVERT actions
             delta_halite = ship.halite - convert_cost
             # Excess halite leftover from conversion is added to the player's total only after all conversions have completed
@@ -391,7 +386,7 @@ def is_player_eliminated(player, spawn_cost):
           (len(player.shipyard_ids) == 0 or player.halite < spawn_cost))
 
 
-def gen_player_states(replay_json, player_id, steps=None, debug=False):
+def gen_player_states(replay_json, player_id, debug=False):
   steps = len(replay_json['steps'])
   replayer = Replayer(None, replay_json, player_id)
   # start from 1 because there ase only 399 actions.
@@ -427,40 +422,46 @@ def gen_replays(path, replayer_id=None):
     yield replay_json
 
 
-def compute_returns(boards, gamma=0.99):
-  unit_rewards = {}
-
-  # Merges all shipyard to ship events.
-  shipyard_id_to_ship_id = {}
-  for b in boards:
-    shipyard_id_to_ship_id.update(b.shipyard_id_to_ship_id)
+def compute_returns(boards, as_list=False, gamma=0.99):
+  ship_rewards = {}
 
   # Assign original unit reward.
   for b in boards:
-    for uid, r in b.unit_rewards.items():
-      if uid not in unit_rewards:
-        unit_rewards[uid] = np.zeros(len(boards), dtype=np.float32)
-      unit_rewards[uid][b.step] += r
+    if as_list:
+      for ship in b.current_player.ships:
+        if ship.id not in ship_rewards:
+          ship_rewards[ship.id] = []
+        ship_rewards[ship.id].append(b.ship_rewards.get(ship.id, 0))
+    else:
+      for ship_id, r in b.ship_rewards.items():
+        if ship_id not in ship_rewards:
+          ship_rewards[ship_id] = np.zeros(len(boards), dtype=np.float32)
+        ship_rewards[ship_id][b.step] += r
 
       # Add future events of a shipyard to the convert ship
-      source_uid = shipyard_id_to_ship_id.get(uid)
-      if source_uid:
-        unit_rewards[source_uid][b.step] += r
+      # source_uid = shipyard_id_to_ship_id.get(uid)
+      # if source_uid:
+        # ship_rewards[source_uid][b.step] += r
 
-  for k in list(unit_rewards.keys()):
+  for k in list(ship_rewards.keys()):
     # Calculate expected value from rewards
     # - At each timestep what was the total reward received after that timestep
     # - Rewards in the past are discounted by multiplying them with gamma
     # - These are the labels for our critic
     returns = []
     discounted_sum = 0
-    for r in unit_rewards[k][::-1]:
+
+    rewards = ship_rewards[k]
+    # if as_list:
+      # print("ship_id=%s, reward(n=%s, mx=%.2f, min=%.2f, mean=%.2f)" %
+            # (k, len(rewards), max(rewards), min(rewards), np.mean(rewards)))
+    for r in ship_rewards[k][::-1]:
       discounted_sum = r + gamma * discounted_sum
       returns.append(discounted_sum)
 
     returns = np.array(returns[::-1])
-    unit_rewards[k] = rewards / HALITE_NORMALIZTION_VAL
-  return unit_rewards, set(shipyard_id_to_ship_id.keys())
+    ship_rewards[k] = returns / HALITE_NORMALIZTION_VAL
+  return ship_rewards
 
 
 class Trainer:
@@ -492,117 +493,96 @@ class Trainer:
       else:
         print("Initializing model from scratch.")
 
-  def get_ship_actor_loss(self, boards, ship_probs, critic_diffs):
-    def get_ship_units(board):
-      return board.current_player.ships
+  def get_ship_losses(self, boards, ship_probs, ship_returns, critic_values):
 
-    loses, correct_rate = self.get_actor_loss(boards, ship_probs,
-                                                        SHIP_ACTION_TO_ACTION_IDX,
-                                                        get_ship_units,
-                                                        critic_diffs)
-    # print("Non action ship cells precision: ", correct_rate)
-    return loses
+    def gen_action_probs(board, step_idx):
+      for ship in board.current_player.ships:
+        if ship.next_action == ShipAction.CONVERT:
+          continue
 
-  def get_shipyard_actor_loss(self, boards, yard_probs, critic_diffs):
-    def get_shipyard_units(board):
-      return board.current_player.shipyards
+        position = ship.position
+        action_idx = SHIP_ACTION_TO_ACTION_IDX[ship.next_action]
 
-    loses, correct_rate =  self.get_actor_loss(boards, yard_probs,
-                                     SHIPYARD_ACTION_TO_ACTION_IDX,
-                                     get_shipyard_units, critic_diffs)
-    # print("Non action shipyard cells precision: ", correct_rate)
-    return loses
+        probs = ship_probs[step_idx, position.x, position.y, :]
+        entropy = -tf.reduce_sum(probs * tf.math.log(probs + EPS))
 
-  def get_actor_loss(self, boards, unit_probs, action_to_idx, get_units, critic_diffs):
-    # Sample non-actionable cells for fast training.
-    N_SAMPLE = 50
-    non_unit_cells = 0
-    correct_non_unit_actions = 0
-
-    def unit_action_probs(board, step_idx):
-      nonlocal non_unit_cells, correct_non_unit_actions
-
-      position_to_unit = {u.position : u for u in get_units(board)}
-
-      # positions = (random.sample(self.BORRD_POSITIONS, N_SAMPLE)
-                   # if len(boards) > 150
-                   # else self.BORRD_POSITIONS)
-      # for position in positions:
-      # # for position in not_actionable_cells:
-        # if position in position_to_unit:
-          # continue
-
-        # non_unit_cells += 1
-
-        # # Because it won't affect the state of the board and action won't be
-        # # recorded for non-unit cells, thus it's generated during training.
-        # action_probs = unit_probs[step_idx, position.x, position.y, :]
-        # action_idx = np.random.choice(len(action_to_idx), p=action_probs.numpy())
-        # if action_idx == len(action_to_idx) -1:
-          # correct_non_unit_actions += 1
-        # yield action_probs[action_idx]
-
-      for position, unit in position_to_unit.items():
-        # if unit.next_action is None:
-          # # Same here, since None or False will not affect the board,
-          # # it's sampled again here.
-          # action_probs = unit_probs[step_idx, position.x, position.y, -2:]
-
-          # # adding EPS in case of zero
-          # probs = np.array([action_probs[-2], action_probs[-1]]) + EPS
-          # # TODO(wangfei): need damping factor here
-          # probs = probs / np.sum(probs)
-          # action_idx = np.random.choice(2, p=probs)
-          # yield action_probs[action_idx]
-        # else:
-        action_idx = action_to_idx[unit.next_action]
-        yield unit_probs[step_idx, position.x, position.y, action_idx]
-
-    # def log_prob(g):
-      # g = list(g)
-      # if len(g) == 0:
-        # return tf.constant(0.0)
-      # if np.abs(np.sum(np.array(g))) < EPS:
-        # return tf.constant(0.0)
-      # This is bug!
-      # return tf.math.log(tf.math.reduce_sum(g))
-
+        prob = probs[action_idx]
+        ret = ship_returns[ship.id][step_idx]
+        critic = critic_values[step_idx, position.x, position.y, 0]
+        yield prob, ret, critic, entropy
 
     def gen_action_loses():
-      for i, (b, critic_diff) in enumerate(zip(boards, critic_diffs)):
-        for prob in unit_action_probs(b, i):
+      for i, b in enumerate(boards):
+        for prob, ret, critic, entropy in gen_action_probs(b, i):
           # Adding EPS in case of zero
-          yield -tf.math.log(prob + EPS) * critic_diff
+          # diff = ret - critic
+          diff = tf.clip_by_value(ret - critic, -0.1, 0.1)
+          # print('before clip: ', ret -critic)
+          actor_loss = -tf.math.log(prob + EPS) * diff
+          # critic_loss = self.huber_loss(np.expand_dims(ret, 0),
+                                        # np.expand_dims(critic, 0))
+          # critic_loss = tf.keras.losses.mean_absolute_error(
+            # np.expand_dims(ret, 0),
+            # np.expand_dims(critic, 0))
+          critic_loss = tf.nn.l2_loss(ret - critic)
 
-    action_losses = list(gen_action_loses())
-    if len(action_losses) == 0:
-      return 0.0, 0.0
+          if random.random() < 0.002:
+            print("prob=%.5f, ret=%.5f, critic=%.5f, critic_loss=%.5f, entropy=%.5f"
+                  % (prob.numpy(), ret, critic.numpy(), critic_loss.numpy(),
+                    entropy.numpy()))
+          yield actor_loss, critic_loss, -entropy, critic, ret
 
-    action_losses = tf.convert_to_tensor(action_losses)
-    action_loss = tf.math.reduce_mean(action_losses)
-    # non_action_cell_correct_rate = correct_non_unit_actions / non_unit_cells
-    return action_loss, 0.0 # non_action_cell_correct_rate
+    losses = list(gen_action_loses())
+    if len(losses) == 0:
+      return 0.0
+
+    actor_losses, critic_losses, entropy_losses, critic_values, ret_values = list(zip(*losses))
+    actor_losses = tf.convert_to_tensor(actor_losses)
+    # actor_losses = tf.math.reduce_mean(actor_losses)
+    actor_losses = tf.math.reduce_sum(actor_losses)
+
+
+    critic_losses = tf.convert_to_tensor(critic_losses)
+    # critic_losses = tf.math.reduce_mean(critic_losses)
+    critic_losses = tf.math.reduce_sum(critic_losses)
+
+    entropy_losses = tf.convert_to_tensor(entropy_losses)
+    # entropy_losses = tf.math.reduce_mean(entropy_losses)
+    entropy_losses = tf.math.reduce_sum(entropy_losses)
+
+
+    cc = np.array(critic_values)
+    positive = len(cc[cc > 0])
+    negative = len(cc[cc < 0])
+    mean_critic = np.mean(cc)
+
+    rr = np.array(ret_values)
+    rr_positive = len(rr[rr > 0])
+    rr_negative = len(rr[rr < 0])
+    mean_ret = np.mean(rr)
+    print("critic(mean=%.5f, +%s, -%s), return(mean=%.5f, +%s, -%s)"
+          % (mean_critic, positive, negative, mean_ret, rr_positive, rr_negative))
+    print("critic values: mean=%.5f, +%s, -%s" % (mean_critic, positive, negative))
+
+    return actor_losses, critic_losses, entropy_losses
 
   def get_returns(self, boards):
     board = boards[-1]
     print('\nPlayer[%s] finished at step=%s: total_deposite=%.0f, total_collect=%.0f' %
           (board.current_player.id, board.step, board.total_deposite, board.total_collect))
 
-    unit_rewards, shipyard_ids = compute_returns(boards)
-    unit_critics = np.zeros((len(boards, BOARD_SIZE, BOARD_SIZE)))
+    ship_returns = compute_returns(boards)
+
     # Normalize
-    if self.return_params:
-      ship_norm, yard_norm = self.return_params
+    mean, std = self.return_params
+    def normalize(returns):
+      # returns = (returns - mean) / (std + EPS)
+      return returns
 
-      def normalize(uid, returns):
-        mean, std = (yard_norm if uid in shipyard_ids else ship_norm)
-        return (returns - mean) / (std + EPS)
 
-      unit_rewards = {uid: normalize(uid, returns)
-                      for uid, returns in unit_rewards.items()}
-    return unit_rewards
-
-  #TODO: 1. finish optimization (train), 2. finish aggr of avg returns.
+    ship_returns = {ship_id: normalize(returns)
+                    for ship_id, returns in ship_returns.items()}
+    return ship_returns
 
   def train(self, player_boards, apply_grad=True):
     """Player boards is [player1_boards, player2_bords ...]"""
@@ -613,32 +593,23 @@ class Trainer:
 
     grad_values = []
     for rollout_idx, boards in enumerate(player_boards):
-      returns = self.get_returns(boards)
       X = get_player_inputs(boards)
+      ship_returns = self.get_returns(boards)
 
       with tf.GradientTape() as tape:
-        (ship_probs, yard_probs, critic_values) = self.model(X)
-        diffs = returns - critic_values[:, 0]
+        ship_probs, critic_values = self.model(X)
 
-        ship_actor_loss = self.get_ship_actor_loss(boards, ship_probs, diffs)
-        yard_actor_loss = self.get_shipyard_actor_loss(boards, yard_probs, diffs)
-        critic_losses = self.huber_loss(critic_values[:, 0], returns)
+        ship_actor_loss, ship_critic_loss, ship_entropy_loss = self.get_ship_losses(boards, ship_probs, ship_returns, critic_values)
+
+        # TODO(wangfei): add entropy loss
         loss_regularization = tf.math.add_n(self.model.losses)
-        loss = (ship_actor_loss + yard_actor_loss + 2*critic_losses + loss_regularization)
-        gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables), 2000)
+        # loss = (ship_actor_loss + ship_critic_loss + 1e-2 * ship_entropy_loss + loss_regularization)
+        loss = (ship_actor_loss * 1e-2 + ship_critic_loss + 1e-4 * ship_entropy_loss + loss_regularization)
+        gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables), 1000)
 
-        print('returns [-5:]', returns[-5:])
-        print('critic [-5:]', critic_values[-5:, 0].numpy())
-        cc = critic_values[:, 0].numpy()
-        positive = len(cc[cc > 0])
-        negative = len(cc[cc < 0])
-        print('p[%s] critic_losses' % rollout_idx, np.sum(critic_losses),
-              ', mean predicted critic:', np.mean(cc), ' +%s, -%s' % (positive, negative))
-
-        print('mean diffs', np.mean(diffs), 'shape:', diffs.shape)
-        print("Loss: ship=%.2f, yard=%.2f, critic=%.2f, regu=%.2f, gradient_norm=%.3f"
-              % (ship_actor_loss, yard_actor_loss, 2 * critic_losses,
-                 loss_regularization, global_norm))
+        print("Loss = %.5f: ship_actor=%.5f, ship_critic=%.5f, ship_entropy_loss=%.5f, regu=%.5f, gradient_norm=%.3f"
+              % (loss, ship_actor_loss * 1e-2, ship_critic_loss,
+                 1e-4*ship_entropy_loss, loss_regularization, global_norm))
 
         grad_values.append(gradients)
 
@@ -668,19 +639,19 @@ def train_on_replays(model_dir, replay_jsons):
       num_players = len(replay_json['rewards'])
 
       # player_id = np.random.choice(num_players)
-      # boards = list(gen_player_states(replay_json, player_id, total_steps))
+      # boards = list(gen_player_states(replay_json, player_id))
       # trainer.train([boards], player_id)
 
       player_ids = list(range(num_players))
 
       # np.random.shuffle(player_ids)
       # for player_id in player_ids:
-        # boards = list(gen_player_states(replay_json, player_id, total_steps))
+        # boards = list(gen_player_states(replay_json, player_id))
         # assert boards
         # trainer.train([boards], player_id)
 
       for player_id in player_ids:
-        boards = list(gen_player_states(replay_json, player_id, total_steps))
+        boards = list(gen_player_states(replay_json, player_id))
         assert boards
         yield boards
 

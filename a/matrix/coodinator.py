@@ -9,15 +9,24 @@ import uuid
 
 def run(episode_dir, model_dir, batch):
 
+  epsilon = 0.0
+  epsilon_decay = 0.998
+
   for b in range(batch):
     time_tag = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     batch_dir = os.path.join(episode_dir, time_tag)
 
-    subprocess.check_call(["python3", "lsd.py", "-o", batch_dir, '-m', model_dir])
+    subprocess.check_call(["python3", "lsd.py", "-o", batch_dir, '-m', model_dir,
+                           '--epsilon', str(epsilon)])
     print("All episodes generation finished: ", batch_dir)
 
     subprocess.check_call(["python3", "batch_train.py", "-e", batch_dir, '-m', model_dir])
     print("One training batch finished: ", batch_dir)
+    print("Step: %s, epsilon value: %s" % (b, epsilon))
+
+    epsilon *= epsilon_decay
+
+
 
 def main():
   parser = argparse.ArgumentParser()

@@ -2,6 +2,7 @@ import argparse
 import os
 import json
 import time
+import random
 from multiprocessing import Pool
 
 from lsd import BATCH_SIZE
@@ -31,10 +32,15 @@ def compute_grad(args):
   num_players = len(replay_json['rewards'])
   player_ids = list(range(num_players))
 
+  # Sample one
+  # pid = random.choice(player_ids)
+  # player_ids = [pid]
+
   player_boards = [
     list(train.gen_player_states(replay_json, player_id))
     for player_id in player_ids
   ]
+
   trainer = train.Trainer(None, model_dir, return_params=return_params)
   return trainer.train(player_boards, apply_grad=False)
 
@@ -45,7 +51,7 @@ def train_on_replays_multiprocessing(model_dir, replay_jsons, return_params):
       yield replay_json, model_dir, return_params
 
   all_grads_list = []
-  with Pool(processes=6) as pool:
+  with Pool() as pool:
     for grads_list in pool.imap_unordered(compute_grad, gen_args(replay_jsons)):
       all_grads_list.extend(grads_list)
 
@@ -57,34 +63,54 @@ def train_on_replays_multiprocessing(model_dir, replay_jsons, return_params):
       print("apply grad at %s" % i)
     trainer.on_batch_finished()
 
+  random.shuffle(all_grads_list)
   apply_grad(all_grads_list)
 
 
-def compute_returns(replay_json):
+def replay_to_ship_rewards(replay_json):
   import train
   import numpy as np
 
   num_players = len(replay_json['rewards'])
 
+  stats = np.zeros(2) # total deposit, total collect
+  total_deposits = []
+  total_collects = []
   returns = []
   for player_id in range(num_players):
     boards = train.gen_player_states(replay_json, player_id)
-    returns = np.concatenate([returns, train.compute_returns(boards)])
-  return returns
+    boards = list(boards)
+
+    ship_rewards = train.compute_returns(list(boards), as_list=True)
+    returns = np.concatenate(list(ship_rewards.values()) + [returns])
+
+    b = boards[-1]
+    total_deposits.append(b.total_deposite)
+    total_collects.append(b.total_collect)
+  return returns, total_deposits, total_collects
 
 
 def get_normalization_params(replays):
   import numpy as np
 
   returns = []
-  with Pool(processes=6) as pool:
-    for r in pool.imap_unordered(compute_returns, replays):
+  total_deposits = []
+  total_collects = []
+  with Pool() as pool:
+    for r, d, c in pool.imap_unordered(replay_to_ship_rewards, replays):
       returns = np.concatenate([returns, r])
+      total_deposits = np.concatenate([total_deposits, d])
+      total_collects = np.concatenate([total_collects, c])
 
   mean_return = np.mean(returns)
   std_return = np.std(returns)
-  print("****Batch returns finished: mean=%.1f, std=%.1f"
+  print("****Batch returns finished: ship reward(mean=%.2f, std=%.2f)"
         % (mean_return, std_return))
+
+  D = np.mean(total_deposits)
+  C = np.mean(total_collects)
+  print("****Avg deposite = %.3f, avg collect = %.3f, ratio=%.5f"
+        % (D, C, (D / (C  +1.0))))
   return mean_return, std_return
 
 
