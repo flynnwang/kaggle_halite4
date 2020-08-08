@@ -107,7 +107,8 @@ class EventBoard(Board):
     # Do we need this?
     # MOVE_COST_RATE = 0.01
     # r = -max(ship.halite * MOVE_COST_RATE, 1)
-    # self.add_ship_reward(ship, r)
+    r = -1
+    self.add_ship_reward(ship, r)
 
     r = 0
     self.step_reward += r
@@ -520,12 +521,9 @@ class Trainer:
           diff = tf.clip_by_value(ret - critic, -0.1, 0.1)
           # print('before clip: ', ret -critic)
           actor_loss = -tf.math.log(prob + EPS) * diff
-          critic_loss = self.huber_loss(np.expand_dims(ret, 0),
-                                        np.expand_dims(critic, 0))
-          # critic_loss = tf.keras.losses.mean_absolute_error(
-            # np.expand_dims(ret, 0),
-            # np.expand_dims(critic, 0))
-          # critic_loss = tf.nn.l2_loss(ret - critic)
+          # critic_loss = self.huber_loss(np.expand_dims(ret, 0),
+                                        # np.expand_dims(critic, 0))
+          critic_loss = tf.nn.l2_loss(ret - critic)
 
           if random.random() < 0.002:
             print("prob=%.5f, ret=%.5f, critic=%.5f, critic_loss=%.5f, entropy=%.5f"
@@ -602,12 +600,12 @@ class Trainer:
         ship_actor_loss, ship_critic_loss, ship_entropy_loss = self.get_ship_losses(boards, ship_probs, ship_returns, critic_values)
 
         loss_regularization = tf.math.add_n(self.model.losses)
-        loss = (ship_actor_loss * 1e-3 + ship_critic_loss + 1e-4 * ship_entropy_loss + loss_regularization)
+        loss = (ship_actor_loss * 1e-3 + ship_critic_loss + 1e-2 * ship_entropy_loss + loss_regularization)
         gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables), 1000)
 
         print("Loss = %.5f: ship_actor=%.5f, ship_critic=%.5f, ship_entropy_loss=%.5f, regu=%.5f, gradient_norm=%.3f"
               % (loss, ship_actor_loss * 1e-3, ship_critic_loss,
-                 1e-4*ship_entropy_loss, loss_regularization, global_norm))
+                 1e-2*ship_entropy_loss, loss_regularization, global_norm))
 
         grad_values.append(gradients)
 

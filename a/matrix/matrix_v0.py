@@ -167,7 +167,7 @@ def get_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 7),
   ### [First half of the network: downsampling inputs] ###
 
   # Entry block
-  x = layers.Conv2D(32, 3, strides=2, padding="same")(inputs)
+  x = layers.Conv2D(32, 3, strides=2, padding="same")(x)
   x = layers.BatchNormalization()(x)
   x = layers.Activation("relu")(x)
 
@@ -220,6 +220,7 @@ def get_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 7),
   critic_outputs = Conv2D(1, 1,
                           activation="linear",
                           kernel_regularizer=l2(1e-4),
+                          bias_regularizer=l2(1e-4),
                           padding="same")(decoder(encoder_end))
 
   # critic_input = decoder(encoder_end)

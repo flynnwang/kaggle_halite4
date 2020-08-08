@@ -9,8 +9,8 @@ from multiprocessing import Pool
 from kaggle_environments import evaluate, make
 from kaggle_environments.envs.halite.helpers import *
 
-BATCH_SIZE = 12
-EPISODE_STEPS = 400
+BATCH_SIZE = 24
+EPISODE_STEPS = 200
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"]="3"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
