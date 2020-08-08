@@ -37,7 +37,7 @@ NUM_SHIP_ACTIONS = len(SHIP_ACTIONS)
 MODEL_PATH = '/home/wangfei/data/20200801_halite/model/unet.h5'
 
 
-def get_model2(input_shape=(BOARD_SIZE, BOARD_SIZE, 3),
+def get_model2(input_shape=(BOARD_SIZE, BOARD_SIZE, 7),
               num_ship_actions=NUM_SHIP_ACTIONS,
               num_shipyard_actions=NUM_SHIPYARD_ACTIONS,
               input_padding=((5, 6), (5, 6))):
@@ -155,7 +155,7 @@ def get_model2(input_shape=(BOARD_SIZE, BOARD_SIZE, 3),
   return model
 
 
-def get_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 3),
+def get_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 7),
               num_ship_actions=NUM_SHIP_ACTIONS,
               num_shipyard_actions=NUM_SHIPYARD_ACTIONS):
   inputs = keras.Input(shape=input_shape)
@@ -251,11 +251,17 @@ class ModelInput:
     halites = self.halite_cell_map()
 
     me = self.board.current_player
-    ship_map = self.player_ship_map(me.id)
+    ship_position_map = self.player_ship_map(me.id, halite_layer=False)
+    ship_cargo_map = self.player_ship_map(me.id, halite_layer=True)
     shipyard_map = self.player_shipyard_map(me.id)
+
+    enemy_position_map = self.enemy_ship_map(halite_layer=False)
+    enemy_cargo_map = self.enemy_ship_map(halite_layer=True)
+    enemy_shipyard_map = self.enemy_shipyard_map()
     # aux_map = self.get_auxiliary_map()
 
-    maps = [halites, ship_map, shipyard_map]#, aux_map]
+    maps = [halites, ship_position_map, ship_cargo_map, shipyard_map,
+            enemy_position_map, enemy_cargo_map, enemy_shipyard_map]
     v = np.stack(maps)
     if move_axis:
       v = np.moveaxis(v, 0, -1)
@@ -295,24 +301,37 @@ class ModelInput:
       v[position.x, position.y] = cell.halite / HALITE_NORMALIZTION_VAL
     return v
 
-  def player_ship_map(self, current_player_id):
+  def player_ship_map(self, player_id, halite_layer=True):
     v = np.zeros(shape=INPUT_MAP_SIZE)
-    for player in self.board.players.values():
-      is_current_player = 1 if player.id == current_player_id else -1
-      for ship in player.ships:
-        position = ship.position
-        v[position.x, position.y] = (is_current_player * ship.halite / HALITE_NORMALIZTION_VAL + 1.0)
+    for ship in self.board.players[player_id].ships:
+      position = ship.position
+      value = ship.halite if halite_layer else 1
+      v[position.x, position.y] = value
     return v
 
-  def player_shipyard_map(self, current_player_id):
+  def player_shipyard_map(self, player_id):
     v = np.zeros(shape=INPUT_MAP_SIZE)
-    for player in self.board.players.values():
-      is_current_player = 1 if player.id == current_player_id else -1
-      for yard in player.shipyards:
-        if yard.next_action == ShipyardAction.SPAWN:
-          is_current_player *= 2
-        position = yard.position
-        v[position.x, position.y] = is_current_player
+    for yard in self.board.players[player_id].shipyards:
+      position = yard.position
+      v[position.x, position.y] = 1
+    return v
+
+  def enemy_ship_map(self, player_id=None, halite_layer=True):
+    current_player_id = self.board.current_player.id
+    v = np.zeros(shape=INPUT_MAP_SIZE)
+    for player in self.board.opponents:
+      if player_id != None and player.id != player_id:
+        continue
+      v += self.player_ship_map(player_id=player.id, halite_layer=halite_layer)
+    return v
+
+  def enemy_shipyard_map(self, player_id=None):
+    current_player_id = self.board.current_player.id
+    v = np.zeros(shape=INPUT_MAP_SIZE)
+    for player in self.board.opponents:
+      if player_id != None and player.id != player_id:
+        continue
+      v += self.player_shipyard_map(player_id=player.id)
     return v
 
 
