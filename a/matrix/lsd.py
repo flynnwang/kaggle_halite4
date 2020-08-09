@@ -10,7 +10,7 @@ from kaggle_environments import evaluate, make
 from kaggle_environments.envs.halite.helpers import *
 
 BATCH_SIZE = 6
-EPISODE_STEPS = 100
+EPISODE_STEPS = 10
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"]="3"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
@@ -62,7 +62,13 @@ def main():
   parser.add_argument('-o', '--output_dir', required=True)
   parser.add_argument('-m', '--model_dir', required=True)
   parser.add_argument('--epsilon', type=float, required=True)
+  parser.add_argument('--episode_steps', type=int, default=400)
+  parser.add_argument('--batch_size', type=int, default=24)
   args = parser.parse_args()
+
+  global EPISODE_STEPS, BATCH_SIZE
+  EPISODE_STEPS = args.episode_steps
+  BATCH_SIZE = args.batch_size
   run_lsd(args.output_dir, args.model_dir, args.epsilon)
 
 

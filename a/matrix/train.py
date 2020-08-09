@@ -135,9 +135,9 @@ class EventBoard(Board):
   @is_current_player
   def on_shipyard_destroid_by_ship(self, shipyard, ship):
     # TODO(wangfei): add nearby ships for penalty.
-    # r = -(self.configuration.spawn_cost + self.configuration.convert_cost)
-    # r = 0
-    # self.add_unit_reward(shipyard, r)
+    r = -(self.configuration.spawn_cost + self.configuration.convert_cost)
+    for s in self.current_player.ships:
+      self.add_ship_reward(s, r)
 
     r = -(self.configuration.spawn_cost + self.configuration.convert_cost)
     self.step_reward += r
@@ -525,12 +525,12 @@ class Trainer:
         for prob, ret, critic, entropy in gen_action_probs(b, i):
           # Adding EPS in case of zero
           # diff = ret - critic
-          diff = tf.clip_by_value(ret - critic, -0.1, 0.1)
+          diff = tf.clip_by_value(ret - critic, -0.01, 0.01)
           # print('before clip: ', ret -critic)
           actor_loss = -tf.math.log(prob + EPS) * diff
           # critic_loss = self.huber_loss(np.expand_dims(ret, 0),
                                         # np.expand_dims(critic, 0))
-          critic_loss = tf.nn.l2_loss(ret - critic)
+          critic_loss = tf.clip_by_value(tf.nn.l2_loss(ret - critic), 0, 25)
 
           # critic loss analysis
           d = ret - critic
@@ -622,7 +622,8 @@ class Trainer:
         SHIP_ACTOR_LOSS_WEIGHT = 1e-4
         loss = (ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT + ship_critic_loss
                 + ENTROPY_LOSS_WEIGHT * ship_entropy_loss + loss_regularization)
-        gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables), 1000)
+        gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables),
+                                                        500)
 
 
         board = boards[-1]
