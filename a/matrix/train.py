@@ -11,7 +11,7 @@ from kaggle_environments import evaluate, make
 from kaggle_environments.envs.halite.helpers import *
 
 from matrix_v0 import (SHIP_ACTIONS, SHIPYARD_ACTIONS, HALITE_NORMALIZTION_VAL,
-                       ModelInput, get_model, BOARD_SIZE)
+                       ModelInput, BOARD_SIZE)
 
 
 SHIP_ACTION_TO_ACTION_IDX = {a: i for i, a in enumerate(SHIP_ACTIONS)}
@@ -474,7 +474,8 @@ class Trainer:
   def __init__(self, model, model_dir, return_params=None):
     self.model = model
     if self.model is None:
-      self.model = get_model()
+      import matrix_v0
+      self.model = matrix_v0.get_model()
     assert self.model
 
     self.return_params = return_params
@@ -487,7 +488,6 @@ class Trainer:
       self.manager = tf.train.CheckpointManager(self.checkpoint,
                                                 model_dir,
                                                 max_to_keep=100)
-
       # Load existing model if it exists.
       self.checkpoint.restore(self.manager.latest_checkpoint)
       if self.manager.latest_checkpoint:
@@ -525,7 +525,7 @@ class Trainer:
         for prob, ret, critic, entropy in gen_action_probs(b, i):
           # Adding EPS in case of zero
           # diff = ret - critic
-          diff = tf.clip_by_value(ret - critic, -0.2, 0.2)
+          diff = tf.clip_by_value(ret - critic, -0.1, 0.1)
           # print('before clip: ', ret -critic)
           actor_loss = -tf.math.log(prob + EPS) * diff
           # critic_loss = self.huber_loss(np.expand_dims(ret, 0),
@@ -616,8 +616,10 @@ class Trainer:
 
         loss_regularization = tf.math.add_n(self.model.losses)
 
-        ENTROPY_LOSS_WEIGHT = 1e-4
-        SHIP_ACTOR_LOSS_WEIGHT = 1e-2
+        # ENTROPY_LOSS_WEIGHT = 1e-4
+        # SHIP_ACTOR_LOSS_WEIGHT = 1e-1
+        ENTROPY_LOSS_WEIGHT = 1e-2
+        SHIP_ACTOR_LOSS_WEIGHT = 1e-4
         loss = (ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT + ship_critic_loss
                 + ENTROPY_LOSS_WEIGHT * ship_entropy_loss + loss_regularization)
         gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables), 1000)

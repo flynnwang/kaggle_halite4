@@ -13,12 +13,6 @@ from scipy.ndimage.interpolation import shift
 from kaggle_environments.envs.halite.helpers import *
 from kaggle_environments import evaluate, make
 
-import keras
-from keras import layers
-import tensorflow as tf
-from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Dropout, UpSampling2D, concatenate, Flatten
-from keras.regularizers import l2
-
 MIN_WEIGHT = -99999
 
 BOARD_SIZE = 21
@@ -41,7 +35,11 @@ def get_model2(input_shape=(BOARD_SIZE, BOARD_SIZE, 7),
               num_ship_actions=NUM_SHIP_ACTIONS,
               num_shipyard_actions=NUM_SHIPYARD_ACTIONS,
               input_padding=((5, 6), (5, 6))):
-  inputs = Input(shape=input_shape)
+  from keras import layers
+  from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Dropout, UpSampling2D, concatenate, Flatten
+  from keras.regularizers import l2
+
+  inputs = layers.Input(shape=input_shape)
   x = layers.ZeroPadding2D(input_padding)(inputs)
   x = layers.Conv2D(32, 1, strides=1, padding="same")(x)
   x = layers.BatchNormalization()(x)
@@ -158,7 +156,11 @@ def get_model2(input_shape=(BOARD_SIZE, BOARD_SIZE, 7),
 def get_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 7),
               num_ship_actions=NUM_SHIP_ACTIONS,
               num_shipyard_actions=NUM_SHIPYARD_ACTIONS):
-  inputs = keras.Input(shape=input_shape)
+  import keras
+  from keras import layers
+  from keras.regularizers import l2
+
+  inputs = layers.Input(shape=input_shape)
 
   # ((top_pad, bottom_pad), (left_pad, right_pad))
   input_padding = ((5, 6), (5, 6))
@@ -215,16 +217,13 @@ def get_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 7),
     return layers.Cropping2D(input_padding)(x)
 
   encoder_end = x
-  ship_outputs = Conv2D(num_ship_actions, 3, activation="softmax",
+  ship_outputs = layers.Conv2D(num_ship_actions, 3, activation="softmax",
                         padding="same")(decoder(encoder_end))
-  critic_outputs = Conv2D(1, 1,
+  critic_outputs = layers.Conv2D(1, 1,
                           activation="linear",
                           kernel_regularizer=l2(1e-4),
                           bias_regularizer=l2(1e-4),
                           padding="same")(decoder(encoder_end))
-
-  # critic_input = decoder(encoder_end)
-
   # Define the model
   model = keras.Model(inputs, outputs=[ship_outputs, critic_outputs])
   return model

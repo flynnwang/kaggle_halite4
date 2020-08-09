@@ -10,7 +10,7 @@ import uuid
 def run(episode_dir, model_dir, batch):
 
   # epsilon = 1.0
-  epsilon = 0.1
+  epsilon = 0.05
   epsilon_decay = 0.995
 
   for b in range(batch):
