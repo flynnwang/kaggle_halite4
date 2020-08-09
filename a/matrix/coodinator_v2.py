@@ -43,24 +43,20 @@ def gradient_consumer(model_dir, grad_queue, episode_queue):
   print("Hi, gradient_consumer: ready")
 
   import train
-  trainer = train.Trainer(None, model_dir)
+
+  def apply_gradients(grads_buffer):
+    trainer = train.Trainer(None, model_dir)
+    for i, g in enumerate(grads_buffer):
+      trainer.apply_grad(g)
+      print("batch[%s]: apply grad at %s" % (batch_count, i))
+    trainer.on_batch_finished()
 
   batch_count = 0
   grads_buffer = []
   while True:
     grads = grad_queue.get()
-    grads_buffer.extend(grads)
-
-    print("grads buffer size: ", len(grads_buffer))
-    if len(grads_buffer) >= BATCH_SIZE * 4:
-      batch_count += 1
-      # random.shuffle(grads_buffer)
-      for i, g in enumerate(grads_buffer):
-        trainer.apply_grad(g)
-        print("batch[%s]: apply grad at %s" % (batch_count, i))
-      trainer.on_batch_finished()
-      grads_buffer.clear()
-      episode_queue.put(True)
+    apply_gradients(grads)
+    episode_queue.put(True)
 
 
 def gradient_pool(model_dir, replay_queue, grad_queue):
