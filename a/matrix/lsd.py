@@ -50,7 +50,7 @@ def run_lsd(output_dir, model_dir, epsilon):
 
   def gen_simulations():
     sim_args = list(gen_simulation_args())
-    with Pool(processes=6) as pool:
+    with Pool() as pool:
       for replay_json in pool.imap_unordered(simulate, sim_args):
         pass
 
