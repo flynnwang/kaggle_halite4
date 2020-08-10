@@ -105,9 +105,9 @@ class EventBoard(Board):
   def on_ship_move(self, ship):
     """Add some move cost."""
     # Do we need this?
-    # MOVE_COST_RATE = 0.01
-    # r = -max(ship.halite * MOVE_COST_RATE, 1)
-    r = -1
+    MOVE_COST_RATE = 0.01
+    r = -max(ship.halite * MOVE_COST_RATE, 1)
+    # r = -1
     self.add_ship_reward(ship, r)
 
     r = 0
@@ -527,7 +527,12 @@ class Trainer:
         for prob, ret, critic, entropy in gen_action_probs(b, i):
           # Adding EPS in case of zero
           # diff = ret - critic
-          diff = tf.clip_by_value(ret - critic, -0.01, 0.01)
+          ret = tf.convert_to_tensor(ret, dtype=np.float32)
+
+          ret = tf.clip_by_value(ret, -3, 3)
+          critic = tf.clip_by_value(critic, -3, 3)
+          diff = tf.clip_by_value(ret - critic, -1, 1)
+
           # print('before clip: ', ret -critic)
           actor_loss = -tf.math.log(prob + EPS) * diff
           # critic_loss = self.huber_loss(np.expand_dims(ret, 0),
@@ -619,7 +624,7 @@ class Trainer:
         loss_regularization = tf.math.add_n(self.model.losses)
 
         ENTROPY_LOSS_WEIGHT = 1e-4
-        SHIP_ACTOR_LOSS_WEIGHT = 1e-2
+        SHIP_ACTOR_LOSS_WEIGHT = 1e-1
         loss = (ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT + ship_critic_loss
                 + ENTROPY_LOSS_WEIGHT * ship_entropy_loss + loss_regularization)
         gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables),
