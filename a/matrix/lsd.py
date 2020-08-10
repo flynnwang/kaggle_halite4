@@ -18,7 +18,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 
 def simulate(args):
-  output_path, model_dir, epsilon = args
+  output_dir, model_dir, epsilon = args
 
   from train import Trainer
   import matrix_v0 as mat
@@ -28,13 +28,12 @@ def simulate(args):
   env = make("halite", {'episodeSteps': EPISODE_STEPS}, debug=True)
   env.run([mat.agent] * 4)
 
-  print('Output episode:', output_path)
   replay_json = env.toJSON()
-  tmp_path = output_path + '.tmp'
-  with open(tmp_path, 'w') as f:
+  replay_id = replay_json['id']
+  output_path = os.path.join(output_dir, replay_id + ".json")
+  print('Output episode:', output_path)
+  with open(output_path, 'w') as f:
       f.write(json.dumps(replay_json))
-
-  os.rename(tmp_path, output_path)
 
 
 def run_lsd(output_dir, model_dir, epsilon):
@@ -43,10 +42,7 @@ def run_lsd(output_dir, model_dir, epsilon):
 
   def gen_simulation_args():
     for i in range(BATCH_SIZE):
-      time_tag = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-      episode_name = '%s_%s.json' % (time_tag, str(uuid.uuid4())[:8])
-      episode_path = os.path.join(output_dir, episode_name)
-      yield episode_path, model_dir, epsilon
+      yield output_dir, model_dir, epsilon
 
   def gen_simulations():
     sim_args = list(gen_simulation_args())

@@ -360,7 +360,9 @@ class Replayer:
       actions = [
           self.replay_json['steps'][step + 1][p]['action'] for p in range(4)
       ]
-    return board_cls(obs, self.env.configuration, actions)
+    board = board_cls(obs, self.env.configuration, actions)
+    board.replay_id = self.replay_json['id']
+    return board
 
   def check_board_valid(self):
     for i in range(self.total_steps):
@@ -616,10 +618,8 @@ class Trainer:
 
         loss_regularization = tf.math.add_n(self.model.losses)
 
-        # ENTROPY_LOSS_WEIGHT = 1e-4
-        # SHIP_ACTOR_LOSS_WEIGHT = 1e-1
-        ENTROPY_LOSS_WEIGHT = 1e-2
-        SHIP_ACTOR_LOSS_WEIGHT = 1e-4
+        ENTROPY_LOSS_WEIGHT = 1e-4
+        SHIP_ACTOR_LOSS_WEIGHT = 1e-2
         loss = (ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT + ship_critic_loss
                 + ENTROPY_LOSS_WEIGHT * ship_entropy_loss + loss_regularization)
         gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables),
@@ -627,9 +627,10 @@ class Trainer:
 
 
         board = boards[-1]
-        print(('\nPlayer[%s] finished at step=%s: total_deposite=%.0f, total_collect=%.0f'
+        print(('\nPlayer[%s - %s] finished at step=%s: total_deposite=%.0f, total_collect=%.0f'
               '\nLoss = %.5f: ship_actor=%.5f, ship_critic=%.5f, ship_entropy_loss=%.5f, regu=%.5f, gradient_norm=%.3f')
-              % (board.current_player.id, board.step, board.total_deposite, board.total_collect,
+              % (board.current_player.id, board.replay_id,
+                 board.step, board.total_deposite, board.total_collect,
                  loss, ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT, ship_critic_loss,
                  ENTROPY_LOSS_WEIGHT*ship_entropy_loss, loss_regularization, global_norm))
 
@@ -648,36 +649,3 @@ class Trainer:
     self.checkpoint.step.assign_add(1)
     save_path = self.manager.save()
     print("Saved checkpoint for step {}: {}".format(int(self.checkpoint.step), save_path))
-
-
-def train_on_replays(model_dir, replay_jsons):
-
-  def gen_player_boards():
-    for replay_json in replay_jsons:
-      total_steps = len(replay_json['steps'])
-      print('Start training on', replay_json['id'], replay_json['rewards'],
-            'total_steps:', total_steps)
-
-      num_players = len(replay_json['rewards'])
-
-      # player_id = np.random.choice(num_players)
-      # boards = list(gen_player_states(replay_json, player_id))
-      # trainer.train([boards], player_id)
-
-      player_ids = list(range(num_players))
-
-      # np.random.shuffle(player_ids)
-      # for player_id in player_ids:
-        # boards = list(gen_player_states(replay_json, player_id))
-        # assert boards
-        # trainer.train([boards], player_id)
-
-      for player_id in player_ids:
-        boards = list(gen_player_states(replay_json, player_id))
-        assert boards
-        yield boards
-
-  trainer = Trainer(None, model_dir)
-  trainer.train(gen_player_boards())
-  trainer.on_batch_finished()
-
