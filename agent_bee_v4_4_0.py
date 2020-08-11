@@ -2,6 +2,13 @@
 """
 v4_4_0 <- v4_3_0 <- v4_2_1
 
+Beats
+
+* 1 bases
+* limit halite near shipyard.
+* keep based on (ship num / 20) * 100
+
+
 
 """
 
@@ -229,6 +236,16 @@ class ShipTask(Enum):
 
   # Make one ship stay on the shipyard to protect it from enemy next to it.
   GUARD_SHIPYARD = auto()
+
+
+
+TURN_PER_BEAT = 15
+
+class ShipMode(Enum):
+
+  NORMAL = auto
+  ATTACK = auto()
+  COLLECT = auto()
 
 
 class StrategyBase:
@@ -620,15 +637,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
               (num_covered > 0 and
                cell.convering_shipyards[0][0] <= home_extend_dist()))
 
-
     def keep_halite_value(cell):
       threshold = self.mean_halite_value * 0.7
       if self.step >= NEAR_ENDING_PHRASE_STEP:
-        return min(30, threshold)
-
+        return min(20, threshold)
 
       if is_home_grown_cell(cell):
-        ship_factor = self.num_ships / 10
+        ship_factor = self.num_ships / 20
 
         cover_factor = 0
         if self.num_ships >= 28:
@@ -678,6 +693,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   @property
   def me_halite(self):
     return self.me.halite - self.cost_halite
+
+  def get_beat(self):
+    if self.step < BEGINNING_PHRASE_END_STEP * 2:
+      return ShipMode.NORMAL
+    b = ((self.step - 100) // TURN_PER_BEAT) % 2
+    return ShipMode.ATTACK if b == 0 else ShipMode.COLLECT
 
   def collect_game_info(self):
 
@@ -1295,17 +1316,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     MIN_ATTACK_QUADRANT_NUM = 3 - int(self.num_ships >= 35)
 
     def is_enemy_within_home_boundary(enemy):
-      """1. Within distance of 2 of any shipyard
-         2. double covered by multiple shipyards.
-      """
-      covered = 0
       self.get_nearest_home_yard(enemy.cell)  # populate cache.
       for dist, yard in enemy.cell.nearest_home_yards:
-        if dist <= 2:
+        if dist <= 5:
           return True
-        if dist <= self.home_grown_cell_dist:
-          covered += 1
-      return covered >= 2
+      return False
 
     def get_attack_ships(enemy):
       # Extra attack distance for enemy within home boundary.
@@ -1327,6 +1342,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         quadrants.add(q)
         yield (q_exist, dist), ship
 
+    beat = self.get_beat()
     for enemy in self.enemy_ships:
       enemy.within_home_boundary = is_enemy_within_home_boundary(enemy)
       dist_ships = get_attack_ships(enemy)
@@ -1336,10 +1352,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           get_quadrant(ship.position - enemy.position) for _, ship in dist_ships
       })
 
-      # Reduce quadrant_num for home boundary enemy.
       min_attack_quadrant_num = MIN_ATTACK_QUADRANT_NUM
-      # if enemy.within_home_boundary:
-      # min_attack_quadrant_num -= 1
+      if beat == ShipMode.ATTACK and enemy.within_home_boundary:
+        min_attack_quadrant_num = 0
 
       if quadrant_num >= min_attack_quadrant_num:
         enemy.quadrant_num = quadrant_num
@@ -1361,7 +1376,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
   def optimal_assignment(self):
     ATTACK_PER_ENEMY = 6
-    SHIPYARD_DUPLICATE_NUM = 4
+    SHIPYARD_DUPLICATE_NUM = 5
 
     def shipyard_duplicate_num():
       if self.step >= NEAR_ENDING_PHRASE_STEP:
@@ -1405,6 +1420,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     # * row: ships
     # * column: halite cells + shipyards with duplicates.
     # TODO(wangfei): can we add enemy to this matrix?
+    beat = self.get_beat()
     C = np.zeros((len(ships), len(pois)))
     for i, ship in enumerate(ships):
       for j, poi in enumerate(pois):
@@ -1415,14 +1431,20 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           poi_to_yard = 1
 
         if is_halite_column(j):
-          if (i, j) not in ship_halite_pairs:
+          if beat == ShipMode.ATTACK:
+            v = MIN_WEIGHT
+          elif (i, j) not in ship_halite_pairs:
             v = MIN_WEIGHT
           else:
             # If the target is a halite cell, with enemy considered.
             v = self.halite_per_turn(ship, poi, ship_to_poi, poi_to_yard)
         elif is_shipyard_column(j):
           # If the target is a shipyard.
-          if ship_to_poi > 0:
+
+          # dump beat and start attack.
+          if beat == ShipMode.ATTACK:
+            v = -MIN_WEIGHT
+          elif ship_to_poi > 0:
             v = ship.halite / ship_to_poi
           else:
             # The ship is on a shipyard.
@@ -1435,17 +1457,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           # If attack enemy
           enemy = poi.ship
           v = MIN_WEIGHT  # not exists edge.
-          if (ship.id, enemy.id) in attack_pairs:
-            # Discount: 4=0.8, 3=0.6, 2=0.4, 1=0.2
-            # discount = enemy.quadrant_num * 0.2
-            # discount = 0.5
+          if (ship.id, enemy.id) in attack_pairs or beat == ShipMode.ATTACK:
             v = (self.c.spawn_cost + enemy.halite + ship.halite) / ship_to_poi
-            # v = (self.c.spawn_cost + enemy.halite + ship.halite) * (ship_to_poi / 2)
         else:
           # If shipyard is offended.
           yard = poi.shipyard
           v = MIN_WEIGHT
-          if (ship.id, yard.id) in guard_paris:
+          if beat != ShipMode.ATTACK and (ship.id, yard.id) in guard_paris:
             v = (self.c.spawn_cost + self.c.convert_cost +
                  ship.halite) / (ship_to_poi or 1)
 
@@ -1461,10 +1479,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     for ship_idx, poi_idx in zip(rows, cols):
       ship = ships[ship_idx]
       poi_cell = pois[poi_idx]
-      # print('send ship(id=%s, p=%s, h=%s)' % (ship.id, ship.position,
-      # ship.halite),
-      # 'to poi_cell(p=%s, h=%s)' % (poi_cell.position,
-      # poi_cell.halite))
+
       enemy = None
       if is_halite_column(poi_idx):
         if ship.position == poi_cell.position:
@@ -1527,6 +1542,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # No need guard shipyard if enemy has halite (by turn order, spawn comes
       # before collision)
       if yard.next_action == ShipyardAction.SPAWN and enemy.halite > 0:
+        continue
+
+      # Do not guard shipyard when attack.
+      if self.get_beat() in [ShipMode.ATTACK, ShipMode.COLLECT]:
         continue
 
       yard.is_in_danger = True

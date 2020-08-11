@@ -34,8 +34,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Mute print.
-# def print(*args, **kwargs):
-# pass
+def print(*args, **kwargs):
+  pass
 
 MIN_WEIGHT = -99999
 

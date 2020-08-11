@@ -120,6 +120,10 @@ class EventBoard(Board):
   @is_current_player
   def on_ship_stay(self, ship, delta_halite):
     """Add some stay cost."""
+    if delta_halite == 0:
+      MOVE_COST_RATE = 0.01
+      r = -max(ship.halite * MOVE_COST_RATE, 1)
+
     r = 0
     self.step_reward += r
     self.log_reward('on_ship_stay', ship, r)
