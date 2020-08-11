@@ -86,8 +86,11 @@ class EventBoard(Board):
 
   @is_current_player
   def on_ship_collect(self, ship, delta_halite):
-    # r = delta_halite * 0.03
-    # self.add_ship_reward(ship, r)
+    if delta_halite > 0:
+      MOVE_COST_RATE = 0.1
+      r = max(delta_halite * MOVE_COST_RATE, 1)
+      # r = delta_halite * 0.03
+      self.add_ship_reward(ship, r)
 
     COLLECT_DISCOUNT = 0
     self.step_reward += delta_halite * COLLECT_DISCOUNT
@@ -481,7 +484,7 @@ class Trainer:
     assert self.model
 
     self.return_params = return_params
-    self.optimizer = keras.optimizers.Adam(learning_rate=3e-5)
+    self.optimizer = keras.optimizers.Adam(learning_rate=5e-5)
     # self.huber_loss = tf.keras.losses.Huber(reduction=tf.keras.losses.Reduction.SUM)
     self.huber_loss = tf.keras.losses.Huber()
 
@@ -531,7 +534,7 @@ class Trainer:
 
           ret = tf.clip_by_value(ret, -3, 3)
           critic = tf.clip_by_value(critic, -3, 3)
-          diff = tf.clip_by_value(ret - critic, -1, 1)
+          diff = tf.clip_by_value(ret - critic, -0.5, 0.5)
 
           # print('before clip: ', ret -critic)
           actor_loss = -tf.math.log(prob + EPS) * diff
@@ -596,7 +599,7 @@ class Trainer:
     # Normalize
     mean, std = self.return_params
     def normalize(returns):
-      # returns = (returns - mean) / (std + EPS)
+      returns = (returns - mean) / (std + EPS)
       return returns
 
 
@@ -621,23 +624,23 @@ class Trainer:
 
         ship_actor_loss, ship_critic_loss, ship_entropy_loss = self.get_ship_losses(boards, ship_probs, ship_returns, critic_values)
 
-        loss_regularization = tf.math.add_n(self.model.losses)
+        # loss_regularization = tf.math.add_n(self.model.losses)
 
         ENTROPY_LOSS_WEIGHT = 1e-4
         SHIP_ACTOR_LOSS_WEIGHT = 1e-1
         loss = (ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT + ship_critic_loss
-                + ENTROPY_LOSS_WEIGHT * ship_entropy_loss + loss_regularization)
+                + ENTROPY_LOSS_WEIGHT * ship_entropy_loss)
         gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables),
-                                                        500)
+                                                        1000)
 
 
         board = boards[-1]
         print(('\nPlayer[%s - %s] finished at step=%s: total_deposite=%.0f, total_collect=%.0f'
-              '\nLoss = %.5f: ship_actor=%.5f, ship_critic=%.5f, ship_entropy_loss=%.5f, regu=%.5f, gradient_norm=%.3f')
+              '\nLoss = %.5f: ship_actor=%.5f, ship_critic=%.5f, ship_entropy_loss=%.5f, gradient_norm=%.3f')
               % (board.current_player.id, board.replay_id,
                  board.step, board.total_deposite, board.total_collect,
                  loss, ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT, ship_critic_loss,
-                 ENTROPY_LOSS_WEIGHT*ship_entropy_loss, loss_regularization, global_norm))
+                 ENTROPY_LOSS_WEIGHT*ship_entropy_loss, global_norm))
 
         grad_values.append(gradients)
 
