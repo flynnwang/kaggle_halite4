@@ -9,6 +9,7 @@ import tensorflow as tf
 import keras
 from kaggle_environments import evaluate, make
 from kaggle_environments.envs.halite.helpers import *
+import scipy.signal
 
 from matrix_v0 import (SHIP_ACTIONS, SHIPYARD_ACTIONS, HALITE_NORMALIZTION_VAL,
                        ModelInput, BOARD_SIZE)
@@ -49,13 +50,15 @@ class EventBoard(Board):
     self.debug = True
     self.total_deposite = 0
     self.total_collect = 0
-    self.ship_rewards = {}  # unit_id -> (reward, position)
+    self.ship_rewards = {}  # unit_id -> (reward)
+    self.ship_positions = {}  # unit_id -> (position)
     self.shipyard_id_to_ship_id = {}  # record the convertion event
     self.new_ship_ids = set()
 
   def add_ship_reward(self, unit, reward):
     reward += self.ship_rewards.get(unit.id, 0)
     self.ship_rewards[unit.id] = reward
+    self.ship_positions[unit.id] = unit.position
 
   def log_reward(self, name, unit, r):
     if not self.debug or r == 0:
@@ -433,46 +436,55 @@ def gen_replays(path, replayer_id=None):
     yield replay_json
 
 
-def compute_returns(boards, as_list=False, gamma=0.99):
+def discount(x, gamma=0.99):
+  return scipy.signal.lfilter([1], [1, -gamma], x[::-1], axis=0)[::-1]
+
+
+def compute_ship_advantages(boards, critic_values, gamma=0.99, lmbda=0.95):
   ship_rewards = {}
+  ship_values = {}
 
   # Assign original unit reward.
   for b in boards:
-    if as_list:
-      for ship in b.current_player.ships:
-        if ship.id not in ship_rewards:
-          ship_rewards[ship.id] = []
-        ship_rewards[ship.id].append(b.ship_rewards.get(ship.id, 0))
-    else:
-      for ship_id, r in b.ship_rewards.items():
-        if ship_id not in ship_rewards:
-          ship_rewards[ship_id] = np.zeros(len(boards), dtype=np.float32)
-        ship_rewards[ship_id][b.step] += r
+    for ship_id, r in b.ship_rewards.items():
+      if ship_id not in ship_rewards:
+        ship_rewards[ship_id] = np.zeros(len(boards), dtype=np.float32)
+        ship_values[ship_id] = np.zeros(len(boards) + 1, dtype=np.float32)  # append 0 for t=i+1
+      ship_rewards[ship_id][b.step] = r
+
+      p = b.ship_positions[ship_id]
+      ship_values[ship_id][b.step] = critic_values[b.step, p.x, p.y, 0]
 
       # Add future events of a shipyard to the convert ship
       # source_uid = shipyard_id_to_ship_id.get(uid)
       # if source_uid:
         # ship_rewards[source_uid][b.step] += r
 
-  for k in list(ship_rewards.keys()):
+  ship_advantages = {}
+  ship_returns = {}
+  for k in ship_rewards.keys():
     # Calculate expected value from rewards
     # - At each timestep what was the total reward received after that timestep
     # - Rewards in the past are discounted by multiplying them with gamma
     # - These are the labels for our critic
-    returns = []
-    discounted_sum = 0
 
-    rewards = ship_rewards[k]
-    # if as_list:
-      # print("ship_id=%s, reward(n=%s, mx=%.2f, min=%.2f, mean=%.2f)" %
-            # (k, len(rewards), max(rewards), min(rewards), np.mean(rewards)))
-    for r in ship_rewards[k][::-1]:
-      discounted_sum = r + gamma * discounted_sum
-      returns.append(discounted_sum)
+    # Generalized Advantage Estimation
+    returns = np.zeros(len(boards), dtype=np.float32)
+    rewards = ship_rewards[k] / HALITE_NORMALIZTION_VAL
+    values = ship_values[k]
 
-    returns = np.array(returns[::-1])
-    ship_rewards[k] = returns / HALITE_NORMALIZTION_VAL
-  return ship_rewards
+    gae = 0
+    for i in reversed(range(len(rewards))):
+      delta = rewards[i] + gamma * values[i + 1] - values[i]
+      gae = delta + gamma * lmbda * gae
+      returns[i] = gae + values[i]
+
+    adv = returns - values[:-1]
+    adv = (adv - np.mean(adv)) / (np.std(adv) + EPS)
+    ship_advantages[k] = adv
+    ship_returns[k] = returns
+
+  return ship_advantages, ship_returns
 
 
 class Trainer:
@@ -504,7 +516,8 @@ class Trainer:
       else:
         print("Initializing model from scratch.")
 
-  def get_ship_losses(self, boards, ship_probs, ship_returns, critic_values):
+  def get_ship_losses(self, boards, ship_probs, critic_values):
+    ship_advantages, ship_returns = compute_ship_advantages(boards, critic_values)
 
     def gen_action_probs(board, step_idx):
       for ship in board.current_player.ships:
@@ -518,9 +531,10 @@ class Trainer:
         entropy = -tf.reduce_sum(probs * tf.math.log(probs + EPS))
 
         prob = probs[action_idx]
+        adv = ship_advantages[ship.id][step_idx]
         ret = ship_returns[ship.id][step_idx]
         critic = critic_values[step_idx, position.x, position.y, 0]
-        yield prob, ret, critic, entropy
+        yield prob, adv, ret, critic, entropy
 
 
     # critic loss analysis
@@ -531,20 +545,16 @@ class Trainer:
     def gen_action_loses():
       nonlocal n_pos, n_neg
       for i, b in enumerate(boards):
-        for prob, ret, critic, entropy in gen_action_probs(b, i):
+        for prob, adv, ret, critic, entropy in gen_action_probs(b, i):
           # Adding EPS in case of zero
-          # diff = ret - critic
-          ret = tf.convert_to_tensor(ret, dtype=np.float32)
-
-          ret = tf.clip_by_value(ret, -3, 3)
-          critic = tf.clip_by_value(critic, -3, 3)
-          diff = tf.clip_by_value(ret - critic, -0.5, 0.5)
+          # adv = tf.clip_by_value(adv -0.5, 0.5)
 
           # print('before clip: ', ret -critic)
-          actor_loss = -tf.math.log(prob + EPS) * diff
+          actor_loss = -tf.math.log(prob + EPS) * adv
+
           # critic_loss = self.huber_loss(np.expand_dims(ret, 0),
                                         # np.expand_dims(critic, 0))
-          critic_loss = tf.clip_by_value(tf.nn.l2_loss(ret - critic), 0, 25)
+          critic_loss = tf.clip_by_value(tf.nn.l2_loss(ret - critic), 0, 30)
 
           # critic loss analysis
           d = ret - critic
@@ -554,8 +564,8 @@ class Trainer:
             n_neg += 1
 
           if random.random() < 0.002:
-            print("prob=%.5f, ret=%.5f, critic=%.5f, critic_loss=%.5f, entropy=%.5f"
-                  % (prob.numpy(), ret, critic.numpy(), critic_loss.numpy(),
+            print("prob=%.5f, adv=%.5f, ret=%.5f, critic=%.5f, critic_loss=%.5f, entropy=%.5f"
+                  % (prob.numpy(), adv, ret, critic.numpy(), critic_loss.numpy(),
                     entropy.numpy()))
           yield actor_loss, critic_loss, -entropy, critic, ret
 
@@ -597,20 +607,6 @@ class Trainer:
 
     return actor_losses, critic_losses, entropy_losses
 
-  def get_returns(self, boards):
-    ship_returns = compute_returns(boards)
-
-    # Normalize
-    mean, std = self.return_params
-    def normalize(returns):
-      returns = (returns - mean) / (std + EPS)
-      return returns
-
-
-    ship_returns = {ship_id: normalize(returns)
-                    for ship_id, returns in ship_returns.items()}
-    return ship_returns
-
   def train(self, player_boards, apply_grad=True):
     """Player boards is [player1_boards, player2_bords ...]"""
 
@@ -621,12 +617,10 @@ class Trainer:
     grad_values = []
     for rollout_idx, boards in enumerate(player_boards):
       X = get_player_inputs(boards)
-      ship_returns = self.get_returns(boards)
 
       with tf.GradientTape() as tape:
         ship_probs, critic_values = self.model(X)
-
-        ship_actor_loss, ship_critic_loss, ship_entropy_loss = self.get_ship_losses(boards, ship_probs, ship_returns, critic_values)
+        ship_actor_loss, ship_critic_loss, ship_entropy_loss = self.get_ship_losses(boards, ship_probs, critic_values)
 
         # loss_regularization = tf.math.add_n(self.model.losses)
 

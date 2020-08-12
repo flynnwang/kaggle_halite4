@@ -74,42 +74,34 @@ def replay_to_ship_rewards(replay_json):
   stats = np.zeros(2) # total deposit, total collect
   total_deposits = []
   total_collects = []
-  returns = []
   for player_id in range(num_players):
     boards = train.gen_player_states(replay_json, player_id)
     boards = list(boards)
 
-    ship_rewards = train.compute_returns(list(boards), as_list=True)
-    returns = np.concatenate(list(ship_rewards.values()) + [returns])
+    # ship_rewards = train.compute_returns(list(boards), as_list=True)
+    # returns = np.concatenate(list(ship_rewards.values()) + [returns])
 
     b = boards[-1]
     total_deposits.append(b.total_deposite)
     total_collects.append(b.total_collect)
-  return returns, total_deposits, total_collects
+  return total_deposits, total_collects
 
 
 def get_normalization_params(replays):
   import numpy as np
 
-  returns = []
   total_deposits = []
   total_collects = []
   with Pool() as pool:
-    for r, d, c in pool.imap_unordered(replay_to_ship_rewards, replays):
-      returns = np.concatenate([returns, r])
+    for d, c in pool.imap_unordered(replay_to_ship_rewards, replays):
       total_deposits = np.concatenate([total_deposits, d])
       total_collects = np.concatenate([total_collects, c])
-
-  mean_return = np.mean(returns)
-  std_return = np.std(returns)
-  print("****Batch returns finished: ship reward(mean=%.2f, std=%.2f)"
-        % (mean_return, std_return))
 
   D = np.mean(total_deposits)
   C = np.mean(total_collects)
   print("****Avg deposite = %.3f, avg collect = %.3f, ratio=%.5f"
         % (D, C, (D / (C  +1.0))))
-  return mean_return, std_return
+  return 0, 0
 
 
 def run_train(episode_dir, model_dir):
