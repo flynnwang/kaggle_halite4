@@ -145,34 +145,13 @@ def get_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 7),
     return conv9
     # return layers.Cropping2D(input_padding)(conv9)
 
-  def decoder_critic(x):
-    previous_block_activation = x  # Set aside residual
-    for filters in [256, 128, 64]:
-      x = layers.Activation("relu")(x)
-      x = layers.Conv2DTranspose(filters, 3, padding="same")(x)
-      x = layers.BatchNormalization()(x)
-
-      x = layers.Activation("relu")(x)
-      x = layers.Conv2DTranspose(filters, 3, padding="same")(x)
-      x = layers.BatchNormalization()(x)
-
-      x = layers.UpSampling2D(2)(x)
-
-      # Project residual
-      residual = layers.UpSampling2D(2)(previous_block_activation)
-      residual = layers.Conv2D(filters, 3, padding="same")(residual)
-      x = layers.add([x, residual])  # Add back residual
-      previous_block_activation = x  # Set aside next residual
-    # return layers.Cropping2D(input_padding, name="critic_crop")(x)
-    return x
-
   ship_outputs = layers.SeparableConv2D(num_ship_actions, 3,
                                         activation="softmax", padding="same",
                         kernel_initializer = 'he_normal')(decoder(pool3))
   ship_outputs = layers.Cropping2D(input_padding, name="ship_crop")(ship_outputs)
+  # critic_outputs = layers.SeparableConv2D(1, 3, activation="linear",
   critic_outputs = layers.SeparableConv2D(1, 3, activation="linear",
                           kernel_regularizer=l2(1e-4),
-                          # padding="same")(decoder_critic(pool3))
                           padding="same")(decoder(pool3))
   critic_outputs = layers.Cropping2D(input_padding, name="critic_crop")(critic_outputs)
 
@@ -452,13 +431,16 @@ class ShipStrategy(StrategyBase):
       unit.next_action = actions[action_idx]
 
   def convert_shipyard_if_none(self):
-    if not self.me.ship_ids or len(self.me.shipyard_ids) > 0:
+    if not self.me.ship_ids:
       return
 
     ships = self.me.ships
     random.shuffle(ships)
+
+    ship_halite_threshold = 2000 if self.me.shipyard_ids else 0
     for ship in ships:
-      if ship.halite + self.me.halite >= self.c.convert_cost:
+      if (ship.halite >= ship_halite_threshold
+          and ship.halite + self.me.halite >= self.c.convert_cost):
         ship.next_action = ShipAction.CONVERT
         break
 

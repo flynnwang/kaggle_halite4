@@ -34,13 +34,13 @@ def compute_grad(args):
   # pid = random.choice(player_ids)
   # player_ids = [pid]
 
-  player_boards = [
-    list(train.gen_player_states(replay_json, player_id))
-    for player_id in player_ids
-  ]
-
+  grads = []
   trainer = train.Trainer(None, model_dir, return_params=return_params)
-  return trainer.train(player_boards, apply_grad=False)
+  for player_id in player_ids:
+    boards = list(train.gen_player_states(replay_json, player_id))
+    g = trainer.train([boards], apply_grad=False)
+    grads.extend(g)
+  return grads
 
 
 def train_on_replays_multiprocessing(model_dir, replay_jsons, return_params):
@@ -49,7 +49,7 @@ def train_on_replays_multiprocessing(model_dir, replay_jsons, return_params):
       yield replay_json, model_dir, return_params
 
   all_grads_list = []
-  with Pool() as pool:
+  with Pool(3) as pool:
     for grads_list in pool.imap_unordered(compute_grad, gen_args(replay_jsons)):
       all_grads_list.extend(grads_list)
 
