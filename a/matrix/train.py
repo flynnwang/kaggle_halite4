@@ -446,6 +446,7 @@ def discount(x, gamma=0.99):
 def compute_ship_advantages(boards, critic_values, gamma=0.99, lmbda=0.95):
   ship_rewards = {}
   ship_values = {}
+  ship_life_time = {}
 
   # Assign original unit reward.
   for b in boards:
@@ -453,7 +454,13 @@ def compute_ship_advantages(boards, critic_values, gamma=0.99, lmbda=0.95):
       if ship_id not in ship_rewards:
         ship_rewards[ship_id] = np.zeros(len(boards), dtype=np.float32)
         ship_values[ship_id] = np.zeros(len(boards) + 1, dtype=np.float32)  # append 0 for t=i+1
+
+        # update start of a ship.
+        ship_life_time[ship_id] = [b.step, None]
       ship_rewards[ship_id][b.step] = r
+
+      # Update end of step.
+      ship_life_time[ship_id][1] = b.step
 
       p = b.ship_positions[ship_id]
       ship_values[ship_id][b.step] = critic_values[b.step, p.x, p.y, 0]
@@ -476,6 +483,11 @@ def compute_ship_advantages(boards, critic_values, gamma=0.99, lmbda=0.95):
     rewards = ship_rewards[k] / HALITE_NORMALIZTION_VAL
     values = ship_values[k]
 
+    start, end = ship_life_time[k]
+    def normalize(v):
+      w = v[start:end+1]
+      return (v - np.mean(w)) / (np.std(w) + EPS)
+
     gae = 0
     for i in reversed(range(len(rewards))):
       delta = rewards[i] + gamma * values[i + 1] - values[i]
@@ -483,14 +495,13 @@ def compute_ship_advantages(boards, critic_values, gamma=0.99, lmbda=0.95):
       returns[i] = gae + values[i]
 
     adv = returns - values[:-1]
-    # adv = (adv - np.mean(adv)) / (np.std(adv) + EPS)
-    ship_advantages[k] = adv
+    ship_advantages[k] = normalize(adv)
 
     # use simple discount for true rewards.
-    ship_returns[k] = discount(rewards, gamma=gamma)
+    ship_return = discount(rewards, gamma=gamma)
+    ship_returns[k] = normalize(ship_return)
 
   return ship_advantages, ship_returns
-
 
 
 class Trainer:
@@ -629,14 +640,14 @@ class Trainer:
         loss = (ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT + ship_critic_loss * CRITIC_LOSS_WT
                 + ENTROPY_LOSS_WEIGHT * ship_entropy_loss)
         gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables),
-                                                        2000)
-
+                                                        1000)
 
         board = boards[-1]
-        print(('Player[%s - %s ] finished at step=%s: total_deposite=%.0f, total_collect=%.0f'
+        deposite_pct = board.total_deposite / (board.total_collect + EPS) * 100
+        print(('Player[%s - %s ] finished at step=%s: total_deposite=%.0f (r=%.1f%%), total_collect=%.0f'
               '\nLoss = %.5f: ship_actor=%.5f, ship_critic=%.5f, ship_entropy_loss=%.5f, gradient_norm=%.3f\n')
               % (board.current_player.id, board.replay_id,
-                 board.step, board.total_deposite, board.total_collect,
+                 board.step, board.total_deposite, deposite_pct, board.total_collect,
                  loss, ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT, ship_critic_loss * CRITIC_LOSS_WT,
                  ENTROPY_LOSS_WEIGHT*ship_entropy_loss, global_norm))
 
