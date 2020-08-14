@@ -79,7 +79,6 @@ class EventBoard(Board):
 
   @is_current_player
   def on_ship_deposite(self, ship, shipyard):
-    # SHIP_REWARD_RATIO = 6 / 7
     deposite = min(ship.halite, 1000)
     if deposite > 0:
       self.add_ship_reward(ship, deposite)
@@ -93,7 +92,7 @@ class EventBoard(Board):
   def on_ship_collect(self, ship, delta_halite):
     if delta_halite > 0:
       MOVE_COST_RATE = 0.1
-      r = max(delta_halite * MOVE_COST_RATE, 1)
+      r = int(delta_halite * MOVE_COST_RATE)
       # r = delta_halite * 0.03
       self.add_ship_reward(ship, r)
 
@@ -115,8 +114,8 @@ class EventBoard(Board):
   def on_ship_move(self, ship):
     """Add some move cost."""
     # Do we need this?
-    MOVE_COST_RATE = 0.01
-    r = -max(ship.halite * MOVE_COST_RATE, 1)
+    MOVE_COST_RATE = 0.05
+    r = -max(ship.halite * MOVE_COST_RATE, 10)
     self.add_ship_reward(ship, r)
 
     r = 0
@@ -127,8 +126,8 @@ class EventBoard(Board):
   def on_ship_stay(self, ship, delta_halite):
     """Add some stay cost."""
     if delta_halite == 0:
-      MOVE_COST_RATE = 0.01
-      r = -max(ship.halite * MOVE_COST_RATE, 1)
+      MOVE_COST_RATE = 0.05
+      r = -max(ship.halite * MOVE_COST_RATE, 10)
       self.add_ship_reward(ship, r)
 
     r = 0
@@ -595,7 +594,7 @@ class Trainer:
 
     actor_losses, critic_losses, entropy_losses, critic_values, ret_values = list(zip(*losses))
     actor_losses = tf.convert_to_tensor(actor_losses)
-    actor_losses = tf.math.reduce_sum(actor_losses)
+    actor_losses = tf.math.reduce_mean(actor_losses)
 
     n_critic_losses = len(critic_losses)
     safe_pct = (n_critic_losses - n_pos - n_neg) / n_critic_losses * 100
@@ -604,10 +603,10 @@ class Trainer:
              threshold, n_neg, n_neg / n_critic_losses * 100))
 
     critic_losses = tf.convert_to_tensor(critic_losses)
-    critic_losses = tf.math.reduce_sum(critic_losses)
+    critic_losses = tf.math.reduce_mean(critic_losses)
 
     entropy_losses = tf.convert_to_tensor(entropy_losses)
-    entropy_losses = tf.math.reduce_sum(entropy_losses)
+    entropy_losses = tf.math.reduce_mean(entropy_losses)
 
     cc = np.array(critic_values)
     positive = len(cc[cc > 0])
@@ -644,10 +643,11 @@ class Trainer:
 
       board = boards[-1]
       deposite_pct = board.total_deposite / (board.total_collect + EPS) * 100
-      print(('Player[%s - %s ] finished at step=%s: total_deposite=%.0f (r=%.1f%%), total_collect=%.0f'
+      print(('Player[%s - %s ] step=%s: deposite=%.0f (r=%.1f%%), collect=%.0f, shipyard=%s, ship=%s'
             '\nLoss = %.5f: ship_actor=%.5f, ship_critic=%.5f, ship_entropy_loss=%.5f, gradient_norm=%.3f\n')
             % (board.current_player.id, board.replay_id,
-                board.step, board.total_deposite, deposite_pct, board.total_collect,
+                board.step, board.total_deposite, deposite_pct, board.total_collect, len(board.current_player.shipyard_ids),
+                len(board.current_player.ship_ids),
                 loss, ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT, ship_critic_loss * CRITIC_LOSS_WT,
                 ENTROPY_LOSS_WEIGHT*ship_entropy_loss, global_norm))
 

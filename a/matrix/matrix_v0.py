@@ -450,10 +450,15 @@ class ShipStrategy(StrategyBase):
       return
 
     halite = self.me.halite
+    spawn_count = 0
     for yard in self.me.shipyards:
       if halite >= self.c.spawn_cost:
         yard.next_action = ShipyardAction.SPAWN
         halite -= self.c.spawn_cost
+        spawn_count += 1
+
+      if len(self.me.ship_ids) + spawn_count >= 50:
+        break
 
   def compute_ship_moves(self):
     """Computes ship moves to avoid collision.

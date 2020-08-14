@@ -49,7 +49,7 @@ def train_on_replays_multiprocessing(model_dir, replay_jsons, norm_params, log_l
       yield replay_json, model_dir, norm_params
 
   all_grads_list = []
-  with Pool(3) as pool:
+  with Pool(2) as pool:
     for grads_list in pool.imap_unordered(compute_grad, gen_args(replay_jsons)):
       all_grads_list.extend(grads_list)
 
@@ -108,7 +108,9 @@ def replay_to_ship_rewards(args):
     b = boards[-1]
     total_deposits.append(b.total_deposite)
     total_collects.append(b.total_collect)
-  return total_deposits, total_collects, total_advantages, total_returns
+
+  max_reward = max(replay_json['rewards'])
+  return total_deposits, total_collects, total_advantages, total_returns, max_reward
 
 
 def get_normalization_params(model_dir, replays):
@@ -122,16 +124,19 @@ def get_normalization_params(model_dir, replays):
   total_collects = []
   total_advantages = []
   total_returns = []
+  max_rewards = []
   with Pool() as pool:
-    for d, c, a, r in pool.imap_unordered(replay_to_ship_rewards, gen_args(replays)):
+    for d, c, a, r, mx_reward in pool.imap_unordered(replay_to_ship_rewards, gen_args(replays)):
       total_deposits.extend(d)
       total_collects.extend(c)
       total_advantages.extend(a)
       total_returns.extend(r)
+      max_rewards.append(mx_reward)
 
   D = np.mean(total_deposits)
   C = np.mean(total_collects)
-  log_1 = "****Avg deposite = %.3f, avg collect = %.3f, ratio=%.5f" % (D, C, (D / (C  +1.0)))
+  log_1 = ("****Avg deposite = %.3f, avg collect = %.3f, ratio=%.5f, max_reward=%.0f"
+           % (D, C, (D / (C  +1.0)), np.mean(max_rewards)))
 
   a_mean, a_std = np.mean(total_advantages), np.std(total_advantages)
   log_2 = "****Stats of advantages: mean=%.5f, std=%.5f" % (a_mean, a_std)
