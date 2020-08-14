@@ -2,6 +2,7 @@
 
 import os
 import random
+from itertools import tee
 
 import json
 import numpy as np
@@ -79,7 +80,7 @@ class EventBoard(Board):
   @is_current_player
   def on_ship_deposite(self, ship, shipyard):
     # SHIP_REWARD_RATIO = 6 / 7
-    deposite = min(ship.halite, 3000)
+    deposite = min(ship.halite, 1000)
     if deposite > 0:
       self.add_ship_reward(ship, deposite)
 
@@ -91,7 +92,7 @@ class EventBoard(Board):
   @is_current_player
   def on_ship_collect(self, ship, delta_halite):
     if delta_halite > 0:
-      MOVE_COST_RATE = 0.05
+      MOVE_COST_RATE = 0.1
       r = max(delta_halite * MOVE_COST_RATE, 1)
       # r = delta_halite * 0.03
       self.add_ship_reward(ship, r)
@@ -105,16 +106,17 @@ class EventBoard(Board):
   def on_hand_left_over_halite(self, player, deposite_halite):
     r = deposite_halite
     self.step_reward += r
-    self.total_deposite += deposite_halite
+
+    # handover if not deposite.
+    # self.total_deposite += deposite_halite
     self.log_reward('on_hand_left_over_halite', None, r)
 
   @is_current_player
   def on_ship_move(self, ship):
     """Add some move cost."""
     # Do we need this?
-    # MOVE_COST_RATE = 0.01
-    # r = -max(ship.halite * MOVE_COST_RATE, 1)
-    r = -1
+    MOVE_COST_RATE = 0.01
+    r = -max(ship.halite * MOVE_COST_RATE, 1)
     self.add_ship_reward(ship, r)
 
     r = 0
@@ -125,7 +127,8 @@ class EventBoard(Board):
   def on_ship_stay(self, ship, delta_halite):
     """Add some stay cost."""
     if delta_halite == 0:
-      r = -1
+      MOVE_COST_RATE = 0.01
+      r = -max(ship.halite * MOVE_COST_RATE, 1)
       self.add_ship_reward(ship, r)
 
     r = 0
@@ -159,7 +162,7 @@ class EventBoard(Board):
     if ship.id in self.new_ship_ids:
       # Do not give penality for new ship.
       return
-    r = -min(ship.halite + self.configuration.spawn_cost / 2, 3000)
+    r = -min(ship.halite + self.configuration.spawn_cost, 1000)
     self.add_ship_reward(ship, r)
 
     # TODO(wangfei): add reward for nearby shipyard attack.
@@ -170,7 +173,7 @@ class EventBoard(Board):
   @is_current_player
   def on_ship_destroid_in_ship_collison(self, ship):
     # Blame ship itself for the lose.
-    r = -min((self.configuration.spawn_cost + ship.halite), 3000)
+    r = -min((self.configuration.spawn_cost + ship.halite), 1000)
     self.add_ship_reward(ship, r)
 
     self.step_reward += r
@@ -232,7 +235,7 @@ class EventBoard(Board):
 
             # TODO(wangfei): use a larger penalty after learning mining.
             # on_ship_convert
-            if ship.halite > 0:
+            if ship.halite > 0 and len(player.shipyard_ids) == 0:
               r = -self.configuration.convert_cost
               self.add_ship_reward(ship, r)
 
@@ -480,13 +483,10 @@ def compute_ship_advantages(boards, critic_values, gamma=0.99, lmbda=0.95):
 
     # Generalized Advantage Estimation
     returns = np.zeros(len(boards), dtype=np.float32)
-    rewards = ship_rewards[k] / HALITE_NORMALIZTION_VAL
+    rewards = ship_rewards[k] / (HALITE_NORMALIZTION_VAL * 2)
     values = ship_values[k]
 
     start, end = ship_life_time[k]
-    def normalize(v):
-      w = v[start:end+1]
-      return (v - np.mean(w)) / (np.std(w) + EPS)
 
     gae = 0
     for i in reversed(range(len(rewards))):
@@ -495,13 +495,13 @@ def compute_ship_advantages(boards, critic_values, gamma=0.99, lmbda=0.95):
       returns[i] = gae + values[i]
 
     adv = returns - values[:-1]
-    ship_advantages[k] = normalize(adv)
+    ship_advantages[k] = adv
 
     # use simple discount for true rewards.
     ship_return = discount(rewards, gamma=gamma)
-    ship_returns[k] = normalize(ship_return)
+    ship_returns[k] = ship_return
 
-  return ship_advantages, ship_returns
+  return ship_advantages, ship_returns, ship_life_time
 
 
 class Trainer:
@@ -509,14 +509,14 @@ class Trainer:
   BORRD_POSITIONS = [Point(i, j) for i in range(BOARD_SIZE)
                      for j in range(BOARD_SIZE)]
 
-  def __init__(self, model, model_dir, return_params=None):
+  def __init__(self, model, model_dir, normalization_params=None):
     self.model = model
     if self.model is None:
       import matrix_v0
       self.model = matrix_v0.get_model()
     assert self.model
 
-    self.return_params = return_params
+    self.normalization_params = normalization_params
     self.optimizer = keras.optimizers.Adam(learning_rate=1e-4)
     # self.huber_loss = tf.keras.losses.Huber(reduction=tf.keras.losses.Reduction.SUM)
     self.huber_loss = tf.keras.losses.Huber()
@@ -534,7 +534,13 @@ class Trainer:
         print("Initializing model from scratch.")
 
   def get_ship_losses(self, boards, ship_probs, critic_values):
-    ship_advantages, ship_returns = compute_ship_advantages(boards, critic_values)
+    ship_advantages, ship_returns, _ = compute_ship_advantages(boards, critic_values)
+
+    mean, std = self.normalization_params
+    def normalize(d):
+      return {k: (v - mean) / (std + EPS) for k, v in d.items()}
+
+    ship_advantages = normalize(ship_advantages)
 
     def gen_action_probs(board, step_idx):
       for ship in board.current_player.ships:
@@ -577,7 +583,7 @@ class Trainer:
           if d < -threshold:
             n_neg += 1
 
-          if random.random() < 0.007:
+          if random.random() < 0.003:
             print("prob=%.5f, adv=%.5f, ret=%.5f, critic=%.5f, critic_loss=%.5f, entropy=%.5f"
                   % (prob.numpy(), adv, ret, critic.numpy(), critic_loss.numpy(),
                     entropy.numpy()))
@@ -617,46 +623,39 @@ class Trainer:
 
     return actor_losses, critic_losses, entropy_losses
 
-  def train(self, player_boards, apply_grad=True):
+  def train(self, boards, apply_grad=True):
     """Player boards is [player1_boards, player2_bords ...]"""
-
-    def get_player_inputs(boards):
-      return np.array([ModelInput(b).get_input() for b in boards],
-                      dtype=np.float32)
+    X = np.array([ModelInput(b).get_input() for b in boards], dtype=np.float32)
 
     grad_values = []
-    for rollout_idx, boards in enumerate(player_boards):
-      X = get_player_inputs(boards)
+    with tf.GradientTape() as tape:
+      ship_probs, critic_values = self.model(X)
+      ship_actor_loss, ship_critic_loss, ship_entropy_loss = self.get_ship_losses(boards, ship_probs, critic_values)
 
-      with tf.GradientTape() as tape:
-        ship_probs, critic_values = self.model(X)
-        ship_actor_loss, ship_critic_loss, ship_entropy_loss = self.get_ship_losses(boards, ship_probs, critic_values)
+      # loss_regularization = tf.math.add_n(self.model.losses)
 
-        # loss_regularization = tf.math.add_n(self.model.losses)
+      ENTROPY_LOSS_WEIGHT = 1e-4
+      SHIP_ACTOR_LOSS_WEIGHT = 1.0
+      CRITIC_LOSS_WT = 1.0
+      loss = (ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT + ship_critic_loss * CRITIC_LOSS_WT
+              + ENTROPY_LOSS_WEIGHT * ship_entropy_loss)
+      gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables),
+                                                      1000)
 
-        ENTROPY_LOSS_WEIGHT = 1e-3
-        SHIP_ACTOR_LOSS_WEIGHT = 1.0
-        CRITIC_LOSS_WT = 0.5
-        loss = (ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT + ship_critic_loss * CRITIC_LOSS_WT
-                + ENTROPY_LOSS_WEIGHT * ship_entropy_loss)
-        gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables),
-                                                        1000)
+      board = boards[-1]
+      deposite_pct = board.total_deposite / (board.total_collect + EPS) * 100
+      print(('Player[%s - %s ] finished at step=%s: total_deposite=%.0f (r=%.1f%%), total_collect=%.0f'
+            '\nLoss = %.5f: ship_actor=%.5f, ship_critic=%.5f, ship_entropy_loss=%.5f, gradient_norm=%.3f\n')
+            % (board.current_player.id, board.replay_id,
+                board.step, board.total_deposite, deposite_pct, board.total_collect,
+                loss, ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT, ship_critic_loss * CRITIC_LOSS_WT,
+                ENTROPY_LOSS_WEIGHT*ship_entropy_loss, global_norm))
 
-        board = boards[-1]
-        deposite_pct = board.total_deposite / (board.total_collect + EPS) * 100
-        print(('Player[%s - %s ] finished at step=%s: total_deposite=%.0f (r=%.1f%%), total_collect=%.0f'
-              '\nLoss = %.5f: ship_actor=%.5f, ship_critic=%.5f, ship_entropy_loss=%.5f, gradient_norm=%.3f\n')
-              % (board.current_player.id, board.replay_id,
-                 board.step, board.total_deposite, deposite_pct, board.total_collect,
-                 loss, ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT, ship_critic_loss * CRITIC_LOSS_WT,
-                 ENTROPY_LOSS_WEIGHT*ship_entropy_loss, global_norm))
-
-        grad_values.append(gradients)
+      grad_values.append(gradients)
 
     if apply_grad:
       for i, grads in enumerate(grad_values):
         self.apply_grad(grads)
-
     return grad_values
 
   def apply_grad(self, grads):

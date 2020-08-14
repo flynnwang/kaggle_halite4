@@ -437,7 +437,7 @@ class ShipStrategy(StrategyBase):
     ships = self.me.ships
     random.shuffle(ships)
 
-    ship_halite_threshold = 2000 if self.me.shipyard_ids else 0
+    ship_halite_threshold = 1500 if self.me.shipyard_ids else 0
     for ship in ships:
       if (ship.halite >= ship_halite_threshold
           and ship.halite + self.me.halite >= self.c.convert_cost):
@@ -446,6 +446,9 @@ class ShipStrategy(StrategyBase):
 
   def spawn_ships(self):
     # TODO(wangfei): stop spawn when step > XXX
+    if len(self.me.ship_ids) >= 50:
+      return
+
     halite = self.me.halite
     for yard in self.me.shipyards:
       if halite >= self.c.spawn_cost:
