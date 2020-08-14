@@ -11,7 +11,7 @@ import uuid
 EPSILON_DECAY = 0.995
 
 
-def run(episode_dir, model_dir, batch, epsilon, episode_steps, batch_size):
+def run(episode_dir, model_dir, batch, epsilon, episode_steps, batch_size, args):
 
   for b in range(batch):
     time_tag = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -21,7 +21,8 @@ def run(episode_dir, model_dir, batch, epsilon, episode_steps, batch_size):
                            '-m', model_dir,
                            '--epsilon', str(epsilon),
                            '--episode_steps', str(episode_steps),
-                           '--batch_size', str(batch_size)])
+                           '--batch_size', str(batch_size),
+                           '--num_players', str(args.num_players)])
     print("All episodes generation finished: ", batch_dir)
 
     subprocess.check_call(["python3", "batch_train.py", "-e", batch_dir,
@@ -41,10 +42,11 @@ def main():
   parser.add_argument('--epsilon', type=float, default=1.0)
   parser.add_argument('--episode_steps', type=int, default=200)
   parser.add_argument('--batch_size', type=int, default=24)
+  parser.add_argument('--num_players', type=int, default=4)
 
   args = parser.parse_args()
   run(args.episode_dir, args.model_dir, args.batch,
-      args.epsilon, args.episode_steps, args.batch_size)
+      args.epsilon, args.episode_steps, args.batch_size, args)
 
 
 if __name__ == "__main__":

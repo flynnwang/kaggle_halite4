@@ -79,7 +79,7 @@ class EventBoard(Board):
 
   @is_current_player
   def on_ship_deposite(self, ship, shipyard):
-    deposite = min(ship.halite, 1000)
+    deposite = min(ship.halite, 2000)
     if deposite > 0:
       self.add_ship_reward(ship, deposite)
 
@@ -91,8 +91,8 @@ class EventBoard(Board):
   @is_current_player
   def on_ship_collect(self, ship, delta_halite):
     if delta_halite > 0:
-      MOVE_COST_RATE = 0.1
-      r = int(delta_halite * MOVE_COST_RATE)
+      MOVE_COST_RATE = 0.05
+      r = delta_halite * MOVE_COST_RATE
       # r = delta_halite * 0.03
       self.add_ship_reward(ship, r)
 
@@ -114,8 +114,8 @@ class EventBoard(Board):
   def on_ship_move(self, ship):
     """Add some move cost."""
     # Do we need this?
-    MOVE_COST_RATE = 0.05
-    r = -max(ship.halite * MOVE_COST_RATE, 10)
+    MOVE_COST_RATE = 0.04
+    r = -max(ship.halite * MOVE_COST_RATE, 3)
     self.add_ship_reward(ship, r)
 
     r = 0
@@ -126,8 +126,8 @@ class EventBoard(Board):
   def on_ship_stay(self, ship, delta_halite):
     """Add some stay cost."""
     if delta_halite == 0:
-      MOVE_COST_RATE = 0.05
-      r = -max(ship.halite * MOVE_COST_RATE, 10)
+      MOVE_COST_RATE = 0.06
+      r = -max(ship.halite * MOVE_COST_RATE, 5)
       self.add_ship_reward(ship, r)
 
     r = 0
@@ -161,7 +161,7 @@ class EventBoard(Board):
     if ship.id in self.new_ship_ids:
       # Do not give penality for new ship.
       return
-    r = -min(ship.halite + self.configuration.spawn_cost, 1000)
+    r = -min(ship.halite + self.configuration.spawn_cost, 2000)
     self.add_ship_reward(ship, r)
 
     # TODO(wangfei): add reward for nearby shipyard attack.
@@ -172,7 +172,7 @@ class EventBoard(Board):
   @is_current_player
   def on_ship_destroid_in_ship_collison(self, ship):
     # Blame ship itself for the lose.
-    r = -min((self.configuration.spawn_cost + ship.halite), 1000)
+    r = -min((self.configuration.spawn_cost + ship.halite), 2000)
     self.add_ship_reward(ship, r)
 
     self.step_reward += r
@@ -369,11 +369,12 @@ class Replayer:
     state = self.replay_json['steps'][step][0]
     obs = state['observation']
     obs['player'] = self.player_id
+    num_players = len(self.replay_json['rewards'])
 
     actions = None
     if step + 1 < self.total_steps:
       actions = [
-          self.replay_json['steps'][step + 1][p]['action'] for p in range(4)
+          self.replay_json['steps'][step + 1][p]['action'] for p in range(num_players)
       ]
     board = board_cls(obs, self.env.configuration, actions)
     board.replay_id = self.replay_json['id']
@@ -516,7 +517,7 @@ class Trainer:
     assert self.model
 
     self.normalization_params = normalization_params
-    self.optimizer = keras.optimizers.Adam(learning_rate=1e-4)
+    self.optimizer = keras.optimizers.Adam(learning_rate=3e-4)
     # self.huber_loss = tf.keras.losses.Huber(reduction=tf.keras.losses.Reduction.SUM)
     self.huber_loss = tf.keras.losses.Huber()
 
@@ -571,9 +572,9 @@ class Trainer:
           # Adding EPS in case of zero
           actor_loss = -tf.math.log(prob + EPS) * adv
 
-          # critic_loss = self.huber_loss(np.expand_dims(ret, 0),
-                                        # np.expand_dims(critic, 0))
-          critic_loss = tf.nn.l2_loss(ret - critic)
+          critic_loss = self.huber_loss(tf.expand_dims(ret, 0),
+                                        tf.expand_dims(critic, 0))
+          # critic_loss = tf.nn.l2_loss(ret - critic)
 
           # critic loss analysis
           d = ret - critic

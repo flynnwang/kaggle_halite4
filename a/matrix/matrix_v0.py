@@ -15,9 +15,10 @@ from kaggle_environments import evaluate, make
 
 MIN_WEIGHT = -99999
 
-BOARD_SIZE = 21
+# BOARD_SIZE = 21
+BOARD_SIZE = 9
 INPUT_MAP_SIZE = (BOARD_SIZE, BOARD_SIZE)
-HALITE_NORMALIZTION_VAL = 1000.0
+HALITE_NORMALIZTION_VAL = 500.0
 TOTAL_STEPS = 400
 
 SHIPYARD_ACTIONS = list(ShipyardAction) + [None]
@@ -30,11 +31,15 @@ NUM_SHIP_ACTIONS = len(SHIP_ACTIONS)
 # MODEL_PATH = '/data/wangfei/data/202007_halite/unet.h5'
 MODEL_PATH = '/home/wangfei/data/20200801_halite/model/unet.h5'
 
+PADDING_LEFT_TOP = (32 - BOARD_SIZE) // 2
+PADDING_RIGHT_BOTTOM = 32 - PADDING_LEFT_TOP - BOARD_SIZE
+NUM_LAYERS = 8
 
-def get_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 7),
+def get_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
               num_ship_actions=NUM_SHIP_ACTIONS,
               num_shipyard_actions=NUM_SHIPYARD_ACTIONS,
-              input_padding=((5, 6), (5, 6))):
+              input_padding=((PADDING_LEFT_TOP, PADDING_RIGHT_BOTTOM),
+                             (PADDING_LEFT_TOP, PADDING_RIGHT_BOTTOM))):
   import keras
   from keras import layers
   from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Dropout, UpSampling2D, concatenate, Flatten
@@ -268,7 +273,8 @@ class ModelInput:
     # aux_map = self.get_auxiliary_map()
 
     maps = [halites, ship_position_map, ship_cargo_map, shipyard_map,
-            enemy_position_map, enemy_cargo_map, enemy_shipyard_map]
+            enemy_position_map, enemy_cargo_map, enemy_shipyard_map,
+            self.get_border_map()]
     v = np.stack(maps)
     if move_axis:
       v = np.moveaxis(v, 0, -1)
@@ -300,6 +306,12 @@ class ModelInput:
     # my cargo
     v[15, 5] = cargo(me) / HALITE_NORMALIZTION_VAL
     v[15, 10] = cargo(me) / total_cargo
+    return v
+
+
+  def get_border_map(self):
+    v = np.zeros(shape=INPUT_MAP_SIZE)
+    v[0, :] = v[:, 0] = v[BOARD_SIZE-1, :] = v[:, BOARD_SIZE-1] = 1
     return v
 
   def halite_cell_map(self):
@@ -431,22 +443,35 @@ class ShipStrategy(StrategyBase):
       unit.next_action = actions[action_idx]
 
   def convert_shipyard_if_none(self):
+    MAX_SHIPYARD_NUM = 5
+
     if not self.me.ship_ids:
       return
 
     ships = self.me.ships
     random.shuffle(ships)
 
-    ship_halite_threshold = 1500 if self.me.shipyard_ids else 0
+    has_shipyard = len(self.me.shipyard_ids) > 0
+    ship_halite_threshold = 3000 if self.me.shipyard_ids else 0
     for ship in ships:
-      if (ship.halite >= ship_halite_threshold
-          and ship.halite + self.me.halite >= self.c.convert_cost):
+      # Punish ship not return.
+      if (has_shipyard and ship.halite >= ship_halite_threshold
+          and ship.halite + self.me.halite >= self.c.convert_cost
+          and len(self.me.shipyard_ids) <= MAX_SHIPYARD_NUM):
         ship.next_action = ShipAction.CONVERT
         break
 
+      # Convert for initial shipyard.
+      if (not has_shipyard
+          and ship.halite + self.me.halite >= self.c.convert_cost + self.c.spawn_cost):
+        ship.next_action = ShipAction.CONVERT
+        break
+
+
   def spawn_ships(self):
+    MAX_SHIP_NUM = 3
     # TODO(wangfei): stop spawn when step > XXX
-    if len(self.me.ship_ids) >= 50:
+    if len(self.me.ship_ids) >= MAX_SHIP_NUM:
       return
 
     halite = self.me.halite
@@ -457,7 +482,7 @@ class ShipStrategy(StrategyBase):
         halite -= self.c.spawn_cost
         spawn_count += 1
 
-      if len(self.me.ship_ids) + spawn_count >= 50:
+      if len(self.me.ship_ids) + spawn_count >= MAX_SHIP_NUM:
         break
 
   def compute_ship_moves(self):

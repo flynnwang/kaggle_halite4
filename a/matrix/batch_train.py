@@ -9,6 +9,8 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"]="3"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
+NUM_TRAIN_PROCESSES = 3
+
 def scan_for_replays(episode_dir):
   finished_count = 0
   for name in os.listdir(episode_dir):
@@ -49,7 +51,7 @@ def train_on_replays_multiprocessing(model_dir, replay_jsons, norm_params, log_l
       yield replay_json, model_dir, norm_params
 
   all_grads_list = []
-  with Pool(2) as pool:
+  with Pool(NUM_TRAIN_PROCESSES) as pool:
     for grads_list in pool.imap_unordered(compute_grad, gen_args(replay_jsons)):
       all_grads_list.extend(grads_list)
 
