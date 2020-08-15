@@ -421,6 +421,7 @@ class ShipStrategy(StrategyBase):
       assert os.path.exists(MODEL_PATH)
       self.model.load_weights(MODEL_PATH)
     self.epsilon = epsilon
+    self.ship_return_step = {} # ship id => ship born step.
 
   def assign_unti_actions(self, units, unit_probs, actions):
     for unit in units:
@@ -444,29 +445,35 @@ class ShipStrategy(StrategyBase):
 
   def convert_shipyard_if_none(self):
     MAX_SHIPYARD_NUM = 5
+    MAX_SHIP_AGE = 3 * BOARD_SIZE
 
     if not self.me.ship_ids:
       return
 
-    ships = self.me.ships
-    random.shuffle(ships)
-
+    # first ship is not born from shipyard
+    ships = sorted(self.me.ships, key=lambda s: self.ship_return_step.get(s.id, 0))
     has_shipyard = len(self.me.shipyard_ids) > 0
-    ship_halite_threshold = 3000 if self.me.shipyard_ids else 0
-    for ship in ships:
-      # Punish ship not return.
-      if (has_shipyard and ship.halite >= ship_halite_threshold
-          and ship.halite + self.me.halite >= self.c.convert_cost
-          and len(self.me.shipyard_ids) <= MAX_SHIPYARD_NUM):
-        ship.next_action = ShipAction.CONVERT
-        break
 
+    halite = self.me.halite
+    for ship in ships:
       # Convert for initial shipyard.
       if (not has_shipyard
-          and ship.halite + self.me.halite >= self.c.convert_cost + self.c.spawn_cost):
+          and ship.halite + halite >= self.c.convert_cost + self.c.spawn_cost):
         ship.next_action = ShipAction.CONVERT
+        halite -= self.c.convert_cost
         break
 
+      # Punish ship not return.
+      ship_age = self.board.step - self.ship_return_step[ship.id]
+      # print(F'ship[{ship.id}], cargo={ship.halite} age={ship_age}')
+      if (has_shipyard and len(self.me.shipyard_ids) <= MAX_SHIPYARD_NUM
+          and ship.halite + halite >= (self.c.convert_cost + self.c.spawn_cost)
+          and ship_age >= MAX_SHIP_AGE):
+        ship.next_action = ShipAction.CONVERT
+        halite -= self.c.convert_cost
+        continue
+
+    self.me._halite = halite
 
   def spawn_ships(self):
     MAX_SHIP_NUM = 3
@@ -572,7 +579,13 @@ class ShipStrategy(StrategyBase):
 
     assert len(rows) == len(ships), "match=%s, ships=%s" % (len(rows), len(ships))
 
+  def update_ship_info(self):
+    for ship in self.me.ships:
+      if ship.cell.shipyard_id:
+        self.ship_return_step[ship.id] = self.board.step
+
   def execute(self):
+    self.update_ship_info()
     self.convert_shipyard_if_none()
     self.spawn_ships()
 

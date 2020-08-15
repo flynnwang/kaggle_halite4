@@ -79,7 +79,7 @@ class EventBoard(Board):
 
   @is_current_player
   def on_ship_deposite(self, ship, shipyard):
-    deposite = min(ship.halite, 2000)
+    deposite = ship.halite
     if deposite > 0:
       self.add_ship_reward(ship, deposite)
 
@@ -114,8 +114,8 @@ class EventBoard(Board):
   def on_ship_move(self, ship):
     """Add some move cost."""
     # Do we need this?
-    MOVE_COST_RATE = 0.04
-    r = -max(ship.halite * MOVE_COST_RATE, 3)
+    MOVE_COST_RATE = 0.01
+    r = -max(ship.halite * MOVE_COST_RATE, 5)
     self.add_ship_reward(ship, r)
 
     r = 0
@@ -126,8 +126,8 @@ class EventBoard(Board):
   def on_ship_stay(self, ship, delta_halite):
     """Add some stay cost."""
     if delta_halite == 0:
-      MOVE_COST_RATE = 0.06
-      r = -max(ship.halite * MOVE_COST_RATE, 5)
+      MOVE_COST_RATE = 0.02
+      r = -max(ship.halite * MOVE_COST_RATE, 10)
       self.add_ship_reward(ship, r)
 
     r = 0
@@ -161,7 +161,7 @@ class EventBoard(Board):
     if ship.id in self.new_ship_ids:
       # Do not give penality for new ship.
       return
-    r = -min(ship.halite + self.configuration.spawn_cost, 2000)
+    r = -ship.halite + self.configuration.spawn_cost
     self.add_ship_reward(ship, r)
 
     # TODO(wangfei): add reward for nearby shipyard attack.
@@ -172,7 +172,7 @@ class EventBoard(Board):
   @is_current_player
   def on_ship_destroid_in_ship_collison(self, ship):
     # Blame ship itself for the lose.
-    r = -min((self.configuration.spawn_cost + ship.halite), 2000)
+    r = -(self.configuration.spawn_cost + ship.halite)
     self.add_ship_reward(ship, r)
 
     self.step_reward += r
@@ -181,10 +181,10 @@ class EventBoard(Board):
   @is_current_player
   def on_ship_win_collision(self, ship, total_winning_halite,
                             total_destroied_ship):
-    # COLLISION_DISCOUNT = 0.25
-    # r = total_winning_halite + (self.configuration.spawn_cost *
-                                # total_destroied_ship)
-    # r *= COLLISION_DISCOUNT
+    COLLISION_DISCOUNT = 0.1
+    r = total_winning_halite  * COLLISION_DISCOUNT
+    self.add_ship_reward(ship, r)
+
     r = 0
     self.step_reward += r
     self.log_reward('on_ship_win_collision', ship, r)
@@ -583,7 +583,7 @@ class Trainer:
           if d < -threshold:
             n_neg += 1
 
-          if random.random() < 0.003:
+          if random.random() < 0.01:
             print("prob=%.5f, adv=%.5f, ret=%.5f, critic=%.5f, critic_loss=%.5f, entropy=%.5f"
                   % (prob.numpy(), adv, ret, critic.numpy(), critic_loss.numpy(),
                     entropy.numpy()))
@@ -634,13 +634,13 @@ class Trainer:
 
       # loss_regularization = tf.math.add_n(self.model.losses)
 
-      ENTROPY_LOSS_WEIGHT = 1e-4
+      ENTROPY_LOSS_WEIGHT = 1e-3
       SHIP_ACTOR_LOSS_WEIGHT = 1.0
       CRITIC_LOSS_WT = 1.0
       loss = (ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT + ship_critic_loss * CRITIC_LOSS_WT
               + ENTROPY_LOSS_WEIGHT * ship_entropy_loss)
       gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables),
-                                                      1000)
+                                                      200)
 
       board = boards[-1]
       deposite_pct = board.total_deposite / (board.total_collect + EPS) * 100
