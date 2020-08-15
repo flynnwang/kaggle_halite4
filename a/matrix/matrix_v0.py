@@ -18,7 +18,7 @@ MIN_WEIGHT = -99999
 # BOARD_SIZE = 21
 BOARD_SIZE = 9
 INPUT_MAP_SIZE = (BOARD_SIZE, BOARD_SIZE)
-HALITE_NORMALIZTION_VAL = 500.0
+HALITE_NORMALIZTION_VAL = 1000.0
 TOTAL_STEPS = 400
 
 SHIPYARD_ACTIONS = list(ShipyardAction) + [None]
@@ -182,6 +182,7 @@ def get_model_small(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
   x = layers.ZeroPadding2D(input_padding)(inputs)
   x = layers.SeparableConv2D(64, 1, strides=1, padding="same", activation='relu',
                              kernel_initializer='he_normal')(x)
+  x = layers.BatchNormalization()(x)
   first_layer_output = x
 
   conv1 = layers.SeparableConv2D(64,
@@ -470,6 +471,9 @@ class ModelInput:
       position = ship.position
       value = ship.halite if halite_layer else 1
       v[position.x, position.y] = value
+
+    if halite_layer:
+      v /= HALITE_NORMALIZTION_VAL
     return v
 
   def player_shipyard_map(self, player_id):
@@ -589,7 +593,7 @@ class ShipStrategy(StrategyBase):
 
   def convert_shipyard_if_none(self):
     MAX_SHIPYARD_NUM = 5
-    MAX_SHIP_AGE = 100
+    MAX_SHIP_AGE = 50
 
     if not self.me.ship_ids:
       return
@@ -612,12 +616,12 @@ class ShipStrategy(StrategyBase):
       # Punish ship not return.
       ship_age = self.board.step - self.ship_return_step[ship.id]
       # print(F'ship[{ship.id}], cargo={ship.halite} age={ship_age}')
-      # if (has_shipyard and len(self.me.shipyard_ids) < MAX_SHIPYARD_NUM
-          # and ship.halite >= 3000
-          # and ship_age >= MAX_SHIP_AGE):
-        # ship.next_action = ShipAction.CONVERT
-        # halite -= self.c.convert_cost
-        # continue
+      if (has_shipyard and len(self.me.shipyard_ids) < MAX_SHIPYARD_NUM
+          and ship.halite + halite >= (self.c.convert_cost + self.c.spawn_cost)
+          and ship_age >= MAX_SHIP_AGE):
+        ship.next_action = ShipAction.CONVERT
+        halite -= self.c.convert_cost
+        continue
 
     self.me._halite = halite
 

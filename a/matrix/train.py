@@ -91,14 +91,12 @@ class EventBoard(Board):
     else:
       print("  S=%s: %s, r=%s" % (self.step, name, r))
 
-
-
   def on_step_finished(self):
     pass
 
   @is_current_player
   def on_ship_deposite(self, ship, shipyard):
-    deposite = min(ship.halite, 500)
+    deposite = min(ship.halite, 2000)
     if deposite > 0:
       self.add_ship_reward(ship, deposite)
 
@@ -133,7 +131,7 @@ class EventBoard(Board):
   def on_ship_move(self, ship):
     """Add some move cost."""
     # Do we need this?
-    r = -1
+    r = -max(ship.halite * 0.05, 1)
     self.add_ship_reward(ship, r)
 
     r = 0
@@ -144,7 +142,7 @@ class EventBoard(Board):
   def on_ship_stay(self, ship, delta_halite):
     """Add some stay cost."""
     # No matter what, cost 1
-    r = -1
+    r = -max(ship.halite * 0.05, 1)
     self.add_ship_reward(ship, r)
 
     r = 0
@@ -166,7 +164,7 @@ class EventBoard(Board):
   def on_shipyard_destroid_by_ship(self, shipyard, ship):
     MAX_SHIPYARD_BLAME_DIST = 6
     # TODO(wangfei): add nearby ships for penalty.
-    r = -(self.configuration.spawn_cost + self.configuration.convert_cost)
+    r = -self.configuration.convert_cost
     for s in self.current_player.ships:
       if manhattan_dist(s.position, shipyard.position, self.configuration.size) <= MAX_SHIPYARD_BLAME_DIST:
         self.add_ship_reward(s, r)
