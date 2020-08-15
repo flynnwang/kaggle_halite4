@@ -596,7 +596,8 @@ class ShipStrategy(StrategyBase):
 
     # first ship is not born from shipyard
     # ships = sorted(self.me.ships, key=lambda s: self.ship_return_step.get(s.id, 0))
-    ships = random.shuffle(self.me.ships)
+    ships = self.me.ships
+    random.shuffle(ships)
     has_shipyard = len(self.me.shipyard_ids) > 0
 
     halite = self.me.halite
