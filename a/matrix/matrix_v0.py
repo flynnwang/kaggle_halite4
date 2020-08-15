@@ -36,7 +36,7 @@ NUM_LAYERS = 8
 
 
 def get_model(*args, **kwargs):
-  return get_unet_model(*args, **kwargs)
+  return get_keras_unet(*args, **kwargs)
 
 
 import keras
@@ -115,13 +115,78 @@ def get_unet_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
                                         activation="softmax", padding="same")(decoder())
   ship_outputs = layers.Cropping2D(input_padding, name="ship_crop")(ship_outputs)
 
-  critic_outputs = layers.Conv2D(1, 3, activation="linear",
-                                          padding="same")(decoder())
+  critic_outputs = layers.Conv2D(1, 3, activation="linear", padding="same")(decoder())
   critic_outputs = layers.Cropping2D(input_padding, name="critic_crop")(critic_outputs)
 
   model = keras.Model(inputs, outputs=[ship_outputs, critic_outputs])
   return model
 
+def get_keras_unet(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
+              num_ship_actions=NUM_SHIP_ACTIONS,
+              num_shipyard_actions=NUM_SHIPYARD_ACTIONS,
+              input_padding=((PADDING_LEFT_TOP, PADDING_RIGHT_BOTTOM),
+                             (PADDING_LEFT_TOP, PADDING_RIGHT_BOTTOM))):
+  inputs = layers.Input(shape=input_shape)
+  x = layers.ZeroPadding2D(input_padding)(inputs)
+
+  ### [First half of the network: downsampling inputs] ###
+  # Entry block
+  x = layers.Conv2D(64, 1, strides=1, padding="same")(x)
+  x = layers.BatchNormalization()(x)
+  x = layers.Activation("relu")(x)
+
+  previous_block_activation = x  # Set aside residual
+
+  # Blocks 1, 2, 3 are identical apart from the feature depth.
+  for filters in [64, 128]:
+  # for filters in [64, 128, 256]:
+    x = layers.Activation("relu")(x)
+    x = layers.SeparableConv2D(filters, 3, padding="same")(x)
+    x = layers.BatchNormalization()(x)
+
+    x = layers.Activation("relu")(x)
+    x = layers.SeparableConv2D(filters, 3, padding="same")(x)
+    x = layers.BatchNormalization()(x)
+
+    x = layers.MaxPooling2D(3, strides=2, padding="same")(x)
+
+    # Project residual
+    residual = layers.Conv2D(filters, 1, strides=2, padding="same")(
+      previous_block_activation
+    )
+    x = layers.add([x, residual])  # Add back residual
+    previous_block_activation = x  # Set aside next residual
+
+  ### [Second half of the network: upsampling inputs] ###
+
+  def decoder(x):
+    previous_block_activation = x  # Set aside next residual
+    # for filters in [256, 128, 64, 32]:
+    for filters in [128, 64]:
+      x = layers.Activation("relu")(x)
+      x = layers.Conv2DTranspose(filters, 3, padding="same")(x)
+      x = layers.BatchNormalization()(x)
+
+      x = layers.Activation("relu")(x)
+      x = layers.Conv2DTranspose(filters, 3, padding="same")(x)
+      x = layers.BatchNormalization()(x)
+
+      x = layers.UpSampling2D(2)(x)
+
+      # Project residual
+      residual = layers.UpSampling2D(2)(previous_block_activation)
+      residual = layers.Conv2D(filters, 1, padding="same")(residual)
+      x = layers.add([x, residual])  # Add back residual
+      previous_block_activation = x  # Set aside next residual
+    return layers.Cropping2D(input_padding)(x)
+
+  encoder_output = x
+  ship_outputs = layers.Conv2D(num_ship_actions, 3,
+                               activation="softmax", padding="same")(decoder(encoder_output))
+  critic_outputs = layers.Conv2D(1, 3, activation="linear", padding="same")(decoder(encoder_output))
+
+  model = keras.Model(inputs, outputs=[ship_outputs, critic_outputs])
+  return model
 
 def get_model_small(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
               num_ship_actions=NUM_SHIP_ACTIONS,
