@@ -183,10 +183,6 @@ def get_model_small(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
 
   inputs = layers.Input(shape=input_shape)
   x = layers.ZeroPadding2D(input_padding)(inputs)
-  x = layers.SeparableConv2D(64, 1, strides=1, padding="same", activation='relu',
-                             kernel_initializer='he_normal')(x)
-  x = layers.BatchNormalization()(x)
-  first_layer_output = x
 
   conv1 = layers.SeparableConv2D(64,
                  3,
@@ -286,17 +282,7 @@ def get_model_small(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
                    padding='same',
                    kernel_initializer='he_normal')(conv9)
     conv9 = layers.BatchNormalization()(conv9)
-
-
-    merge10 = concatenate([conv9, first_layer_output], axis=3)
-    conv10 = layers.SeparableConv2D(64, 3, activation="relu",
-                                            kernel_initializer='he_normal',
-                                            padding="same")(merge10)
-    conv10 = layers.SeparableConv2D(64, 3, activation="relu",
-                                            kernel_initializer='he_normal',
-                                            padding="same")(conv10)
-    conv10 = layers.BatchNormalization()(conv10)
-    return conv10
+    return conv9
     # return layers.Cropping2D(input_padding)(conv9)
 
   ship_outputs = layers.SeparableConv2D(num_ship_actions, 3,
@@ -306,8 +292,8 @@ def get_model_small(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
 
   critic_outputs = layers.SeparableConv2D(1, 3, activation="linear",
                                           padding="same")(decoder(pool3))
-
   critic_outputs = layers.Cropping2D(input_padding, name="critic_crop")(critic_outputs)
+
   model = keras.Model(inputs, outputs=[ship_outputs, critic_outputs])
   return model
 

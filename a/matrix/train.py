@@ -590,9 +590,9 @@ class Trainer:
           # Adding EPS in case of zero
           actor_loss = -tf.math.log(prob + EPS) * adv
 
-          critic_loss = self.huber_loss(tf.expand_dims(ret, 0),
-                                        tf.expand_dims(critic, 0))
-          # critic_loss = tf.nn.l2_loss(ret - critic)
+          # critic_loss = self.huber_loss(tf.expand_dims(ret, 0),
+                                        # tf.expand_dims(critic, 0))
+          critic_loss = tf.nn.l2_loss(ret - critic)
 
           # critic loss analysis
           d = ret - critic
@@ -650,26 +650,25 @@ class Trainer:
       ship_probs, critic_values = self.model(X)
       ship_actor_loss, ship_critic_loss, ship_entropy_loss = self.get_ship_losses(boards, ship_probs, critic_values)
 
-      loss_regularization = tf.math.add_n(self.model.losses)
+      # loss_regularization = tf.math.add_n(self.model.losses)
 
       ENTROPY_LOSS_WEIGHT = 1e-3
       SHIP_ACTOR_LOSS_WEIGHT = 1.0
       CRITIC_LOSS_WT = 1.0
       loss = (ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT + ship_critic_loss * CRITIC_LOSS_WT
-              + ENTROPY_LOSS_WEIGHT * ship_entropy_loss
-              + loss_regularization)
+              + ENTROPY_LOSS_WEIGHT * ship_entropy_loss)
       gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables),
                                                       200)
 
       board = boards[-1]
       deposite_pct = board.total_deposite / (board.total_collect + EPS) * 100
       print(('Player[%s - %s ] step=%s: deposite=%.0f (r=%.1f%%), collect=%.0f, shipyard=%s, ship=%s'
-            '\nLoss = %.5f: ship_actor=%.5f, ship_critic=%.5f, ship_entropy_loss=%.5f, reg=%.5f, gradient_norm=%.3f\n')
+            '\nLoss = %.5f: ship_actor=%.5f, ship_critic=%.5f, ship_entropy_loss=%.5f, gradient_norm=%.3f\n')
             % (board.current_player.id, board.replay_id,
                 board.step, board.total_deposite, deposite_pct, board.total_collect, len(board.current_player.shipyard_ids),
                 len(board.current_player.ship_ids),
                 loss, ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT, ship_critic_loss * CRITIC_LOSS_WT,
-                ENTROPY_LOSS_WEIGHT*ship_entropy_loss, loss_regularization, global_norm))
+                ENTROPY_LOSS_WEIGHT*ship_entropy_loss,  global_norm))
 
       grad_values.append(gradients)
 
