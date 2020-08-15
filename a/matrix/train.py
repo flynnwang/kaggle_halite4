@@ -45,6 +45,23 @@ def get_neighbor_cells(cell, include_self=False):
   neighbor_cells.extend([cell.north, cell.south, cell.east, cell.west])
   return neighbor_cells
 
+def axis_manhattan_dists(a: Point, b: Point, size):
+
+  def dist(x, y):
+    v = abs(x - y)
+    return min(v, size - v)
+
+  return dist(a.x, b.x),  dist(a.y, b.y)
+
+
+def manhattan_dist(a: Point, b: Point, size):
+  if MANHATTAN_DISTS:
+    return MANHATTAN_DISTS[a.x * size + a.y][b.x * size + b.y]
+
+  dist_x, dist_y = axis_manhattan_dists(a, b, size)
+  return dist_x + dist_y
+
+
 class EventBoard(Board):
 
   def __init__(self,
@@ -84,7 +101,7 @@ class EventBoard(Board):
 
   @is_current_player
   def on_ship_deposite(self, ship, shipyard):
-    deposite = ship.halite
+    deposite = min(ship.halite, 3000)
     if deposite > 0:
       self.add_ship_reward(ship, deposite)
 
@@ -118,8 +135,7 @@ class EventBoard(Board):
   def on_ship_move(self, ship):
     """Add some move cost."""
     # Do we need this?
-    MOVE_COST_RATE = 0.01
-    r = -max(ship.halite * MOVE_COST_RATE, 1)
+    r = -1
     self.add_ship_reward(ship, r)
 
     r = 0
@@ -130,8 +146,7 @@ class EventBoard(Board):
   def on_ship_stay(self, ship, delta_halite):
     """Add some stay cost."""
     # No matter what, cost 1
-    MOVE_COST_RATE = 0.01
-    r = -max(ship.halite * MOVE_COST_RATE, 1)
+    r = -1
     self.add_ship_reward(ship, r)
 
     r = 0
@@ -151,10 +166,12 @@ class EventBoard(Board):
 
   @is_current_player
   def on_shipyard_destroid_by_ship(self, shipyard, ship):
+    MAX_SHIPYARD_BLAME_DIST = 6
     # TODO(wangfei): add nearby ships for penalty.
     r = -(self.configuration.spawn_cost + self.configuration.convert_cost)
     for s in self.current_player.ships:
-      self.add_ship_reward(s, r)
+      if manhattan_dist(s.position, shipyard.position) <= MAX_SHIPYARD_BLAME_DIST:
+        self.add_ship_reward(s, r)
 
     r = -(self.configuration.spawn_cost + self.configuration.convert_cost)
     self.step_reward += r
@@ -165,18 +182,18 @@ class EventBoard(Board):
     if ship.id in self.new_ship_ids:
       # Do not give penality for new ship.
       return
-    r = -(ship.halite + self.configuration.spawn_cost)
+    r = -self.configuration.spawn_cost
     self.add_ship_reward(ship, r)
 
     # TODO(wangfei): add reward for nearby shipyard attack.
-    r = -(self.configuration.spawn_cost + ship.halite)
+    r = -self.configuration.spawn_cost
     self.step_reward += r
     self.log_reward('on_ship_destroid_with_enemy_shipyard', ship, r)
 
   @is_current_player
   def on_ship_destroid_in_ship_collison(self, ship):
     # Blame ship itself for the lose.
-    r = -(self.configuration.spawn_cost + ship.halite)
+    r = -self.configuration.spawn_cost
     self.add_ship_reward(ship, r)
 
     self.step_reward += r
@@ -186,7 +203,7 @@ class EventBoard(Board):
   def on_ship_win_collision(self, ship, total_winning_halite,
                             total_destroied_ship):
     COLLISION_DISCOUNT = 0.1
-    r = total_winning_halite  * COLLISION_DISCOUNT
+    r = total_winning_halite * COLLISION_DISCOUNT
     for cell in get_neighbor_cells(ship.cell, include_self=True):
       if cell.ship and cell.ship.player_id == ship.player_id:
         self.add_ship_reward(cell.ship, r)
