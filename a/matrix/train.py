@@ -40,6 +40,11 @@ def get_last_step_reward(last_board):
   return 0
 
 
+def get_neighbor_cells(cell, include_self=False):
+  neighbor_cells = [cell] if include_self else []
+  neighbor_cells.extend([cell.north, cell.south, cell.east, cell.west])
+  return neighbor_cells
+
 class EventBoard(Board):
 
   def __init__(self,
@@ -124,10 +129,10 @@ class EventBoard(Board):
   @is_current_player
   def on_ship_stay(self, ship, delta_halite):
     """Add some stay cost."""
-    if delta_halite == 0:
-      MOVE_COST_RATE = 0.01
-      r = -max(ship.halite * MOVE_COST_RATE, 1)
-      self.add_ship_reward(ship, r)
+    # No matter what, cost 1
+    MOVE_COST_RATE = 0.01
+    r = -max(ship.halite * MOVE_COST_RATE, 1)
+    self.add_ship_reward(ship, r)
 
     r = 0
     self.step_reward += r
@@ -182,7 +187,9 @@ class EventBoard(Board):
                             total_destroied_ship):
     COLLISION_DISCOUNT = 0.1
     r = total_winning_halite  * COLLISION_DISCOUNT
-    self.add_ship_reward(ship, r)
+    for cell in get_neighbor_cells(ship.cell, include_self=True):
+      if cell.ship and cell.ship.player_id == ship.player_id:
+        self.add_ship_reward(cell.ship, r)
 
     r = 0
     self.step_reward += r
@@ -556,7 +563,7 @@ class Trainer:
         adv = ship_advantages[ship.id][step_idx]
         ret = ship_returns[ship.id][step_idx]
         critic = critic_values[step_idx, position.x, position.y, 0]
-        yield prob, adv, ret, critic, entropy
+        yield ship.next_action, prob, adv, ret, critic, entropy
 
 
     # critic loss analysis
@@ -567,7 +574,7 @@ class Trainer:
     def gen_action_loses():
       nonlocal n_pos, n_neg
       for i, b in enumerate(boards):
-        for prob, adv, ret, critic, entropy in gen_action_probs(b, i):
+        for a, prob, adv, ret, critic, entropy in gen_action_probs(b, i):
           # Adding EPS in case of zero
           actor_loss = -tf.math.log(prob + EPS) * adv
 
@@ -582,10 +589,10 @@ class Trainer:
           if d < -threshold:
             n_neg += 1
 
-          if random.random() < 0.01:
-            print("prob=%.5f, adv=%.5f, ret=%.5f, critic=%.5f, critic_loss=%.5f, entropy=%.5f"
-                  % (prob.numpy(), adv, ret, critic.numpy(), critic_loss.numpy(),
-                    entropy.numpy()))
+          if random.random() < 0.02:
+            print("prob=%.5f, a=%s, adv=%.5f, ret=%.5f, critic=%.5f, critic_loss=%.5f, entropy=%.5f"
+                  % (prob.numpy(), a, adv, ret, critic.numpy(),
+                     critic_loss.numpy(), entropy.numpy()))
           yield actor_loss, critic_loss, -entropy, critic, ret
 
     losses = list(gen_action_loses())
