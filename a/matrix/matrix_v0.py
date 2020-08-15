@@ -602,7 +602,7 @@ class ShipStrategy(StrategyBase):
     for ship in ships:
       # Convert for initial shipyard.
       if (not has_shipyard
-          and ship.halite + halite >= self.c.convert_cost + self.c.spawn_cost):
+          and ship.halite + halite >= (self.c.convert_cost + self.c.spawn_cost)):
         ship.next_action = ShipAction.CONVERT
         halite -= self.c.convert_cost
         break
@@ -610,12 +610,13 @@ class ShipStrategy(StrategyBase):
       # Punish ship not return.
       ship_age = self.board.step - self.ship_return_step[ship.id]
       # print(F'ship[{ship.id}], cargo={ship.halite} age={ship_age}')
-      if (has_shipyard and len(self.me.shipyard_ids) <= MAX_SHIPYARD_NUM
-          and ship.halite + halite >= (self.c.convert_cost + 2*self.c.spawn_cost)
-          and ship_age >= MAX_SHIP_AGE):
-        ship.next_action = ShipAction.CONVERT
-        halite -= self.c.convert_cost
-        continue
+      # if (has_shipyard and len(self.me.shipyard_ids) < MAX_SHIPYARD_NUM
+          # and ship.halite >= 2000
+          # and ship.halite + halite >= (self.c.convert_cost + 2*self.c.spawn_cost)
+          # and ship_age >= MAX_SHIP_AGE):
+        # ship.next_action = ShipAction.CONVERT
+        # halite -= self.c.convert_cost
+        # continue
 
     self.me._halite = halite
 

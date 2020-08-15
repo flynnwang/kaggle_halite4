@@ -114,7 +114,7 @@ class EventBoard(Board):
     """Add some move cost."""
     # Do we need this?
     MOVE_COST_RATE = 0.01
-    r = -max(ship.halite * MOVE_COST_RATE, 5)
+    r = -max(ship.halite * MOVE_COST_RATE, 1)
     self.add_ship_reward(ship, r)
 
     r = 0
@@ -125,8 +125,8 @@ class EventBoard(Board):
   def on_ship_stay(self, ship, delta_halite):
     """Add some stay cost."""
     if delta_halite == 0:
-      MOVE_COST_RATE = 0.02
-      r = -max(ship.halite * MOVE_COST_RATE, 10)
+      MOVE_COST_RATE = 0.01
+      r = -max(ship.halite * MOVE_COST_RATE, 1)
       self.add_ship_reward(ship, r)
 
     r = 0
@@ -181,7 +181,7 @@ class EventBoard(Board):
   def on_ship_win_collision(self, ship, total_winning_halite,
                             total_destroied_ship):
     COLLISION_DISCOUNT = 0.1
-    r = total_winning_halite * COLLISION_DISCOUNT
+    r = total_winning_halite  * COLLISION_DISCOUNT
     self.add_ship_reward(ship, r)
 
     r = 0
