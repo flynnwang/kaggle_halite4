@@ -11,7 +11,7 @@ from kaggle_environments.envs.halite.helpers import *
 
 BATCH_SIZE = 6
 EPISODE_STEPS = 10
-BOARD_SIZE = 8
+BOARD_SIZE = 9
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"]="3"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152

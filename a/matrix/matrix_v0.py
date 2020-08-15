@@ -155,12 +155,15 @@ def get_model_full(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
     # return layers.Cropping2D(input_padding)(conv9)
 
   ship_outputs = layers.SeparableConv2D(num_ship_actions, 3,
+                                        kernel_regularizer=l2(1e-4),
+                                        bias_regularizer=l2(1e-4),
                                         activation="softmax", padding="same",
                         kernel_initializer = 'he_normal')(decoder(pool3))
   ship_outputs = layers.Cropping2D(input_padding, name="ship_crop")(ship_outputs)
   # critic_outputs = layers.SeparableConv2D(1, 3, activation="linear",
   critic_outputs = layers.SeparableConv2D(1, 3, activation="linear",
                           kernel_regularizer=l2(1e-4),
+                                          bias_regularizer=l2(1e-4),
                           padding="same")(decoder(pool3))
   critic_outputs = layers.Cropping2D(input_padding, name="critic_crop")(critic_outputs)
 
@@ -617,7 +620,7 @@ class ShipStrategy(StrategyBase):
       ship_age = self.board.step - self.ship_return_step[ship.id]
       # print(F'ship[{ship.id}], cargo={ship.halite} age={ship_age}')
       if (has_shipyard and len(self.me.shipyard_ids) < MAX_SHIPYARD_NUM
-          and ship.halite + halite >= (self.c.convert_cost + self.c.spawn_cost)
+          and ship.halite + halite >= (self.c.convert_cost + self.c.spawn_cost * 2)
           and ship_age >= MAX_SHIP_AGE):
         ship.next_action = ShipAction.CONVERT
         halite -= self.c.convert_cost
@@ -626,7 +629,7 @@ class ShipStrategy(StrategyBase):
     self.me._halite = halite
 
   def spawn_ships(self):
-    MAX_SHIP_NUM = 4
+    MAX_SHIP_NUM = 3
     # TODO(wangfei): stop spawn when step > XXX
     if len(self.me.ship_ids) >= MAX_SHIP_NUM:
       return
