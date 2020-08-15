@@ -445,7 +445,7 @@ class ShipStrategy(StrategyBase):
 
   def convert_shipyard_if_none(self):
     MAX_SHIPYARD_NUM = 5
-    MAX_SHIP_AGE = 3 * BOARD_SIZE
+    MAX_SHIP_AGE = 4 * BOARD_SIZE + 10
 
     if not self.me.ship_ids:
       return
@@ -467,7 +467,7 @@ class ShipStrategy(StrategyBase):
       ship_age = self.board.step - self.ship_return_step[ship.id]
       # print(F'ship[{ship.id}], cargo={ship.halite} age={ship_age}')
       if (has_shipyard and len(self.me.shipyard_ids) <= MAX_SHIPYARD_NUM
-          and ship.halite + halite >= (self.c.convert_cost + self.c.spawn_cost)
+          and ship.halite + halite >= (self.c.convert_cost + 2*self.c.spawn_cost)
           and ship_age >= MAX_SHIP_AGE):
         ship.next_action = ShipAction.CONVERT
         halite -= self.c.convert_cost

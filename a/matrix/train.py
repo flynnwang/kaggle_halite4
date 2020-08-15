@@ -161,7 +161,7 @@ class EventBoard(Board):
     if ship.id in self.new_ship_ids:
       # Do not give penality for new ship.
       return
-    r = -ship.halite + self.configuration.spawn_cost
+    r = -(ship.halite + self.configuration.spawn_cost)
     self.add_ship_reward(ship, r)
 
     # TODO(wangfei): add reward for nearby shipyard attack.
