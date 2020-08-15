@@ -35,7 +35,11 @@ PADDING_LEFT_TOP = (32 - BOARD_SIZE) // 2
 PADDING_RIGHT_BOTTOM = 32 - PADDING_LEFT_TOP - BOARD_SIZE
 NUM_LAYERS = 8
 
-def get_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
+
+def get_model(*args, **kwargs):
+  return get_model_small(*args, **kwargs)
+
+def get_model_full(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
               num_ship_actions=NUM_SHIP_ACTIONS,
               num_shipyard_actions=NUM_SHIPYARD_ACTIONS,
               input_padding=((PADDING_LEFT_TOP, PADDING_RIGHT_BOTTOM),
@@ -163,6 +167,146 @@ def get_model(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
   # model = keras.Model(inputs, outputs=[ship_outputs])
   model = keras.Model(inputs, outputs=[ship_outputs, critic_outputs])
   return model
+
+def get_model_small(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
+              num_ship_actions=NUM_SHIP_ACTIONS,
+              num_shipyard_actions=NUM_SHIPYARD_ACTIONS,
+              input_padding=((PADDING_LEFT_TOP, PADDING_RIGHT_BOTTOM),
+                             (PADDING_LEFT_TOP, PADDING_RIGHT_BOTTOM))):
+  import keras
+  from keras import layers
+  from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Dropout, UpSampling2D, concatenate, Flatten
+  from keras.regularizers import l2
+
+  inputs = layers.Input(shape=input_shape)
+  x = layers.ZeroPadding2D(input_padding)(inputs)
+  x = layers.SeparableConv2D(64, 1, strides=1, padding="same", activation='relu',
+                             kernel_initializer='he_normal')(x)
+  first_layer_output = x
+
+  conv1 = layers.SeparableConv2D(64,
+                 3,
+                 activation='relu',
+                 padding='same',
+                 kernel_initializer='he_normal')(x)
+  conv1 = layers.SeparableConv2D(64,
+                 3,
+                 activation='relu',
+                 padding='same',
+                 kernel_initializer='he_normal')(conv1)
+  conv1 = layers.BatchNormalization()(conv1)
+  pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+  conv2 = layers.SeparableConv2D(128,
+                 3,
+                 activation='relu',
+                 padding='same',
+                 kernel_initializer='he_normal')(pool1)
+  conv2 = layers.SeparableConv2D(128,
+                 3,
+                 activation='relu',
+                 padding='same',
+                 kernel_initializer='he_normal')(conv2)
+  conv2 = layers.BatchNormalization()(conv2)
+  pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+  pool3 = pool2
+  # conv3 = layers.SeparableConv2D(256,
+                 # 3,
+                 # activation='relu',
+                 # padding='same',
+                 # kernel_initializer='he_normal')(pool2)
+  # conv3 = layers.SeparableConv2D(256,
+                 # 3,
+                 # activation='relu',
+                 # padding='same',
+                 # kernel_initializer='he_normal')(conv3)
+  # conv3 = layers.BatchNormalization()(conv3)
+  # pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
+
+  def decoder(input_tensor):
+    # up7 = layers.SeparableConv2D(256, 2, activation = 'relu', padding = 'same', kernel_initializer = 'he_normal')(UpSampling2D(size = (2,2))(conv6))
+    # up7 = layers.SeparableConv2D(256,
+                 # 2,
+                 # activation='relu',
+                 # padding='same',
+                 # kernel_initializer='he_normal')(
+                     # UpSampling2D(size=(2, 2))(input_tensor))
+
+    # merge7 = concatenate([conv3, up7], axis=3)
+    # conv7 = layers.SeparableConv2D(256,
+                   # 3,
+                   # activation='relu',
+                   # padding='same',
+                   # kernel_initializer='he_normal')(merge7)
+    # conv7 = layers.SeparableConv2D(256,
+                   # 3,
+                   # activation='relu',
+                   # padding='same',
+                   # kernel_initializer='he_normal')(conv7)
+    # conv7 = layers.BatchNormalization()(conv7)
+    conv7 = input_tensor
+
+    up8 = layers.SeparableConv2D(128,
+                 2,
+                 activation='relu',
+                 padding='same',
+                 kernel_initializer='he_normal')(UpSampling2D(size=(2,
+                                                                    2))(conv7))
+    merge8 = concatenate([conv2, up8], axis=3)
+    conv8 = layers.SeparableConv2D(128,
+                   3,
+                   activation='relu',
+                   padding='same',
+                   kernel_initializer='he_normal')(merge8)
+    conv8 = layers.SeparableConv2D(128,
+                   3,
+                   activation='relu',
+                   padding='same',
+                   kernel_initializer='he_normal')(conv8)
+    conv8 = layers.BatchNormalization()(conv8)
+
+    up9 = layers.SeparableConv2D(64,
+                 2,
+                 activation='relu',
+                 padding='same',
+                 kernel_initializer='he_normal')(UpSampling2D(size=(2,
+                                                                    2))(conv8))
+    merge9 = concatenate([conv1, up9], axis=3)
+    conv9 = layers.SeparableConv2D(64,
+                   3,
+                   activation='relu',
+                   padding='same',
+                   kernel_initializer='he_normal')(merge9)
+    conv9 = layers.SeparableConv2D(64,
+                   3,
+                   activation='relu',
+                   padding='same',
+                   kernel_initializer='he_normal')(conv9)
+    conv9 = layers.BatchNormalization()(conv9)
+
+
+    merge10 = concatenate([conv9, first_layer_output], axis=3)
+    conv10 = layers.SeparableConv2D(64, 3, activation="relu",
+                                            kernel_initializer='he_normal',
+                                            padding="same")(merge10)
+    conv10 = layers.SeparableConv2D(64, 3, activation="relu",
+                                            kernel_initializer='he_normal',
+                                            padding="same")(conv10)
+    conv10 = layers.BatchNormalization()(conv10)
+    return conv10
+    # return layers.Cropping2D(input_padding)(conv9)
+
+  ship_outputs = layers.SeparableConv2D(num_ship_actions, 3,
+                                        activation="softmax", padding="same",
+                        kernel_initializer = 'he_normal')(decoder(pool3))
+  ship_outputs = layers.Cropping2D(input_padding, name="ship_crop")(ship_outputs)
+
+  critic_outputs = layers.SeparableConv2D(1, 3, activation="linear",
+                                          padding="same")(decoder(pool3))
+
+  critic_outputs = layers.Cropping2D(input_padding, name="critic_crop")(critic_outputs)
+  model = keras.Model(inputs, outputs=[ship_outputs, critic_outputs])
+  return model
+
 
 
 def get_model_simple(input_shape=(BOARD_SIZE, BOARD_SIZE, 7),

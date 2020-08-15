@@ -93,7 +93,6 @@ class EventBoard(Board):
     if delta_halite > 0:
       MOVE_COST_RATE = 0.05
       r = delta_halite * MOVE_COST_RATE
-      # r = delta_halite * 0.03
       self.add_ship_reward(ship, r)
 
     COLLECT_DISCOUNT = 0
@@ -182,7 +181,7 @@ class EventBoard(Board):
   def on_ship_win_collision(self, ship, total_winning_halite,
                             total_destroied_ship):
     COLLISION_DISCOUNT = 0.1
-    r = total_winning_halite  * COLLISION_DISCOUNT
+    r = total_winning_halite * COLLISION_DISCOUNT
     self.add_ship_reward(ship, r)
 
     r = 0

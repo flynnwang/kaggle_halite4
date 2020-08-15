@@ -1,6 +1,6 @@
 # from matrix_v0 import get_model
 
-MODEL_PATH = "/home/wangfei/data/20200801_halite/model/unet_test9x9_v2"
+MODEL_PATH = "/home/wangfei/data/20200801_halite/model/unet_test9x9_v3"
 
 
 # model = get_model()
