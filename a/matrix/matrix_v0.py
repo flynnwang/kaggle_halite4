@@ -595,7 +595,8 @@ class ShipStrategy(StrategyBase):
       return
 
     # first ship is not born from shipyard
-    ships = sorted(self.me.ships, key=lambda s: self.ship_return_step.get(s.id, 0))
+    # ships = sorted(self.me.ships, key=lambda s: self.ship_return_step.get(s.id, 0))
+    ships = random.shuffle(self.me.ships)
     has_shipyard = len(self.me.shipyard_ids) > 0
 
     halite = self.me.halite
@@ -610,17 +611,17 @@ class ShipStrategy(StrategyBase):
       # Punish ship not return.
       ship_age = self.board.step - self.ship_return_step[ship.id]
       # print(F'ship[{ship.id}], cargo={ship.halite} age={ship_age}')
-      if (has_shipyard and len(self.me.shipyard_ids) < MAX_SHIPYARD_NUM
-          and ship.halite >= 3000
-          and ship_age >= MAX_SHIP_AGE):
-        ship.next_action = ShipAction.CONVERT
-        halite -= self.c.convert_cost
-        continue
+      # if (has_shipyard and len(self.me.shipyard_ids) < MAX_SHIPYARD_NUM
+          # and ship.halite >= 3000
+          # and ship_age >= MAX_SHIP_AGE):
+        # ship.next_action = ShipAction.CONVERT
+        # halite -= self.c.convert_cost
+        # continue
 
     self.me._halite = halite
 
   def spawn_ships(self):
-    MAX_SHIP_NUM = 3
+    MAX_SHIP_NUM = 4
     # TODO(wangfei): stop spawn when step > XXX
     if len(self.me.ship_ids) >= MAX_SHIP_NUM:
       return

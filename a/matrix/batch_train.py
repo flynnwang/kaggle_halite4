@@ -9,7 +9,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"]="3"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
-NUM_TRAIN_PROCESSES = 16
+NUM_TRAIN_PROCESSES = 8
 
 def scan_for_replays(episode_dir):
   finished_count = 0

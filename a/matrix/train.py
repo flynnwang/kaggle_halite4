@@ -55,9 +55,6 @@ def axis_manhattan_dists(a: Point, b: Point, size):
 
 
 def manhattan_dist(a: Point, b: Point, size):
-  if MANHATTAN_DISTS:
-    return MANHATTAN_DISTS[a.x * size + a.y][b.x * size + b.y]
-
   dist_x, dist_y = axis_manhattan_dists(a, b, size)
   return dist_x + dist_y
 
@@ -101,7 +98,7 @@ class EventBoard(Board):
 
   @is_current_player
   def on_ship_deposite(self, ship, shipyard):
-    deposite = min(ship.halite, 3000)
+    deposite = min(ship.halite, 500)
     if deposite > 0:
       self.add_ship_reward(ship, deposite)
 
@@ -113,8 +110,9 @@ class EventBoard(Board):
   @is_current_player
   def on_ship_collect(self, ship, delta_halite):
     if delta_halite > 0:
-      MOVE_COST_RATE = 0.05
-      r = delta_halite * MOVE_COST_RATE
+      # MOVE_COST_RATE = 0.05
+      # r = delta_halite * MOVE_COST_RATE
+      r = 1
       self.add_ship_reward(ship, r)
 
     COLLECT_DISCOUNT = 0
@@ -170,7 +168,7 @@ class EventBoard(Board):
     # TODO(wangfei): add nearby ships for penalty.
     r = -(self.configuration.spawn_cost + self.configuration.convert_cost)
     for s in self.current_player.ships:
-      if manhattan_dist(s.position, shipyard.position) <= MAX_SHIPYARD_BLAME_DIST:
+      if manhattan_dist(s.position, shipyard.position, self.configuration.size) <= MAX_SHIPYARD_BLAME_DIST:
         self.add_ship_reward(s, r)
 
     r = -(self.configuration.spawn_cost + self.configuration.convert_cost)
@@ -506,7 +504,7 @@ def compute_ship_advantages(boards, critic_values, gamma=0.99, lmbda=0.95):
 
     # Generalized Advantage Estimation
     returns = np.zeros(len(boards), dtype=np.float32)
-    rewards = ship_rewards[k] / (HALITE_NORMALIZTION_VAL * 2)
+    rewards = ship_rewards[k] / HALITE_NORMALIZTION_VAL
     values = ship_values[k]
 
     start, end = ship_life_time[k]
