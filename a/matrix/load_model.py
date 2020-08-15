@@ -1,6 +1,10 @@
 # from matrix_v0 import get_model
 
-MODEL_PATH = "/home/ubuntu/data/20200801_halite/model/unet_test9x9_v8"
+import getpass
+
+USER = getpass.getuser()
+
+MODEL_PATH = "/home/%s/data/20200801_halite/model/unet_test9x9_v8" % (USER)
 
 
 # model = get_model()

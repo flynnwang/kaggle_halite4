@@ -28,7 +28,6 @@ SHIP_ACTIONS = [a for a in list(ShipAction) if a != ShipAction.CONVERT] + [None]
 NUM_SHIP_ACTIONS = len(SHIP_ACTIONS)
 
 
-# MODEL_PATH = '/data/wangfei/data/202007_halite/unet.h5'
 MODEL_PATH = '/home/wangfei/data/20200801_halite/model/unet.h5'
 
 PADDING_LEFT_TOP = (32 - BOARD_SIZE) // 2
@@ -51,7 +50,7 @@ def get_model_full(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
 
   inputs = layers.Input(shape=input_shape)
   x = layers.ZeroPadding2D(input_padding)(inputs)
-  x = layers.Conv2D(32, 1, strides=1, padding="same")(x)
+  x = layers.Conv2D(128, 1, strides=1, padding="same")(x)
   x = layers.BatchNormalization()(x)
   x = layers.Activation("relu")(x)
 
@@ -183,6 +182,9 @@ def get_model_small(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
 
   inputs = layers.Input(shape=input_shape)
   x = layers.ZeroPadding2D(input_padding)(inputs)
+  x = layers.Conv2D(128, 1, strides=1, padding="same", kernel_initializer='he_normal')(x)
+  x = layers.BatchNormalization()(x)
+  x = layers.Activation("relu")(x)
 
   conv1 = layers.SeparableConv2D(64,
                  3,
@@ -299,23 +301,22 @@ def get_model_small(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
 
 
 
-def get_model_simple(input_shape=(BOARD_SIZE, BOARD_SIZE, 7),
+def get_model_simple(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
               num_ship_actions=NUM_SHIP_ACTIONS,
-              num_shipyard_actions=NUM_SHIPYARD_ACTIONS):
+              num_shipyard_actions=NUM_SHIPYARD_ACTIONS,
+              input_padding=((PADDING_LEFT_TOP, PADDING_RIGHT_BOTTOM),
+                             (PADDING_LEFT_TOP, PADDING_RIGHT_BOTTOM))):
   import keras
   from keras import layers
   from keras.regularizers import l2
 
   inputs = layers.Input(shape=input_shape)
-
-  # ((top_pad, bottom_pad), (left_pad, right_pad))
-  input_padding = ((5, 6), (5, 6))
   x = layers.ZeroPadding2D(input_padding)(inputs)
 
   ### [First half of the network: downsampling inputs] ###
 
   # Entry block
-  x = layers.Conv2D(32, 3, strides=2, padding="same")(x)
+  x = layers.Conv2D(32, 1, strides=2, padding="same")(x)
   x = layers.BatchNormalization()(x)
   x = layers.Activation("relu")(x)
 

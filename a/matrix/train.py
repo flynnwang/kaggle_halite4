@@ -162,7 +162,6 @@ class EventBoard(Board):
   @is_current_player
   def on_shipyard_destroid_by_ship(self, shipyard, ship):
     MAX_SHIPYARD_BLAME_DIST = 6
-    # TODO(wangfei): add nearby ships for penalty.
     r = -self.configuration.convert_cost
     for s in self.current_player.ships:
       if manhattan_dist(s.position, shipyard.position, self.configuration.size) <= MAX_SHIPYARD_BLAME_DIST:
