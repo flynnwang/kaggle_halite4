@@ -125,7 +125,6 @@ def train_on_replays(model_dir, replay_jsons, norm_params, log_lines, trainer):
     all_grads_list.extend(grads_list)
 
   def apply_grad(grads_list):
-    trainer = train.Trainer(None, model_dir)
     for i, grads in enumerate(grads_list):
       trainer.apply_grad(grads)
       print("apply grad at %s" % i)
@@ -167,7 +166,7 @@ def run(episode_dir, model_dir, batch, epsilon, args):
     print("All episodes generation finished: ", batch_dir)
 
     run_train(batch_dir, model_dir, trainer)
-    trainer.on_batch_finished()
+    epsilon *= epsilon_decay
 
 
 
