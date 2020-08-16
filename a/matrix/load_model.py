@@ -4,7 +4,7 @@ import getpass
 
 USER = getpass.getuser()
 
-MODEL_PATH = "/home/%s/data/20200801_halite/model/unet_test9x9_v8" % (USER)
+MODEL_PATH = "/home/%s/data/20200801_halite/model/unet_test9x9_v9" % (USER)
 
 
 # model = get_model()

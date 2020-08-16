@@ -560,7 +560,7 @@ class Trainer:
 
     mean, std = self.normalization_params
     def normalize(d):
-      return {k: (v - mean) / (std + EPS) for k, v in d.items()}
+      return {k: (v - mean) / (std * 2 + EPS) for k, v in d.items()}
 
     ship_advantages = normalize(ship_advantages)
 
@@ -605,7 +605,7 @@ class Trainer:
           if d < -threshold:
             n_neg += 1
 
-          if random.random() < 0.02:
+          if random.random() < 0.01:
             print("prob=%.5f, a=%s, adv=%.5f, ret=%.5f, critic=%.5f, critic_loss=%.5f, entropy=%.5f"
                   % (prob.numpy(), a, adv, ret, critic.numpy(),
                      critic_loss.numpy(), entropy.numpy()))

@@ -131,7 +131,7 @@ def get_keras_unet(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
 
   ### [First half of the network: downsampling inputs] ###
   # Entry block
-  x = layers.Conv2D(64, 1, strides=1, padding="same")(x)
+  x = layers.Conv2D(64, 1, strides=1, padding="same", kernel_initializer='he_normal')(x)
   x = layers.BatchNormalization()(x)
   x = layers.Activation("relu")(x)
 
@@ -141,17 +141,17 @@ def get_keras_unet(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
   for filters in [64, 128]:
   # for filters in [64, 128, 256]:
     x = layers.Activation("relu")(x)
-    x = layers.SeparableConv2D(filters, 3, padding="same")(x)
+    x = layers.SeparableConv2D(filters, 3, padding="same", kernel_initializer='he_normal')(x)
     x = layers.BatchNormalization()(x)
 
     x = layers.Activation("relu")(x)
-    x = layers.SeparableConv2D(filters, 3, padding="same")(x)
+    x = layers.SeparableConv2D(filters, 3, padding="same", kernel_initializer='he_normal')(x)
     x = layers.BatchNormalization()(x)
 
     x = layers.MaxPooling2D(3, strides=2, padding="same")(x)
 
     # Project residual
-    residual = layers.Conv2D(filters, 1, strides=2, padding="same")(
+    residual = layers.Conv2D(filters, 1, strides=2, padding="same", kernel_initializer='he_normal')(
       previous_block_activation
     )
     x = layers.add([x, residual])  # Add back residual
@@ -164,18 +164,18 @@ def get_keras_unet(input_shape=(BOARD_SIZE, BOARD_SIZE, 8),
     # for filters in [256, 128, 64, 32]:
     for filters in [128, 64]:
       x = layers.Activation("relu")(x)
-      x = layers.Conv2DTranspose(filters, 3, padding="same")(x)
+      x = layers.Conv2DTranspose(filters, 3, padding="same", kernel_initializer='he_normal')(x)
       x = layers.BatchNormalization()(x)
 
       x = layers.Activation("relu")(x)
-      x = layers.Conv2DTranspose(filters, 3, padding="same")(x)
+      x = layers.Conv2DTranspose(filters, 3, padding="same", kernel_initializer='he_normal')(x)
       x = layers.BatchNormalization()(x)
 
       x = layers.UpSampling2D(2)(x)
 
       # Project residual
       residual = layers.UpSampling2D(2)(previous_block_activation)
-      residual = layers.Conv2D(filters, 1, padding="same")(residual)
+      residual = layers.Conv2D(filters, 1, padding="same", kernel_initializer='he_normal')(residual)
       x = layers.add([x, residual])  # Add back residual
       previous_block_activation = x  # Set aside next residual
     return layers.Cropping2D(input_padding)(x)
