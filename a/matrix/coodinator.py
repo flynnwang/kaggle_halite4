@@ -44,7 +44,7 @@ def main():
   parser.add_argument('--episode_steps', type=int, default=200)
   parser.add_argument('--batch_size', type=int, default=24)
   parser.add_argument('--num_players', type=int, default=4)
-  parser.add_argument('-t', '--train_process_num', required=True, default=3)
+  parser.add_argument('-t', '--train_process_num', required=True, default=3, type=int)
 
   args = parser.parse_args()
   run(args.episode_dir, args.model_dir, args.batch,

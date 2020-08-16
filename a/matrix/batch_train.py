@@ -162,7 +162,7 @@ def main():
   parser = argparse.ArgumentParser()
   parser.add_argument('-e', '--episode_dir', required=True)
   parser.add_argument('-m', '--model_dir', required=True)
-  parser.add_argument('-t', '--train_process_num', required=True, default=3)
+  parser.add_argument('-t', '--train_process_num', required=True, default=3, type=int)
   args = parser.parse_args()
   run_train(args.episode_dir, args.model_dir, args)
 
