@@ -4,10 +4,10 @@ v4_5_0 <- v4_2_1
 
 More ship, more aggresive.
 
-* Lower home cell halite to 80 for more ships
+* Lower home cell halite to 100 for more ships
 * Be aggresive when grow home halite.
-
-
+* Do not guard if nearer than enemy
+* convert to shipyard threshold 240
 """
 
 import random
@@ -1403,7 +1403,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
-    CHECK_TRAP_DIST = 7
+    CHECK_TRAP_DIST = 3
     enemy_gradient = self.gradient_map.get_full_map_enemy_gradient(min_halite=10)
     for poi_idx, cell in enumerate(halites):
       for ship_idx, ship in enumerate(ships):

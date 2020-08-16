@@ -1402,7 +1402,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
-    CHECK_TRAP_DIST = 4
+    CHECK_TRAP_DIST = 3
     enemy_gradient = self.gradient_map.get_full_map_enemy_gradient(min_halite=10)
     for poi_idx, cell in enumerate(halites):
       for ship_idx, ship in enumerate(ships):
