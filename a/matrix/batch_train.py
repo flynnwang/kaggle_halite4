@@ -9,7 +9,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"]="3"
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
-NUM_TRAIN_PROCESSES = 8
+NUM_TRAIN_PROCESSES = 3
 
 def scan_for_replays(episode_dir):
   finished_count = 0
@@ -56,8 +56,9 @@ def train_on_replays_multiprocessing(model_dir, replay_jsons, norm_params, log_l
       all_grads_list.extend(grads_list)
 
   def apply_grad(grads_list):
+    print("Applying gradients...")
     import train
-    trainer = train.Trainer(None, model_dir)
+    trainer = train.Trainer(None, model_dir, apply_grad=True)
     for i, grads in enumerate(grads_list):
       trainer.apply_grad(grads)
       print("apply grad at %s" % i)

@@ -526,7 +526,8 @@ class Trainer:
   BORRD_POSITIONS = [Point(i, j) for i in range(BOARD_SIZE)
                      for j in range(BOARD_SIZE)]
 
-  def __init__(self, model, model_dir, normalization_params=None):
+  def __init__(self, model, model_dir, normalization_params=None,
+               apply_grad=False):
     self.model = model
     if self.model is None:
       import matrix_v0
@@ -534,17 +535,21 @@ class Trainer:
     assert self.model
 
     self.normalization_params = normalization_params
-    self.optimizer = keras.optimizers.Adam(learning_rate=3e-4)
-    # self.huber_loss = tf.keras.losses.Huber(reduction=tf.keras.losses.Reduction.SUM)
+    self.optimizer = keras.optimizers.Adam(learning_rate=1e-4)
     self.huber_loss = tf.keras.losses.Huber()
 
     if model_dir:
-      self.checkpoint = tf.train.Checkpoint(step=tf.Variable(0), model=self.model)
+      self.checkpoint = tf.train.Checkpoint(step=tf.Variable(0),
+                                            model=self.model,
+                                            adam=self.optimizer)
       self.manager = tf.train.CheckpointManager(self.checkpoint,
                                                 model_dir,
                                                 max_to_keep=100)
       # Load existing model if it exists.
-      self.checkpoint.restore(self.manager.latest_checkpoint)
+      r = self.checkpoint.restore(self.manager.latest_checkpoint)
+      if not apply_grad:
+        r.expect_partial()
+
       if self.manager.latest_checkpoint:
         print("Restored from {}".format(self.manager.latest_checkpoint))
       else:
@@ -657,7 +662,7 @@ class Trainer:
       loss = (ship_actor_loss * SHIP_ACTOR_LOSS_WEIGHT + ship_critic_loss * CRITIC_LOSS_WT
               + ENTROPY_LOSS_WEIGHT * ship_entropy_loss)
       gradients, global_norm = tf.clip_by_global_norm(tape.gradient(loss, self.model.trainable_variables),
-                                                      200)
+                                                      500)
 
       board = boards[-1]
       deposite_pct = board.total_deposite / (board.total_collect + EPS) * 100
@@ -680,6 +685,7 @@ class Trainer:
     self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
 
   def on_batch_finished(self):
+    print("On batch finished")
     self.checkpoint.step.assign_add(1)
     save_path = self.manager.save()
     print("Saved checkpoint for step {}: {}".format(int(self.checkpoint.step), save_path))
