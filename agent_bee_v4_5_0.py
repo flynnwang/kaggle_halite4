@@ -1,41 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-v4_2_1 <- v4_2_0
+v4_5_0 <- v4_2_1
 
-* convert ship to shipyard when trapped.
-* Reduce bomb to dist 4 and 16 ship
-* Check enemy gradient (check=6, dist=4, min_halite=10) for halite.
+More ship, more aggresive.
 
-
-* Check enemy gradient (check=6, dist=4, min_halite=10) for halite.
- Total Matches: 354 | Matches Queued: 53
- bee v4.2.1                     | 1S4mJORIwdgl   | 30.9798881      | μ=33.440, σ=0.820  | 204
- bee v4.0.1                     | Ht3my7F5oK2n   | 25.4408046      | μ=27.599, σ=0.720  | 215
- tom v1.0.0                     | m97LmgSMESua   | 25.3773438      | μ=27.523, σ=0.715  | 209
- bee v1.8                       | YC0cB3EoApcd   | 21.1298893      | μ=23.216, σ=0.695  | 231
- optimus_mining                 | MlSDbDoSX64O   | 16.3084034      | μ=18.489, σ=0.727  | 266
- c40                            | OvVx8YqmTmp0   | 14.7150721      | μ=16.918, σ=0.734  | 291
-
-* Check enemy gradient (check=7, dist=4, min_halite=10) for halite.
-Tournament - ID: LomwnA, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: 7puo42, Name: Halite 4 Dimension
-Status: running | Competitors: 6 | Rank System: trueskill
-
-Total Matches: 275 | Matches Queued: 13
-bee v4.2.1                     | NB1030k6ZqRG   | 31.7453858      | μ=34.375, σ=0.876  | 147
-tom v1.0.0                     | TM8XlwBuCrcj   | 25.7093510      | μ=27.925, σ=0.739  | 165
-bee v4.0.1                     | Ua1YcHUAVTts   | 25.1451353      | μ=27.334, σ=0.730  | 158
-bee v1.8                       | H1xHUyEzL6DC   | 21.1063021      | μ=23.222, σ=0.705  | 196
-optimus_mining                 | eYAH3MriGVX9   | 15.5424968      | μ=17.728, σ=0.729  | 215
-c40                            | O8e4PQL9Fe0F   | 14.7011287      | μ=16.901, σ=0.733  | 215
-
-Tournament - ID: NFO67B, Name: Your Halite 4 Trueskill Ladder | Dimension - ID: YopRrT, Name: Halite 4 Dimension
-Status: running | Competitors: 4 | Rank System: trueskill
-
-Total Matches: 522 | Matches Queued: 12
-bee v4.2.1                     | 6nYMBFOdVwW9   | 31.3746244      | μ=33.725, σ=0.783  | 522
-tom v1.0.0                     | Tqet7Pfgm3hT   | 26.5376284      | μ=28.701, σ=0.721  | 522
-bee v4.1.0                     | Fgrcizf6uwBT   | 22.6477974      | μ=24.887, σ=0.746  | 522
-optimus_mining                 | 1mGAxJxfVUGj   | 7.0448392       | μ=10.498, σ=1.151  | 522
+* 
 
 """
 
