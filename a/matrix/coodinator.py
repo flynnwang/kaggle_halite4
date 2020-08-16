@@ -26,7 +26,8 @@ def run(episode_dir, model_dir, batch, epsilon, episode_steps, batch_size, args)
     print("All episodes generation finished: ", batch_dir)
 
     subprocess.check_call(["python3", "batch_train.py", "-e", batch_dir,
-                           '-m', model_dir])
+                           '-m', model_dir,
+                           '--train_process_num', str(args.train_process_num)])
     print("One training batch finished: ", batch_dir)
     print("Step: %s, epsilon value: %s" % (b, epsilon))
 
@@ -43,6 +44,7 @@ def main():
   parser.add_argument('--episode_steps', type=int, default=200)
   parser.add_argument('--batch_size', type=int, default=24)
   parser.add_argument('--num_players', type=int, default=4)
+  parser.add_argument('-t', '--train_process_num', required=True, default=3)
 
   args = parser.parse_args()
   run(args.episode_dir, args.model_dir, args.batch,

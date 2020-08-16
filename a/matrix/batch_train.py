@@ -45,13 +45,13 @@ def compute_grad(args):
   return grads
 
 
-def train_on_replays_multiprocessing(model_dir, replay_jsons, norm_params, log_lines):
+def train_on_replays_multiprocessing(model_dir, replay_jsons, norm_params, log_lines, args):
   def gen_args(replay_jsons):
     for replay_json in replay_jsons:
       yield replay_json, model_dir, norm_params
 
   all_grads_list = []
-  with Pool(NUM_TRAIN_PROCESSES) as pool:
+  with Pool(args.train_process_num) as pool:
     for grads_list in pool.imap_unordered(compute_grad, gen_args(replay_jsons)):
       all_grads_list.extend(grads_list)
 
@@ -152,18 +152,19 @@ def get_normalization_params(model_dir, replays):
   return (a_mean, a_std), logs
 
 
-def run_train(episode_dir, model_dir):
+def run_train(episode_dir, model_dir, args):
   replays = list(scan_for_replays(episode_dir))
   norm_params, log_lines = get_normalization_params(model_dir, replays)
-  train_on_replays_multiprocessing(model_dir, replays, norm_params, log_lines)
+  train_on_replays_multiprocessing(model_dir, replays, norm_params, log_lines, args)
 
 
 def main():
   parser = argparse.ArgumentParser()
   parser.add_argument('-e', '--episode_dir', required=True)
   parser.add_argument('-m', '--model_dir', required=True)
+  parser.add_argument('-t', '--train_process_num', required=True, default=3)
   args = parser.parse_args()
-  run_train(args.episode_dir, args.model_dir)
+  run_train(args.episode_dir, args.model_dir, args)
 
 
 if __name__ == "__main__":
