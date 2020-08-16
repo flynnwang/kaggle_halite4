@@ -656,6 +656,8 @@ class Trainer:
 
       # loss_regularization = tf.math.add_n(self.model.losses)
 
+      # ENTROPY_LOSS_WEIGHT = 1e-1
+      # SHIP_ACTOR_LOSS_WEIGHT = 1e-5
       ENTROPY_LOSS_WEIGHT = 1e-3
       SHIP_ACTOR_LOSS_WEIGHT = 1.0
       CRITIC_LOSS_WT = 1.0

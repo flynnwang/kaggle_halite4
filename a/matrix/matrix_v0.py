@@ -36,7 +36,8 @@ NUM_LAYERS = 8
 
 
 def get_model(*args, **kwargs):
-  return get_keras_unet(*args, **kwargs)
+  # return get_keras_unet(*args, **kwargs)
+  return get_unet_model(*args, **kwargs)
 
 
 import keras
