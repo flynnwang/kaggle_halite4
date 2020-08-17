@@ -2,7 +2,14 @@
 """
 v4_6_0 <- v4_5_2
 
-DEtect
+* Do not back off when ship num >= 18
+
+rhythm v4.6.0                  | uONNZyG4IqI6   | 29.8504040      | μ=34.569, σ=1.573  | 27
+bee v4.2.1                     | SD9iTCRx6E22   | 27.9099429      | μ=32.660, σ=1.583  | 20
+bee v4.1.1                     | dR6yV0AtOibY   | 26.2691519      | μ=30.516, σ=1.415  | 26
+tom v1.0.0                     | BFzu67t4Z1or   | 24.5282656      | μ=28.541, σ=1.338  | 29
+optimus_mining                 | D4zXlwe3aGj1   | 13.1156748      | μ=16.902, σ=1.262  | 38
+c40                            | nPZqLLl6yWAl   | 9.6844641       | μ=13.829, σ=1.382  | 36
 
 """
 
@@ -1084,8 +1091,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
         # enemy.halite == ship.halite
         assert enemy.halite == ship.halite
-        if ship.halite > 0:
+        if ship.halite >= 5:
           return True
+
+        if self.num_ships >= 18:
+          return False
 
         if avoid_collision:
           return True
