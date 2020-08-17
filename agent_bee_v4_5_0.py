@@ -8,6 +8,12 @@ More ship, more aggresive.
 * Be aggresive when grow home halite.
 * Do not guard if nearer than enemy
 * convert to shipyard threshold 240
+
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+rhythm v4.5.0                  | eBF8jeSaTczV   | 29.6968947      | μ=31.890, σ=0.731  | 3455
+bee v4.1.2                     | nun8rG4UO4eH   | 25.8674926      | μ=27.984, σ=0.705  | 3455
+tom v1.0.0                     | MqZToBccPxAw   | 24.0569561      | μ=26.189, σ=0.711  | 3455
+optimus_mining                 | 1NuXZuzYRaaa   | 8.8080811       | μ=12.234, σ=1.142  | 3455
 """
 
 import random
