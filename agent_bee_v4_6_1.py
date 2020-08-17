@@ -2,7 +2,7 @@
 """
 v4_6_1 <- v4_6_0
 
-* Do not back off for one-step away case when ship num >= 18
+* Do not avoid collision for the enemy two steps away.
 
 """
 
@@ -1082,17 +1082,18 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         elif ship.halite > enemy.halite:
           return True
 
-        # enemy.halite == ship.halite
         assert enemy.halite == ship.halite
         if ship.halite >= 5:
           return True
 
-        if self.num_ships >= 18:
-          return False
-
+        # Wait for enemy back-off.
         if avoid_collision:
           return True
-        return random.random() < AVOID_COLLIDE_RATIO
+
+        # Do not avoid collision for the enemy two steps away.
+        if self.num_ships >= 18:
+          return False
+        return True
 
 
       # If there is an enemy in next_position with lower halite
@@ -1101,7 +1102,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if (ship.task_type == ShipTask.ATTACK_SHIPYARD and
             next_cell.position == target_cell.position):
           pass
-        elif move_away_from_enemy(next_cell.ship, ship):
+        elif move_away_from_enemy(next_cell.ship, ship, avoid_collision=True):
           wt -= (spawn_cost + ship.halite)
 
       # If there is an enemy in neighbor next_position with lower halite
