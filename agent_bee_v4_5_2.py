@@ -2,7 +2,8 @@
 """
 v4_5_2 <- v4_5_0
 
-
+* Turn on aggresive mode with least ship num.
+* Revert collision avoid logic.
 
 """
 
@@ -40,7 +41,7 @@ TIGHT_ENEMY_SHIP_DEFEND_DIST = 5
 LOOSE_ENEMY_SHIP_DEFEND_DIST = 7
 AVOID_COLLIDE_RATIO = 0.95
 
-HOME_YARD_COVER_DIST = 3
+HOME_YARD_COVER_DIST = 2
 
 # Threshod used to send bomb to enemy shipyard
 
@@ -615,7 +616,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return Stage.SAVING
 
     ROUND_STEP_NUM = 30
-    GROW_HALITE_STEP_IN_ROUND = 20
+    GROW_HALITE_STEP_IN_ROUND = 10
 
     step -= BEGINNING_PHRASE_END_STEP
     round_id = step // ROUND_STEP_NUM
@@ -650,16 +651,27 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.gradient_map.update(board)
 
   def init_halite_cells(self):
-    HOME_GROWN_CELL_MIN_HALITE = 100
+    HOME_GROWN_CELL_MIN_HALITE = 80
 
     def home_cell_halite_value(cell):
-        if self.stage == Stage.HARVEST:
-          return HOME_GROWN_CELL_MIN_HALITE
+      stage_factor = 1.0
+      # if self.stage == Stage.GROW_HALITE and self.num_ships >= 20:
+        # stage_factor = 1.1
+      if self.stage == Stage.SAVING:
+        stage_factor = 1.1
 
-        num_covered = len(cell.convering_shipyards)
-        keep_factor = self.num_ships / 12 + num_covered / 2
-        keep_halite = HOME_GROWN_CELL_MIN_HALITE * keep_factor
-        return keep_halite
+      num_covered = len(cell.convering_shipyards)
+      cover_factor = num_covered / 3
+
+      ship_factor = self.num_ships / 10
+      keep_halite = HOME_GROWN_CELL_MIN_HALITE * (ship_factor + cover_factor)
+      keep_halite *= stage_factor
+
+      # if self.stage == Stage.HARVEST:
+        # keep_halite = HOME_GROWN_CELL_MIN_HALITE
+
+      keep_halite = max(keep_halite, HOME_YARD_COVER_DIST)
+      return keep_halite
 
     def is_home_grown_cell(cell):
       num_covered = len(cell.convering_shipyards)
@@ -818,7 +830,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     AXIS_DIST_RANGE1 = range(3, 5 + 1)
     AXIS_DIST_RANGE2 = range(1, 5 + 1)
     MAX_SHIP_TO_SHIPYARD_DIST = 8
-    HALITE_CELL_PER_SHIP = 2.5 if self.is_beginning_phrase else 2.8
+    HALITE_CELL_PER_SHIP = 2.5 if self.is_beginning_phrase else 2.9
 
     self.halite_ratio = -1
     # No ship left.
@@ -1020,8 +1032,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       dist = manhattan_dist(next_position, target_cell.position, self.c.size)
       ship_dist = self.manhattan_dist(ship, target_cell)
       wt = ship_dist - dist
-      if (ship.task_type == ShipTask.STAY and ship.position == next_position):
-        wt -= 10
+      # if (ship.task_type == ShipTask.STAY and ship.position == next_position):
+        # wt -= 10
 
       # If collecting halite
       if ((ship.task_type == ShipTask.GOTO_HALITE or
@@ -1056,7 +1068,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         wt += convert_cost / (dist + 1)
         enemy = ship.target_enemy
         enemy_dist = manhattan_dist(next_position, enemy.position, self.c.size)
-        wt += enemy.halite / (enemy_dist + 1)
+        wt += (enemy.halite + enemy.cell.halite) / (enemy_dist + 1)
 
       if ship.task_type == ShipTask.GUARD_SHIPYARD:
         wt += 1 / (dist + 1)
@@ -1077,8 +1089,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return True
 
         if avoid_collision:
-          return random.random() < AVOID_COLLIDE_RATIO
-        return False
+          return True
+        return random.random() < AVOID_COLLIDE_RATIO
+
 
       # If there is an enemy in next_position with lower halite
       if has_enemy_ship(next_cell, self.me):
@@ -1271,7 +1284,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         '#%s' % self.step, 'halite(n=%s, mean=%s, std=%s)' %
         (len(self.halite_cells), int(
             self.mean_halite_value), int(self.std_halite_value)),
-        'home_halite=(d=%s, cover=%.0f%%, n=%s, m=%s, n/s=%.1f)' %
+        'home_halite=(d=%s, cover=%.0f%%, n=%s, m=%s, n/s=%.2f)' %
         (self.home_grown_cell_dist, self.num_home_halite_cells /
          len(self.halite_cells) * 100, self.num_home_halite_cells,
          int(self.mean_home_halite), self.halite_ratio))
@@ -1319,10 +1332,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * poi.halite)
     return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
-    # return total_halite / (ship_to_poi + opt_steps)
-
-    # total_halite = poi.halite + enemy_carry
-    # return total_halite / (ship_to_poi + 1)
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
@@ -1332,19 +1341,16 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     adjust = 0
     if self.num_ships >= 20:
-      adjust = 1
-    elif self.num_ships >= 27:
-      adjust = 2
-    elif self.num_ships >= 35:
-      adjust = 3
+      adjust += 1
     MAX_ATTACK_DIST = 3 + adjust
     MIN_ATTACK_QUADRANT_NUM = 3 - int(self.num_ships >= 35)
 
     # Be aggresive when grow halite.
     # if self.stage in (Stage.GROW_HALITE, Stage.SAVING):
     if self.stage in (Stage.GROW_HALITE, ):
-      MAX_ATTACK_DIST += 1
-      MIN_ATTACK_QUADRANT_NUM = max(1, MIN_ATTACK_QUADRANT_NUM-1)
+      if self.num_ships >= 17:
+        MIN_ATTACK_QUADRANT_NUM = max(1, MIN_ATTACK_QUADRANT_NUM-1)
+    MIN_ATTACK_QUADRANT_NUM = max(2, MIN_ATTACK_QUADRANT_NUM)
 
     def is_enemy_within_home_boundary(enemy):
       """1. Within distance of 2 of any shipyard
@@ -1363,9 +1369,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # Extra attack distance for enemy within home boundary.
       max_attack_dist = MAX_ATTACK_DIST
       if enemy.within_home_boundary:
-        max_attack_dist += 1
+        max_attack_dist = max(5, max_attack_dist + 1)
 
       for ship in self.my_idle_ships:
+        # Only send ship with no halite for attack enemy outside.
+        # if (self.stage == Stage.GROW_HALITE
+            # and (not enemy.within_home_boundary)
+            # and ship.halite >= 10):
+          # continue
         dist = self.manhattan_dist(ship, enemy)
         if dist <= max_attack_dist and ship.halite < enemy.halite:
           yield dist, ship
@@ -1390,8 +1401,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       # Reduce quadrant_num for home boundary enemy.
       min_attack_quadrant_num = MIN_ATTACK_QUADRANT_NUM
-      # if enemy.within_home_boundary:
-      # min_attack_quadrant_num -= 1
+      # if enemy.within_home_boundary and self.stage == Stage.GROW_HALITE:
+        # min_attack_quadrant_num -= 1
 
       if quadrant_num >= min_attack_quadrant_num:
         enemy.quadrant_num = quadrant_num
@@ -1399,7 +1410,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
-    CHECK_TRAP_DIST = 3
+    CHECK_TRAP_DIST = 4
     enemy_gradient = self.gradient_map.get_full_map_enemy_gradient(min_halite=10)
     for poi_idx, cell in enumerate(halites):
       for ship_idx, ship in enumerate(ships):
@@ -1480,6 +1491,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             # The ship is on a shipyard.
             v = 0
 
+          # Encourage ship to go home to prepare attack.
+          # if self.stage == Stage.GROW_HALITE:
+          if (self.stage == Stage.GROW_HALITE and ship_to_poi <= 3
+              and self.num_ships >= 17):
+            v *= 3
+
           # If have follower, let the followed ship back.
           if hasattr(ship, 'follower'):
             v += self.c.spawn_cost
@@ -1488,11 +1505,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           enemy = poi.ship
           v = MIN_WEIGHT  # not exists edge.
           if (ship.id, enemy.id) in attack_pairs:
-            # Discount: 4=0.8, 3=0.6, 2=0.4, 1=0.2
-            # discount = enemy.quadrant_num * 0.2
-            # discount = 0.5
-            v = (self.c.spawn_cost + enemy.halite + ship.halite) / ship_to_poi
-            # v = (self.c.spawn_cost + enemy.halite + ship.halite) * (ship_to_poi / 2)
+            v = (self.c.spawn_cost + enemy.halite + enemy.cell.halite) / ship_to_poi
         else:
           # If shipyard is offended.
           yard = poi.shipyard
