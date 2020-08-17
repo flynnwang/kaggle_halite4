@@ -5,6 +5,13 @@ v4_5_2 <- v4_5_0
 * Turn on aggresive mode with least ship num.
 * Revert collision avoid logic.
 
+Total Matches: 206 | Matches Queued: 16
+bee v4.2.1                     | m6fLh8xFHvOE   | 34.5105458      | μ=37.032, σ=0.841  | 126
+rhythm v4.5.2                  | uQhDZtFulJrc   | 30.6580482      | μ=33.030, σ=0.791  | 113
+bee v4.1.1                     | zHbBEG6dEhYO   | 30.3265672      | μ=32.667, σ=0.780  | 122
+tom v1.0.0                     | JAS3fFKCv9CD   | 26.3787221      | μ=28.718, σ=0.780  | 141
+optimus_mining                 | 4uhwitjFzgzV   | 13.6799840      | μ=16.203, σ=0.841  | 159
+c40                            | MFD4iAd0zpGs   | 12.1984322      | μ=14.778, σ=0.860  | 163
 """
 
 import random
