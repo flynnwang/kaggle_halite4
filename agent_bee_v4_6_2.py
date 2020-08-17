@@ -2,8 +2,17 @@
 """
 v4_6_2 <- v4_6_1
 
-* GROW_HALITE stage steps = 17
+15 steps is too much, not submit.
 
+* GROW_HALITE stage steps = 15
+
+Total Matches: 42 | Matches Queued: 12
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+rhythm v4.6.2                  | K7ccHHpuOIxA   | 26.1002533      | μ=29.518, σ=1.139  | 33
+bee v4.2.1                     | uURcL37mery0   | 25.8723630      | μ=29.465, σ=1.198  | 30
+tom v1.0.0                     | nzlX0JAwR0QA   | 24.1934078      | μ=27.637, σ=1.148  | 30
+bee v4.1.1                     | wnCub0pW91Tp   | 23.2649022      | μ=26.616, σ=1.117  | 33
+optimus_mining                 | yl7CwptHnYIw   | -0.2092762      | μ=8.267 , σ=2.825  | 42
 """
 
 import random
@@ -615,7 +624,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return Stage.SAVING
 
     ROUND_STEP_NUM = 30
-    GROW_HALITE_STEP_IN_ROUND = 17
+    GROW_HALITE_STEP_IN_ROUND = 15
 
     step -= BEGINNING_PHRASE_END_STEP
     round_id = step // ROUND_STEP_NUM
