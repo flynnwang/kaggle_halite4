@@ -19,6 +19,21 @@ bee v4.2.1                     | kTar9QG0XpDQ   | 24.7529203      | μ=28.896, �
 rhythm v4.6.0                  | VwIVDCa35Y76   | 24.4483566      | μ=27.881, σ=1.144  | 29
 tom v1.0.0                     | rKSf3ruiSSXu   | 21.0054856      | μ=24.407, σ=1.134  | 32
 optimus_mining                 | vY7KfccocCNy   | 5.1118027       | μ=11.207, σ=2.032  | 35
+
+Total Matches: 42 | Matches Queued: 12
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v4.1.1                     | DDnnJrfqYDay   | 24.6302293      | μ=27.459, σ=0.943  | 42
+bee v4.2.1                     | VlsrKC5xxZW4   | 23.6813328      | μ=26.509, σ=0.943  | 42
+rhythm v4.6.1                  | pNTu5Mlpgbhw   | 21.7140800      | μ=24.443, σ=0.910  | 42
+tom v1.0.0                     | Yl2rT7BR97id   | 19.0726708      | μ=21.868, σ=0.932  | 42
+
+Total Matches: 537 | Matches Queued: 12
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v4.2.1                     | hAdOKKE02BIu   | 27.7688065      | μ=29.902, σ=0.711  | 410
+rhythm v4.6.1                  | PwGqUhSJJvAo   | 26.2362906      | μ=28.331, σ=0.698  | 408
+bee v4.1.1                     | N8ucz03YzV83   | 25.3550233      | μ=27.456, σ=0.700  | 410
+tom v1.0.0                     | 1acIxx202ucf   | 25.1678984      | μ=27.254, σ=0.695  | 383
+optimus_mining                 | DBWXX1A3uKy9   | 9.5210367       | μ=12.885, σ=1.121  | 537
 """
 
 import random

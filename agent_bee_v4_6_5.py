@@ -5,6 +5,23 @@ v4_6_5 <- v4_6_1
 
 * Collide into shipyard at final stage (last 10 steps)
 
+Total Matches: 207 | Matches Queued: 11
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v4.1.1                     | dUgEJ0M5Lc3S   | 27.2528700      | μ=29.436, σ=0.728  | 107
+rhythm v4.6.0                  | yVGwnZCCxSIR   | 27.1156166      | μ=29.281, σ=0.722  | 107
+rhythm v4.6.1                  | c1ZcpvMh7GOU   | 26.2492609      | μ=28.436, σ=0.729  | 102
+rhythm v4.6.5                  | BsV9qWlBDPKx   | 26.1674774      | μ=28.284, σ=0.705  | 128
+bee v4.2.1                     | 4jJCp7YEuj1X   | 25.7267128      | μ=27.872, σ=0.715  | 124
+tom v1.0.0                     | y4SSfMwwa0kC   | 24.2567879      | μ=26.360, σ=0.701  | 127
+optimus_mining                 | AuWl7bdv2UMB   | 8.0749369       | μ=12.135, σ=1.353  | 133
+
+
+Total Matches: 36 | Matches Queued: 14
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v4.1.1                     | GHubReDjCXhl   | 24.9936011      | μ=28.034, σ=1.014  | 36
+bee v4.2.1                     | 4ZNbveLuH3YP   | 22.8418421      | μ=25.780, σ=0.980  | 36
+rhythm v4.6.5                  | lm4Qz2HXx49m   | 21.3754119      | μ=24.296, σ=0.973  | 36
+tom v1.0.0                     | uFQy4eqxhhj6   | 20.0952637      | μ=23.048, σ=0.984  | 36
 """
 
 import random
