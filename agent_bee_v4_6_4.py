@@ -1,16 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-v4_6_3 <- v4_6_1
+v4_6_4 <- v4_6_3
 
-* Add same ship with equal halite for attacking enemy.
+* Collide ship into shipyard when ending.
 
-(Not skip weight for attack ship)
-Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
-bee v4.2.1                     | V2tJPoDTicJD   | 27.5663470      | μ=30.589, σ=1.008  | 47
-rhythm v4.6.3                  | VavBk57pDwit   | 25.8309159      | μ=28.599, σ=0.923  | 53
-tom v1.0.0                     | ByvgljznA7TE   | 24.1915224      | μ=26.811, σ=0.873  | 57
-bee v4.1.1                     | h5QuQENOZMbE   | 22.5991410      | μ=25.205, σ=0.869  | 62
-optimus_mining                 | bwYJsirOOzYn   | 4.7846434       | μ=10.222, σ=1.812  | 73
 """
 
 import random
@@ -1129,6 +1122,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         for move in POSSIBLE_MOVES
     }
 
+    # Duplicate position at final stage for more halite.
+    if self.step + 7 >= self.c.episode_steps:
+      next_positions = list(next_positions)
+      # Each positions can only accept 4 incoming moves at maximum.
+      next_positions *= 4
+
     position_to_index = {pos: i for i, pos in enumerate(next_positions)}
     C = np.ones((len(ships), len(next_positions))) * MIN_WEIGHT
     for ship_idx, ship in enumerate(ships):
@@ -1214,8 +1213,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       break
 
   def final_stage_back_to_shipyard(self):
-    MARGIN_STEPS = 7
-    MIN_HALITE_TO_YARD = 10
+    MARGIN_STEPS = 3
+    MIN_HALITE_TO_YARD = 3
 
     def ship_and_dist_to_yard():
       for ship in self.my_idle_ships:
