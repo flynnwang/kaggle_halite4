@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-v4_6_4 <- v4_6_3
 
-* Collide ship into shipyard when ending.
+v4_6_5 <- v4_6_1
+
+* Collide into shipyard at final stage (last 10 steps)
 
 """
 
 import random
 import timeit
 import logging
-from collections import Counter
+from collections import Counter, defaultdict
 from enum import Enum, auto
 
 import numpy as np
@@ -1064,11 +1065,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         wt -= convert_cost / (dist + 1)
 
       if ship.task_type == ShipTask.ATTACK_SHIP:
+        wt += convert_cost / (dist + 1)
         enemy = ship.target_enemy
         enemy_dist = manhattan_dist(next_position, enemy.position, self.c.size)
-        if ship.halite < enemy.halite:
-          wt += convert_cost / (dist + 1)
-          wt += (enemy.halite + enemy.cell.halite) / (enemy_dist + 1)
+        wt += (enemy.halite + enemy.cell.halite) / (enemy_dist + 1)
 
       if ship.task_type == ShipTask.GUARD_SHIPYARD:
         wt += 1 / (dist + 1)
@@ -1123,18 +1123,25 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     }
 
     # Duplicate position at final stage for more halite.
-    if self.step + 7 >= self.c.episode_steps:
+    if self.step + 10 >= self.c.episode_steps:
       next_positions = list(next_positions)
       # Each positions can only accept 4 incoming moves at maximum.
       next_positions *= 4
 
-    position_to_index = {pos: i for i, pos in enumerate(next_positions)}
+    def get_position_to_index():
+      d = defaultdict(list)
+      for i, pos in enumerate(next_positions):
+        d[pos].append(i)
+      return d
+
+    position_to_index = get_position_to_index()
     C = np.ones((len(ships), len(next_positions))) * MIN_WEIGHT
     for ship_idx, ship in enumerate(ships):
       for move in POSSIBLE_MOVES:
         next_position = make_move(ship.position, move, self.c.size)
-        poi_idx = position_to_index[next_position]
-        C[ship_idx, poi_idx] = compute_weight(ship, next_position)
+        for poi_idx in position_to_index[next_position]:
+          poi_idx = position_to_index[next_position]
+          C[ship_idx, poi_idx] = compute_weight(ship, next_position)
 
     rows, cols = scipy.optimize.linear_sum_assignment(C, maximize=True)
 
@@ -1213,13 +1220,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       break
 
   def final_stage_back_to_shipyard(self):
-    MARGIN_STEPS = 3
-    MIN_HALITE_TO_YARD = 3
+    MARGIN_STEPS = 6
 
     def ship_and_dist_to_yard():
       for ship in self.my_idle_ships:
-        if ship.halite <= MIN_HALITE_TO_YARD:
-          continue
         _, yard = self.get_nearest_home_yard(ship.cell)
         if yard:
           dist = self.manhattan_dist(ship, yard)
@@ -1233,7 +1237,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return
 
     for min_dist, ship, min_dist_yard in ship_dists:
-      if self.step + min_dist + MARGIN_STEPS > self.c.episode_steps:
+      if self.step + min_dist + MARGIN_STEPS >= self.c.episode_steps:
         self.assign_task(ship, min_dist_yard.cell, ShipTask.RETURN)
 
   def spawn_if_shipyard_in_danger(self):
@@ -1388,9 +1392,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             # and ship.halite >= 10):
           # continue
         dist = self.manhattan_dist(ship, enemy)
-        if (dist <= max_attack_dist
-            and (ship.halite < enemy.halite
-                 or (ship.halite == enemy.halite and ship.halite <= 5))):
+        if dist <= max_attack_dist and ship.halite < enemy.halite:
           yield dist, ship
 
     def annotate_by_quadrant(dist_ships, enemy):

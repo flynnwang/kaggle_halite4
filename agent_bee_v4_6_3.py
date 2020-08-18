@@ -11,6 +11,16 @@ rhythm v4.6.3                  | VavBk57pDwit   | 25.8309159      | μ=28.599, �
 tom v1.0.0                     | ByvgljznA7TE   | 24.1915224      | μ=26.811, σ=0.873  | 57
 bee v4.1.1                     | h5QuQENOZMbE   | 22.5991410      | μ=25.205, σ=0.869  | 62
 optimus_mining                 | bwYJsirOOzYn   | 4.7846434       | μ=10.222, σ=1.812  | 73
+
+
+(skip positive weight for attack ship, still not good)
+Total Matches: 78 | Matches Queued: 11
+Name                           | ID             | Score=(μ - 3σ)  | Mu: μ, Sigma: σ    | Matches
+bee v4.2.1                     | FB7SjqoCWPX1   | 26.6823931      | μ=29.466, σ=0.928  | 55
+rhythm v4.6.3                  | DjhJvo5nzoHz   | 24.8625244      | μ=27.594, σ=0.910  | 55
+tom v1.0.0                     | wUpOoHPiBu84   | 24.1973946      | μ=26.729, σ=0.844  | 60
+bee v4.1.1                     | xNQrCsKcw4f0   | 23.0158801      | μ=25.549, σ=0.844  | 64
+optimus_mining                 | mze6MgMYZpFG   | 10.4361520      | μ=14.094, σ=1.219  | 78
 """
 
 import random
@@ -1391,7 +1401,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         dist = self.manhattan_dist(ship, enemy)
         if (dist <= max_attack_dist
             and (ship.halite < enemy.halite
-                 or (ship.halite == enemy.halite and ship.halite <= 5))):
+                 or (ship.halite == enemy.halite and ship.halite == 0))):
+                 # or (ship.halite == enemy.halite and ship.halite <= 5))):
           yield dist, ship
 
     def annotate_by_quadrant(dist_ships, enemy):
