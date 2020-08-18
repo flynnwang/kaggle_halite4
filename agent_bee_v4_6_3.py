@@ -1,24 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-v4_6_1 <- v4_6_0
+v4_6_3 <- v4_6_1
 
-* Do not avoid collision for the enemy two steps away.
+* Add same ship with equal halite for attacking enemy.
 
-Total Matches: 68 | Matches Queued: 16
-rhythm v4.6.1                  | MjJzZv4wJxoC   | 30.9823211      | μ=34.297, σ=1.105  | 47
-bee v4.2.1                     | A4DUXXt6Oa62   | 28.6743970      | μ=31.915, σ=1.080  | 39
-bee v4.1.1                     | HtRnZUOfHsXd   | 25.9395724      | μ=29.219, σ=1.093  | 38
-tom v1.0.0                     | mFTsvuOhMEWw   | 24.5827717      | μ=27.652, σ=1.023  | 44
-optimus_mining                 | DaJP11Izw6yp   | 12.6586289      | μ=16.083, σ=1.141  | 49
-c40                            | VtHidI0PU7iH   | 10.6170824      | μ=14.092, σ=1.158  | 55
-
-Total Matches: 41 | Matches Queued: 13
-rhythm v4.6.1                  | e3cLuWy1zDal   | 26.1675884      | μ=30.282, σ=1.371  | 23
-bee v4.1.1                     | Nvh7wFHsbD3O   | 25.1826058      | μ=28.901, σ=1.240  | 25
-bee v4.2.1                     | kTar9QG0XpDQ   | 24.7529203      | μ=28.896, σ=1.381  | 20
-rhythm v4.6.0                  | VwIVDCa35Y76   | 24.4483566      | μ=27.881, σ=1.144  | 29
-tom v1.0.0                     | rKSf3ruiSSXu   | 21.0054856      | μ=24.407, σ=1.134  | 32
-optimus_mining                 | vY7KfccocCNy   | 5.1118027       | μ=11.207, σ=2.032  | 35
 """
 
 import random
@@ -1396,7 +1381,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             # and ship.halite >= 10):
           # continue
         dist = self.manhattan_dist(ship, enemy)
-        if dist <= max_attack_dist and ship.halite < enemy.halite:
+        if (dist <= max_attack_dist
+            and (ship.halite < enemy.halite
+                 or (ship.halite == enemy.halite and ship.halite <= 5))):
           yield dist, ship
 
     def annotate_by_quadrant(dist_ships, enemy):
