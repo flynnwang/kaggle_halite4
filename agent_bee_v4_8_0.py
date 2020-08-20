@@ -6,6 +6,14 @@ v4_8_0 <- v4_7_0
 * Turn down travel poi_to_yard: 7 => 3
 * SHIPYARD_DUPLICATE_NUM = 10
 
+Total Matches: 889 | Matches Queued: 15
+bee v4.8.2 (1/7)               | SEKRoJITpH8C   | 26.5272553      | μ=28.574, σ=0.682  | 436
+bee v4.1.1                     | J4uMGmIZKkUD   | 26.4652666      | μ=28.509, σ=0.681  | 427
+bee v4.8.0 (1/3)               | LNwxrgF0Dyli   | 25.7316641      | μ=27.768, σ=0.679  | 437
+bee v4.7.0                     | 7RmmAlSmDvIg   | 24.6844842      | μ=26.712, σ=0.676  | 494
+bee v4.8.1 (1)                 | 7ZKjL5lqRqIj   | 22.3253220      | μ=24.350, σ=0.675  | 606
+tom v1.0.0                     | Jv1WKEIKYgXA   | 21.7967338      | μ=23.801, σ=0.668  | 565
+bee v4.2.1                     | gI13paO1XVjC   | 21.4604876      | μ=23.494, σ=0.678  | 591
 """
 
 import random
