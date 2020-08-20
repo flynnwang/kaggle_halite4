@@ -3,6 +3,8 @@
 
 v4_7_0 <- v4_2_1
 
+* Be aggresive when ship_num >= 25
+* keep halite grow by step
 
 """
 
@@ -21,8 +23,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Mute print.
-def print(*args, **kwargs):
-  pass
+# def print(*args, **kwargs):
+  # pass
 
 MIN_WEIGHT = -99999
 
@@ -612,10 +614,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
 
+    def home_extend_dist():
+      return max(self.num_ships // 10, 2)
+
     def is_home_grown_cell(cell):
       num_covered = len(cell.convering_shipyards)
       return (num_covered >= 2 or
-              num_covered > 0 and cell.convering_shipyards[0][0] <= 2)
+              num_covered > 0 and cell.convering_shipyards[0][0] <= home_extend_dist())
 
     def keep_halite_value(cell):
       threshold = self.mean_halite_value * 0.7
@@ -623,8 +628,18 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        num_covered = len(cell.convering_shipyards)
-        keep_factor = self.num_ships / 12 + num_covered / 2
+        # ship_factor = self.num_ships / 9
+        ship_factor = 0
+
+        step_factor = max(self.step - 60, 0) / 240 * 3 + 1
+        step_factor = min(3, step_factor)
+
+        cover_factor = 0
+        if self.num_ships >= 28:
+          num_covered = len(cell.convering_shipyards)
+          cover_factor += num_covered / 3
+
+        keep_factor = ship_factor + cover_factor + step_factor
         keep_halite = HOME_GROWN_CELL_MIN_HALITE * keep_factor
         threshold = max(keep_halite, threshold)
 
@@ -1274,12 +1289,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return
 
     adjust = 0
-    if self.num_ships >= 20:
+    if self.num_ships >= 25:
       adjust = 1
-    elif self.num_ships >= 27:
-      adjust = 2
-    elif self.num_ships >= 35:
-      adjust = 3
     MAX_ATTACK_DIST = 3 + adjust
     MIN_ATTACK_QUADRANT_NUM = 3 - int(self.num_ships >= 35)
 
@@ -1300,7 +1311,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # Extra attack distance for enemy within home boundary.
       max_attack_dist = MAX_ATTACK_DIST
       if enemy.within_home_boundary:
-        max_attack_dist += 1
+        max_attack_dist = max(5, max_attack_dist + 1)
 
       for ship in self.my_idle_ships:
         dist = self.manhattan_dist(ship, enemy)
