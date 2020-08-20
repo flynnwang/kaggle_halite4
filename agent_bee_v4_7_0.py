@@ -8,6 +8,23 @@ v4_7_0 <- v4_2_1
 * do not stay when attack.
 * Collide into shipyard at final stage (last 5 steps)
 
+Total Matches: 528 | Matches Queued: 12
+bee v4.7.0                     | ZECwef3qPYVx   | 26.9206242      | μ=29.006, σ=0.695  | 325
+bee v4.7.1                     | jw2CiOHMcX5F   | 25.9454177      | μ=28.019, σ=0.691  | 335
+bee v4.2.1                     | QXEglYBEFnCZ   | 25.0130133      | μ=27.084, σ=0.690  | 310
+bee v4.1.1                     | 2Ae2fFqUI13u   | 24.9142892      | μ=26.982, σ=0.689  | 320
+tom v1.0.0                     | Faxf5vREvEhK   | 23.3591635      | μ=25.406, σ=0.682  | 414
+optimus_mining                 | zgvLWMEDAi8T   | 6.9169196       | μ=10.498, σ=1.194  | 408
+
+
+(Result not very stable)
+Total Matches: 403 | Matches Queued: 11
+bee v4.7.0                     | XtVNaNJ8WKKz   | 24.8518359      | μ=26.886, σ=0.678  | 284
+bee v4.1.1                     | c2triYUanT1A   | 24.5189455      | μ=26.535, σ=0.672  | 298
+bee v4.7.1                     | IcGFXaviKyvy   | 24.1311699      | μ=26.163, σ=0.677  | 316
+bee v4.2.1                     | IGFfso20Sg6F   | 22.2082858      | μ=24.223, σ=0.672  | 315
+tom v1.0.0                     | cvKo25jo0RlW   | 20.5106708      | μ=22.531, σ=0.674  | 399
+
 """
 
 import random
