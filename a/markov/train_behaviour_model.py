@@ -4,6 +4,7 @@ import json
 import random
 from pathlib import Path
 
+
 import numpy as np
 import keras
 from tqdm import tqdm
@@ -17,7 +18,7 @@ from model_input import MODEL_INPUT_SIZE, SHIP_ACTIONS
 
 ACTION_TO_INDEX = {a:i for i, a in enumerate(SHIP_ACTIONS)}
 
-SAMPLE_NUM = 3
+SAMPLE_NUM = 2
 DATA_DIR = "/home/wangfei/data/20200801_halite/scraping_data"
 
 # TRAIN_DIR = "/home/wangfei/data/20200801_halite/train_data/X_train_small"
@@ -146,29 +147,30 @@ optimizer = keras.optimizers.Adam(learning_rate=3e-4)
 model.compile(loss="sparse_categorical_crossentropy", optimizer=optimizer, metrics=['accuracy'])
 
 
-MODEL_PATH = "/home/wangfei/data/20200801_halite/model/behaviour_model/test_model_v3.h5"
+MODEL_PATH = "/home/wangfei/data/20200801_halite/model/behaviour_model/model_15x15_0820.h5"
 callbacks = [keras.callbacks.ModelCheckpoint(MODEL_PATH,
                                              save_weights_only=True,
-                                             save_best_only=True,
                                              mode='min',
-                                             monitor='val_loss')]
-if os.path.exists(MODEL_PATH):
-  model.load_weights(MODEL_PATH)
+                                             monitor='val_loss',
+                                             save_freq=1000)]
+
+# OLD_MODEL_PATH = "/home/wangfei/data/20200801_halite/model/behaviour_model/test_model_v3.h5"
+# model.load_weights(OLD_MODEL_PATH)
 
 epochs = 100
 
-train_gen = DataGenerator(list(list_all_files(TRAIN_DIR)), use_cached_data=True)
-valid_gen = DataGenerator(list(list_all_files(VALID_DIR)), use_cached_data=True)
+# train_gen = DataGenerator(list(list_all_files(TRAIN_DIR)), use_cached_data=True)
+# valid_gen = DataGenerator(list(list_all_files(VALID_DIR)), use_cached_data=True)
 
 replay_paths = list(get_json_file_paths())
-# # random.shuffle(replay_paths)
-# valid_replay_paths = replay_paths[-500:]
-# train_replay_paths = replay_paths[:-500]
+random.shuffle(replay_paths)
+valid_replay_paths = replay_paths[-500:]
+train_replay_paths = replay_paths[:-500]
 
-# valid_replay_paths = replay_paths[-100:]
+# valid_replay_paths = replay_paths[-300:]
 # train_replay_paths = replay_paths[:2000]
-# train_gen = DataGenerator(train_replay_paths)
-# valid_gen = DataGenerator(valid_replay_paths)
+train_gen = DataGenerator(train_replay_paths)
+valid_gen = DataGenerator(valid_replay_paths)
 
 model.fit(train_gen,
           # validation_data=(X_valid, Y_valid),

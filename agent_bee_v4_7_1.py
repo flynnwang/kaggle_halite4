@@ -8,6 +8,14 @@ v4_7_0 <- v4_2_1
 * do not stay when attack.
 * Collide into shipyard at final stage (last 5 steps)
 
+Total Matches: 368 | Matches Queued: 16
+bee v4.2.1                     | Dlk9hpZtAbJq   | 25.8172255      | μ=27.923, σ=0.702  | 215
+bee v4.7.0                     | 019OqV0knkAJ   | 25.6225062      | μ=27.717, σ=0.698  | 216
+bee v4.7.1                     | YZ4XeimOwbvt   | 25.5018888      | μ=27.591, σ=0.696  | 235
+bee v4.1.1                     | E4HugZmGbw82   | 24.1561363      | μ=26.226, σ=0.690  | 226
+tom v1.0.0                     | vIrPUVePRqNB   | 23.0445748      | μ=25.099, σ=0.685  | 285
+optimus_mining                 | UUgBMaumcSJt   | 9.4453261       | μ=12.514, σ=1.023  | 295
+
 """
 
 import random
@@ -1308,8 +1316,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return
 
     adjust = 0
-    if self.num_ships >= 25:
-      adjust = 1
+    if self.num_ships >= 15:
+      adjust = 2
     MAX_ATTACK_DIST = 3 + adjust
     MIN_ATTACK_QUADRANT_NUM = 3 - int(self.num_ships >= 35)
 
@@ -1606,7 +1614,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return ship.halite + self.me_halite >= self.c.convert_cost
 
     for ship in self.ships:
-      if (ship.halite >= 100 and ship.next_action != ShipAction.CONVERT
+      if (ship.halite >= 250 and ship.next_action != ShipAction.CONVERT
           and is_ship_trapped(ship) and has_enough_halite(ship)):
         ship.next_action = ShipAction.CONVERT
         self.cost_halite += (self.c.convert_cost - ship.halite)
