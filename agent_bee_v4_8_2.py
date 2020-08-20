@@ -1295,7 +1295,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * poi.halite)
-    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 3)
+    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
     # return total_halite / (ship_to_poi + opt_steps)
 
     # total_halite = poi.halite + enemy_carry

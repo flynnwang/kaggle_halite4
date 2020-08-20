@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-v4_8_0 <- v4_7_0
+v4_8_1 <- v4_8_0
 
-* Fine tune ship return strategy: force send home if halite >= 250
-* Turn down travel poi_to_yard: 7 => 3
-* SHIPYARD_DUPLICATE_NUM = 10
+* Tune 
 
 """
 
@@ -1295,7 +1293,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * poi.halite)
-    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 3)
+    # return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 3)
+    return total_halite / (ship_to_poi + opt_steps + poi_to_yard)
     # return total_halite / (ship_to_poi + opt_steps)
 
     # total_halite = poi.halite + enemy_carry
