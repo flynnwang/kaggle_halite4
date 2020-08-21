@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-v4_8_3 <- v4_8_0
+v4_8_3 <- v4_7_0
 
 * Tune halite behaviour: max cargo = 450
 * max(poi_to_yard,  7) / 7)
 * fine granularity for TURNS_OPTIMAL
 * move_away_from_enemy: always step back outside home boundary
+* SHIPYARD_DUPLICATE_NUM = 10
 
 
 """
@@ -24,9 +25,11 @@ from kaggle_environments.envs.halite.helpers import *
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 # Mute print.
 def print(*args, **kwargs):
   pass
+
 
 MIN_WEIGHT = -99999
 
@@ -57,58 +60,59 @@ POSSIBLE_MOVES = [
 ]
 
 # TURNS_OPTIMAL = np.array(
-    # [[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8],
-     # [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
-     # [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7],
-     # [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6],
-     # [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6],
-     # [0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5],
-     # [0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4],
-     # [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3],
-     # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2],
-     # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-     # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+# [[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8],
+# [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
+# [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7],
+# [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6],
+# [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6],
+# [0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5],
+# [0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4],
+# [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3],
+# [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2],
+# [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+# [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
 
-TURNS_OPTIMAL = np.array([[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8],
-                          [0, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7],
-                          [0, 2, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7],
-                          [0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7],
-                          [0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7],
-                          [0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7],
-                          [0, 1, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7],
-                          [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7],
-                          [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
-                          [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
-                          [0, 0, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7],
-                          [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7],
-                          [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7],
-                          [0, 0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6],
-                          [0, 0, 1, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6],
-                          [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6],
-                          [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6],
-                          [0, 0, 0, 1, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6],
-                          [0, 0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6, 6],
-                          [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6],
-                          [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6],
-                          [0, 0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5],
-                          [0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5],
-                          [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5],
-                          [0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5],
-                          [0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5],
-                          [0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4],
-                          [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4],
-                          [0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4],
-                          [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4],
-                          [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4],
-                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3],
-                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3],
-                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3],
-                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2],
-                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2],
-                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2],
-                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
-                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]])
+TURNS_OPTIMAL = np.array(
+    [[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8],
+     [0, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7],
+     [0, 2, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7],
+     [0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7],
+     [0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7],
+     [0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7],
+     [0, 1, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7],
+     [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7],
+     [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
+     [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
+     [0, 0, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7],
+     [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7],
+     [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7],
+     [0, 0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6],
+     [0, 0, 1, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6],
+     [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6],
+     [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6],
+     [0, 0, 0, 1, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6],
+     [0, 0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6, 6],
+     [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6],
+     [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6],
+     [0, 0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5],
+     [0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5],
+     [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5],
+     [0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5],
+     [0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5],
+     [0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4],
+     [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4],
+     [0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4],
+     [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4],
+     [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4],
+     [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3],
+     [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3],
+     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3],
+     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2],
+     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2],
+     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2],
+     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]])
 
 # cached values
 HALITE_RETENSION_BY_DIST = []
@@ -571,7 +575,11 @@ class GradientMap(StrategyBase):
         gradient[p.x, p.y] += value_func(center, nb_cell)
     return gradient
 
-  def get_enemy_gradient(self, center_cell, max_dist=2, broadcast_dist=1, halite=999999):
+  def get_enemy_gradient(self,
+                         center_cell,
+                         max_dist=2,
+                         broadcast_dist=1,
+                         halite=999999):
     """The amount enemy can hurt me."""
 
     def nearby_enemy_cells():
@@ -594,6 +602,7 @@ class GradientMap(StrategyBase):
     return self.compute_gradient(nearby_enemy_cells(), max_dist, enemy_value)
 
   def get_full_map_enemy_gradient(self, max_dist=4, min_halite=10):
+
     def all_enemy_cells():
       for enemy in self.enemy_ships:
         yield enemy.cell
@@ -610,6 +619,7 @@ class GradientMap(StrategyBase):
       return hurt_factor * self.c.spawn_cost / (dist + 1)
 
     return self.compute_gradient(all_enemy_cells(), max_dist, enemy_value)
+
 
 class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   """Sends every ships to the nearest cell with halite.
@@ -665,8 +675,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     def is_home_grown_cell(cell):
       num_covered = len(cell.convering_shipyards)
-      return (num_covered >= 2 or
-              num_covered > 0 and cell.convering_shipyards[0][0] <= home_extend_dist())
+      return (num_covered >= 2 or num_covered > 0 and
+              cell.convering_shipyards[0][0] <= home_extend_dist())
 
     def keep_halite_value(cell):
       threshold = self.mean_halite_value * 0.7
@@ -692,10 +702,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # Do not go into enemy shipyard for halite.
       # enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
       # if (enemy_yard and enemy_yard_dist <= 5):
-        # ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
-        # if (alley_yard and enemy_yard_dist < ally_yard_dist):
-          # # if the cell is nearer to the enemy yard.
-          # return 1000
+      # ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
+      # if (alley_yard and enemy_yard_dist < ally_yard_dist):
+      # # if the cell is nearer to the enemy yard.
+      # return 1000
 
       return min(threshold, 400)
 
@@ -929,7 +939,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             covered = 1
         total_cell += covered
       # print("convert score for %s, total=%s, s1=%s, s2=%s" %
-            # (candidate_cell.position, total_cell, total_halite, total_halite2))
+      # (candidate_cell.position, total_cell, total_halite, total_halite2))
       return total_halite, total_cell
 
     def nominate_shipyard_positions():
@@ -1341,7 +1351,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * poi.halite)
-    return total_halite / (ship_to_poi + opt_steps + max(poi_to_yard,  7) / 7)
+    return total_halite / (ship_to_poi + opt_steps + max(poi_to_yard, 7) / 7)
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
@@ -1409,7 +1419,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
   def get_ship_halite_pairs(self, ships, halites):
     CHECK_TRAP_DIST = 7
-    enemy_gradient = self.gradient_map.get_full_map_enemy_gradient(min_halite=10)
+    enemy_gradient = self.gradient_map.get_full_map_enemy_gradient(
+        min_halite=10)
     for poi_idx, cell in enumerate(halites):
       for ship_idx, ship in enumerate(ships):
         # Do not go to halite with too many enemy around.
@@ -1634,7 +1645,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       enemy_nearby_count = 0
       danger_cell_count = 0
       enemy_gradient = self.gradient_map.get_enemy_gradient(ship.cell,
-                                                            halite=ship.halite, broadcast_dist=1, max_dist=2)
+                                                            halite=ship.halite,
+                                                            broadcast_dist=1,
+                                                            max_dist=2)
       for cell in get_neighbor_cells(ship.cell):
         if has_enemy_ship(cell, self.me):
           enemy = cell.ship
@@ -1642,7 +1655,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             enemy_nearby_count += 1
             continue
 
-        if enemy_gradient[cell.position.x, cell.position.y] >= self.c.spawn_cost:
+        if enemy_gradient[cell.position.x,
+                          cell.position.y] >= self.c.spawn_cost:
           danger_cell_count += 1
 
       return (enemy_nearby_count == 4 or
@@ -1652,12 +1666,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return ship.halite + self.me_halite >= self.c.convert_cost
 
     for ship in self.ships:
-      if (ship.halite >= 100 and ship.next_action != ShipAction.CONVERT
-          and is_ship_trapped(ship) and has_enough_halite(ship)):
+      if (ship.halite >= 100 and ship.next_action != ShipAction.CONVERT and
+          is_ship_trapped(ship) and has_enough_halite(ship)):
         ship.next_action = ShipAction.CONVERT
         self.cost_halite += (self.c.convert_cost - ship.halite)
-        print("Convert ship in danger %s at %s h=%s for trapped."
-              % (ship.id, ship.position, ship.halite))
+        print("Convert ship in danger %s at %s h=%s for trapped." %
+              (ship.id, ship.position, ship.halite))
 
   def execute(self):
     self.save_for_converting = 0
