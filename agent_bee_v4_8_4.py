@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-v4_8_4 <- v4_8_0
+v4_8_4 <- v4_8_3
 
-* Tune halite behaviour: max cargo = 300
-* poi_to_yard / 5
+* max(poi_to_yard,  3) / 3)
 
 """
 
@@ -22,8 +21,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Mute print.
-# def print(*args, **kwargs):
-  # pass
+def print(*args, **kwargs):
+  pass
 
 MIN_WEIGHT = -99999
 
@@ -53,18 +52,59 @@ POSSIBLE_MOVES = [
     Point(-1, 0)
 ]
 
-TURNS_OPTIMAL = np.array(
-    [[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8],
-     [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
-     [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7],
-     [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6],
-     [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6],
-     [0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5],
-     [0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4],
-     [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3],
-     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2],
-     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+# TURNS_OPTIMAL = np.array(
+    # [[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8],
+     # [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
+     # [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7],
+     # [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6],
+     # [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6],
+     # [0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5],
+     # [0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4],
+     # [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3],
+     # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2],
+     # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+     # [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+
+TURNS_OPTIMAL = np.array([[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8],
+                          [0, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7],
+                          [0, 2, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7],
+                          [0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7],
+                          [0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7],
+                          [0, 1, 2, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7],
+                          [0, 1, 2, 3, 3, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7],
+                          [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7],
+                          [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
+                          [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
+                          [0, 0, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7],
+                          [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7],
+                          [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7],
+                          [0, 0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6],
+                          [0, 0, 1, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6],
+                          [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6],
+                          [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6],
+                          [0, 0, 0, 1, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6],
+                          [0, 0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6, 6],
+                          [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6],
+                          [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6],
+                          [0, 0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5],
+                          [0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5],
+                          [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5],
+                          [0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5],
+                          [0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5],
+                          [0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4],
+                          [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4],
+                          [0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4],
+                          [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+                          [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]])
 
 # cached values
 HALITE_RETENSION_BY_DIST = []
@@ -93,7 +133,8 @@ def optimal_mining_steps(C, H, rt_travel):
   elif H == 0:
     ch = TURNS_OPTIMAL.shape[0] - 1  # ?
   else:
-    ch = int(np.log(C / H) * 2.5 + 5.5)
+    # ch = int(np.log(C / H) * 2.5 + 5.5)
+    ch = int(np.log(C / H) * 10 + 24)
     ch = min(max(ch, 0), TURNS_OPTIMAL.shape[0] - 1)
   # rt_travel = int(np.clip(rt_travel, 0, TURNS_OPTIMAL.shape[1] - 1))
   rt_travel = int(min(max(rt_travel, 0), TURNS_OPTIMAL.shape[1] - 1))
@@ -613,6 +654,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
+    MAX_STEP_FACTOR = 3
 
     def home_extend_dist():
       return max(self.num_ships // 10, 2)
@@ -628,18 +670,18 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        # ship_factor = self.num_ships / 9
+        # ship_factor = self.num_ships / 40
         ship_factor = 0
 
-        step_factor = max(self.step - 60, 0) / 240 * 3 + 1
-        step_factor = min(3, step_factor)
+        step_factor = max(self.step - 60, 0) / 240 * MAX_STEP_FACTOR
+        step_factor = min(MAX_STEP_FACTOR, step_factor)
 
         cover_factor = 0
         if self.num_ships >= 28:
           num_covered = len(cell.convering_shipyards)
           cover_factor += num_covered / 3
 
-        keep_factor = ship_factor + cover_factor + step_factor
+        keep_factor = ship_factor + cover_factor + step_factor + 1
         keep_halite = HOME_GROWN_CELL_MIN_HALITE * keep_factor
         threshold = max(keep_halite, threshold)
 
@@ -1039,11 +1081,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if ship.halite > 0:
           return True
 
-        if side_by_side and (self.num_ships >= 25
-                             or getattr(enemy, 'within_home_boundary', False)):
-          # Let's do the opposite
-          return random.random() < 0.7
-        return random.random() < AVOID_COLLIDE_RATIO
+        if getattr(enemy, 'within_home_boundary', False):
+          avoid_rate = 0.7 if self.num_ships >= 25 else AVOID_COLLIDE_RATIO
+        else:
+          avoid_rate = 1.0
+
+        return random.random() < avoid_rate
 
       # If there is an enemy in next_position with lower halite
       if has_enemy_ship(next_cell, self.me):
@@ -1294,11 +1337,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * poi.halite)
-    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 5)
-    # return total_halite / (ship_to_poi + opt_steps)
-
-    # total_halite = poi.halite + enemy_carry
-    # return total_halite / (ship_to_poi + 1)
+    return total_halite / (ship_to_poi + opt_steps + max(poi_to_yard,  3) / 3)
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
@@ -1379,7 +1418,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
   def optimal_assignment(self):
     ATTACK_PER_ENEMY = 6
-    SHIPYARD_DUPLICATE_NUM = 10
+    SHIPYARD_DUPLICATE_NUM = 5
 
     def shipyard_duplicate_num():
       if self.step >= NEAR_ENDING_PHRASE_STEP:
