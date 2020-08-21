@@ -8,6 +8,10 @@ v4_8_3 <- v4_7_0
 * move_away_from_enemy: always step back outside home boundary
 * SHIPYARD_DUPLICATE_NUM = 10
 
+{'agent_bee_v4_2_1.py': array([24., 18., 25., 33.]),
+'agent_bee_v4_1_1.py': array([34., 47., 10.,  9.]),
+'agent_tom_v1_0_0.py': array([ 2., 16., 49., 33.]),
+'agent_bee_v4_8_3.py': array([40., 19., 16., 25.])}
 
 """
 
