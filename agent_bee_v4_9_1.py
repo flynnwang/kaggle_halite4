@@ -3,6 +3,9 @@
 
 v4_9_1 <- v4_9_0
 
+Ending phrase optimiazation.
+
+* no more ships after 300
 """
 
 import random
@@ -28,6 +31,7 @@ def print(*args, **kwargs):
 MIN_WEIGHT = -99999
 
 BEGINNING_PHRASE_END_STEP = 60
+CLOSING_PHRASE_STEP = 300
 NEAR_ENDING_PHRASE_STEP = 360
 
 # If my halite is less than this, do not build ship or shipyard anymore.
@@ -320,6 +324,14 @@ class StrategyBase:
   @property
   def is_beginning_phrase(self):
     return self.step <= BEGINNING_PHRASE_END_STEP
+
+  @property
+  def is_closing_phrase(self):
+    return self.step >= CLOSING_PHRASE_STEP
+
+  @property
+  def is_final_phrase(self):
+    retrun self.step >= NEAR_ENDING_PHRASE_STEP
 
   @property
   def my_idle_ships(self):
@@ -675,7 +687,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     def keep_halite_value(cell):
       threshold = self.mean_halite_value * 0.7
-      if self.step >= NEAR_ENDING_PHRASE_STEP:
+      if self.is_final_phrase:
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
@@ -819,7 +831,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           bomb_ship = ship
       return min_dist, bomb_ship, enemy_yard
 
-    if self.step < BEGINNING_PHRASE_END_STEP:
+    # Do not send bomb at beginning stage.
+    if self.is_beginning_phrase:
       return
 
     enemy_shipyards = (
@@ -1226,8 +1239,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     def spawn_threshold():
       threshold = self.save_for_converting
-      if (self.step <= BEGINNING_PHRASE_END_STEP or
-          self.num_ships <= MAX_SHIP_NUM):
+      if self.is_beginning_phrase or self.num_ships <= MAX_SHIP_NUM:
         threshold += self.c.spawn_cost
       else:
         threshold += MIN_HALITE_TO_BUILD_SHIP
@@ -1239,7 +1251,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return
 
     # No more ships after ending.
-    if self.num_ships >= 3 and self.step >= 280:
+    if self.num_ships >= 3 and self.is_closing_phrase:
       return
 
     random.shuffle(self.shipyards)
@@ -1279,8 +1291,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   def spawn_if_shipyard_in_danger(self):
     """Spawn ship if enemy nearby my shipyard and no ship's next_cell on this
     shipyard."""
-    if self.step >= NEAR_ENDING_PHRASE_STEP:
+    if self.is_final_phrase:
       return
+
     ship_next_positions = {
         ship.next_cell.position
         for ship in self.ships
@@ -1385,7 +1398,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
     # Do not attack enemy during ending.
-    if self.step >= NEAR_ENDING_PHRASE_STEP:
+    if self.is_final_phrase:
       return
 
     adjust = 0
@@ -1465,7 +1478,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     SHIPYARD_DUPLICATE_NUM = 5
 
     def shipyard_duplicate_num():
-      if self.step >= NEAR_ENDING_PHRASE_STEP:
+      if self.is_final_phrase:
         return 1
       return SHIPYARD_DUPLICATE_NUM
 
@@ -1534,7 +1547,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             v += self.c.spawn_cost
 
           # Force send ship home.
-          if ship.halite >= MAX_SHIP_CARGO and self.step <= 300:
+          if ship.halite >= MAX_SHIP_CARGO and self.is_closing_phrase:
             v += ship.halite
         elif is_enemy_column(j):
           # If attack enemy
