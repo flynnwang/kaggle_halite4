@@ -55,7 +55,10 @@ def gen_data(replay_path, move_axis=True):
   Y = []
   c = 0
   rep = replayer.Replayer(replay_json, player_id=0)
-  for i in range(rep.total_steps):
+
+  BOARD_START = 5
+  prev_board = rep.get_board(BOARD_START-1)
+  for i in range(BOARD_START, rep.total_steps):
     board = rep.get_board(i)
     for player_id, player in enumerate(board.players.values()):
       if is_player_eliminated(player, board.configuration.spawn_cost):
@@ -70,7 +73,7 @@ def gen_data(replay_path, move_axis=True):
       c += num_sampled
 
       ships = random.sample(ships, num_sampled)
-      mi = model_input.ModelInput(board, player_id)
+      mi = model_input.ModelInput(board, player_id, prev_board=prev_board)
       player_input = mi.get_player_input(move_axis=False)
       for ship in ships:
         x = mi.ship_centered_input(ship, player_input, move_axis=move_axis)
@@ -78,6 +81,7 @@ def gen_data(replay_path, move_axis=True):
 
         y = ACTION_TO_INDEX[ship.next_action]
         Y.append(y)
+    prev_board = board
 
   X = np.stack(X)
   Y = np.stack(Y)
@@ -147,7 +151,7 @@ optimizer = keras.optimizers.Adam(learning_rate=3e-4)
 model.compile(loss="sparse_categorical_crossentropy", optimizer=optimizer, metrics=['accuracy'])
 
 
-MODEL_PATH = "/home/wangfei/data/20200801_halite/model/behaviour_model/model_15x15_0820.h5"
+MODEL_PATH = "/home/wangfei/data/20200801_halite/model/behaviour_model/model_15x15_0821.h5"
 callbacks = [keras.callbacks.ModelCheckpoint(MODEL_PATH,
                                              save_weights_only=True,
                                              mode='min',
@@ -167,13 +171,12 @@ random.shuffle(replay_paths)
 valid_replay_paths = replay_paths[-500:]
 train_replay_paths = replay_paths[:-500]
 
-# valid_replay_paths = replay_paths[-300:]
-# train_replay_paths = replay_paths[:2000]
+# valid_replay_paths = replay_paths[-50:]
+# train_replay_paths = replay_paths[:500]
 train_gen = DataGenerator(train_replay_paths)
 valid_gen = DataGenerator(valid_replay_paths)
 
 model.fit(train_gen,
-          # validation_data=(X_valid, Y_valid),
           validation_data=valid_gen,
           epochs=epochs,
           callbacks=callbacks)

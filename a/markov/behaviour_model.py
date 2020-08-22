@@ -17,7 +17,7 @@ def get_keras_unet():
 
   ### [First half of the network: downsampling inputs] ###
   # Entry block
-  x = layers.Conv2D(32, 1, strides=1, padding="same",
+  x = layers.Conv2D(32, 3, strides=1, padding="same",
                     kernel_initializer='he_normal')(inputs)
   x = layers.BatchNormalization()(x)
   x = layers.Activation("relu")(x)
