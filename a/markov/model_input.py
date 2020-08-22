@@ -71,15 +71,14 @@ class ModelInput:
     assert ship.player_id == self.me.id
 
     # assume axis not moved
-    SHIP_CARGO_INDEX = 2
-    ship_cargo = player_input[SHIP_CARGO_INDEX,
+    CARGO_MAP_INDEX = 1
+    ship_cargo = player_input[CARGO_MAP_INDEX,
                               ship.position.x, ship.position.y]
 
-    CARGO_MAP_INDEX = 1
     ENEMY_POS_INDEX = (5, 8, 11)
     dangerous_enemy_map = player_input[ENEMY_POS_INDEX, :, :].sum(axis=0)
     cargo_map = player_input[CARGO_MAP_INDEX, :, :].copy()
-    dangerous_enemy_map[cargo_map > ship_cargo] = 0 #   ignore enemy with larger halite
+    dangerous_enemy_map[cargo_map > ship_cargo] = 0  # ignore enemy with larger halite
 
     # Ship's current position and it's last position.
     ship_position_map = np.zeros(shape=INPUT_MAP_SIZE)
@@ -87,7 +86,7 @@ class ModelInput:
     if self.prev_board:
       prev_ship = self.prev_board.ships.get(ship.id)
       if prev_ship:
-        ship_position_map[prev_ship.position.x, prev_ship.position.y] = 1
+        ship_position_map[prev_ship.position.x, prev_ship.position.y] += 0.5
 
     v = np.stack([dangerous_enemy_map, ship_position_map])
     v = np.concatenate([player_input, v], axis=0)

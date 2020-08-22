@@ -151,7 +151,7 @@ optimizer = keras.optimizers.Adam(learning_rate=3e-4)
 model.compile(loss="sparse_categorical_crossentropy", optimizer=optimizer, metrics=['accuracy'])
 
 
-MODEL_PATH = "/home/wangfei/data/20200801_halite/model/behaviour_model/model_15x15_0821.h5"
+MODEL_PATH = "/home/wangfei/data/20200801_halite/model/behaviour_model/model_15x15_0822.h5"
 callbacks = [keras.callbacks.ModelCheckpoint(MODEL_PATH,
                                              save_weights_only=True,
                                              mode='min',
