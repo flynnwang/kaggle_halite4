@@ -3,6 +3,21 @@
 v4_9_4 <- v4_9_3
 
 * Add damping for ship to yard cost.
+* Fix enemy weight for assignment.
+
+
+with both changes: 48
+{'agent_bee_v4_9_4.py': array([29.16666667, 29.16666667, 20.83333333, 20.83333333]),
+ 'agent_bee_v4_1_1.py': array([52.08333333, 29.16666667, 12.5       ,  6.25      ]),
+ 'agent_tom_v1_0_0.py': array([ 2.08333333, 20.83333333, 35.41666667, 41.66666667]),
+ 'agent_bee_v4_2_1.py': array([16.66666667, 20.83333333, 31.25      , 31.25      ])}
+
+Fix enemy only:
+74
+{'agent_bee_v4_9_4.py': array([43.24324324, 21.62162162, 12.16216216, 22.97297297]),
+ 'agent_bee_v4_2_1.py': array([17.56756757, 28.37837838, 20.27027027, 33.78378378]),
+ 'agent_tom_v1_0_0.py': array([ 1.35135135, 10.81081081, 54.05405405, 33.78378378]),
+ 'agent_bee_v4_1_1.py': array([37.83783784, 39.18918919, 13.51351351,  9.45945946])}
 """
 
 import random
@@ -1543,6 +1558,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         elif is_shipyard_column(j):
           # If the target is a shipyard.
           if ship_to_poi > 0:
+            # v = ship.halite / min(ship_to_poi, 7)
             v = ship.halite / ship_to_poi
           else:
             # The ship is on a shipyard.
@@ -1560,11 +1576,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           enemy = poi.ship
           v = MIN_WEIGHT  # not exists edge.
           if (ship.id, enemy.id) in attack_pairs:
-            # Discount: 4=0.8, 3=0.6, 2=0.4, 1=0.2
-            # discount = enemy.quadrant_num * 0.2
-            # discount = 0.5
-            v = (self.c.spawn_cost + enemy.halite + ship.halite) / ship_to_poi
-            # v = (self.c.spawn_cost + enemy.halite + ship.halite) * (ship_to_poi / 2)
+            v = (self.c.spawn_cost + enemy.halite + enemy.cell.halite) / ship_to_poi
         else:
           # If shipyard is offended.
           yard = poi.shipyard
