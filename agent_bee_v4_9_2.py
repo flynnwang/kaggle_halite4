@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 """
+v4_9_2 <- v4_9_1
 
-v4_9_1 <- v4_9_0
-
-Ending phrase optimiazation.
+Add Hunters.
 
 * no more ships after 300
 """
