@@ -4,7 +4,9 @@ v4_9_2 <- v4_9_1
 
 Add Hunters.
 
-* no more ships after 300
+* Fix 0.5 percentage of ships as hunters.
+* Use all ships for attack during 300 - 360
+* when ship num >= 28 then use avoid collision rate of 0.8 (0.95 default)
 """
 
 import random
@@ -23,8 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 # Mute print.
-def print(*args, **kwargs):
-  pass
+# def print(*args, **kwargs):
+  # pass
 
 
 MIN_WEIGHT = -99999
@@ -626,6 +628,57 @@ class GradientMap(StrategyBase):
     return self.compute_gradient(all_enemy_cells(), max_dist, enemy_value)
 
 
+class HunterMode(StrategyBase):
+
+  def __init__(self):
+    self.board = None
+    self.hunters = set()  # ship id of hunters
+
+  def is_hunter(self, ship):
+    return ship.id in self.hunters
+
+  def update(self, board):
+    """Updates follow info with the latest board state."""
+    super().update(board)
+
+    # Keep only alive hunters
+    self.hunters = {sid for sid in self.hunters if sid in self.board.ships}
+
+    if self.num_ships <= 10 or self.num_shipyards == 0:
+      self.hunters.clear()
+      return
+
+    # Only enable hunters with enough ships.
+    if self.num_ships <= 25 or self.step <= 120:
+      return
+
+    HUNTER_RATIO = 0.5
+    HUNTER_MARGIN = 0
+    current_hunter_num = len(self.hunters)
+    expected_hunter_num = int(self.num_ships * HUNTER_RATIO)
+
+    # Add if there are not enough hunters.
+    if current_hunter_num < expected_hunter_num - HUNTER_MARGIN:
+      # Use ships that near shipyard as hunters
+      non_hunters = [(self.get_nearest_home_yard(s.cell)[0], s)
+                    for s in self.ships if s.id not in self.hunters]
+      non_hunters.sort(key=lambda x: x[0])
+      for _, ship in non_hunters:
+        self.hunters.add(ship.id)
+        print(f"add hunters: s[{ship.id}]")
+        if len(self.hunters) >= expected_hunter_num:
+          break
+
+    # Remove if there're too many hunters.
+    if current_hunter_num > expected_hunter_num + HUNTER_MARGIN:
+      hunters = [self.board.ships[sid] for sid in self.hunters]
+      random.shuffle(hunters)
+      for ship in hunters:
+        self.hunters.remove(ship.id)
+        if len(self.hunters) <= expected_hunter_num:
+          break
+
+
 class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   """Sends every ships to the nearest cell with halite.
 
@@ -645,6 +698,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.simulation = simulation
     self.follower_detector = FollowerDetector()
     self.gradient_map = GradientMap()
+    self.hunter_mode = HunterMode()
     self.keep_halite_factor = 0.0
 
   def update(self, board):
@@ -671,6 +725,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     self.follower_detector.update(board)
     self.gradient_map.update(board)
+    self.hunter_mode.update(board)
 
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
@@ -1129,7 +1184,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return True
 
         if getattr(enemy, 'within_home_boundary', False):
-          avoid_rate = 0.7 if self.num_ships >= 25 else AVOID_COLLIDE_RATIO
+          avoid_rate = 0.8 if self.num_ships >= 28 else AVOID_COLLIDE_RATIO
         else:
           avoid_rate = 1.0
 
@@ -1413,7 +1468,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       covered = 0
       self.get_nearest_home_yard(enemy.cell)  # populate cache.
       for dist, yard in enemy.cell.nearest_home_yards:
-        if dist <= 2:
+        if dist <= 5:
           return True
         if dist <= self.home_grown_cell_dist:
           covered += 1
@@ -1426,6 +1481,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         max_attack_dist = max(5, max_attack_dist + 1)
 
       for ship in self.my_idle_ships:
+        attack_dist = (10 if self.hunter_mode.is_hunter(ship) and enemy.within_home_boundary
+                       else max_attack_dist)
         dist = self.manhattan_dist(ship, enemy)
         if dist <= max_attack_dist and ship.halite < enemy.halite:
           yield dist, ship
@@ -1453,10 +1510,17 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # if enemy.within_home_boundary:
       # min_attack_quadrant_num -= 1
 
+      enemy.quadrant_num = quadrant_num
       if quadrant_num >= min_attack_quadrant_num:
-        enemy.quadrant_num = quadrant_num
         enemy.attack_ships = [ship for _, ship in dist_ships][:max_attack_num]
         yield enemy
+      # else:
+        # # Check for hunters.
+        # hunters = [ship for _, ship in dist_ships
+                   # if self.hunter_mode.is_hunter(ship)]
+        # enemy.attack_ships = hunters
+        # yield enemy
+
 
   def get_ship_halite_pairs(self, ships, halites):
     CHECK_TRAP_DIST = 7
@@ -1469,6 +1533,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if dist <= CHECK_TRAP_DIST:
           if enemy_gradient[cell.position.x, cell.position.y] >= 350:
             continue
+
+        # Hunter do not collect halite before ending.
+        if (self.hunter_mode.is_hunter(ship)
+            and self.step < NEAR_ENDING_PHRASE_STEP):
+          continue
 
         yield ship_idx, poi_idx
 
@@ -1710,6 +1779,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         print("Convert ship in danger %s at %s h=%s for trapped." %
               (ship.id, ship.position, ship.halite))
 
+  def send_hunter_with_cargo_back_to_homeyard(self):
+    for ship in self.my_idle_ships:
+      if self.hunter_mode.is_hunter(ship) and ship.halite > 0:
+        _, yard = self.get_nearest_home_yard(ship.cell)
+        if yard:
+          self.assign_task(ship, yard.cell, ShipTask.RETURN)
+
   def execute(self):
     self.save_for_converting = 0
     self.collect_game_info()
@@ -1721,6 +1797,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       self.bomb_enemy_shipyard()
 
+      self.send_hunter_with_cargo_back_to_homeyard()
       self.final_stage_back_to_shipyard()
       self.optimal_assignment()
     else:
