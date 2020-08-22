@@ -1,11 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-
 v4_9_3 <- v4_9_1
 
-Tune parameter.
-* 
+* Drop enemy cargo in halite_per_turn (Focus on collect halite)
+* within home yard enemy (cover_dist=6, near_dist=4)
+* Remove limit one first shipyard convresion
+* Raise home halite to 480 during step [300, 365]
+* home collision rate 0.8 & 28 ships
 
+397
+{'agent_bee_v4_1_1.py': array([34.76070529, 44.08060453, 13.09823678,  8.0604534 ]),
+ 'agent_bee_v4_2_1.py': array([20.40302267, 22.67002519, 22.41813602, 34.50881612]),
+ 'agent_tom_v1_0_0.py': array([ 1.00755668, 11.08312343, 49.62216625, 38.28715365]),
+ 'agent_bee_v4_9_3.py': array([43.82871537, 22.16624685, 14.86146096, 19.14357683])}
 """
 
 import random
@@ -46,6 +53,11 @@ MAX_SHIP_CARGO = 450
 TIGHT_ENEMY_SHIP_DEFEND_DIST = 5
 LOOSE_ENEMY_SHIP_DEFEND_DIST = 7
 AVOID_COLLIDE_RATIO = 0.95
+
+SHIPYARD_TIGHT_COVER_DIST = 2
+SHIPYARD_LOOSE_COVER_DIST = 6
+MIN_BOMB_ENEMY_SHIPYARD_DIST = 4
+
 
 # Threshod used to send bomb to enemy shipyard
 
@@ -646,7 +658,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.simulation = simulation
     self.follower_detector = FollowerDetector()
     self.gradient_map = GradientMap()
-    self.keep_halite_factor = 0.0
+    self.keep_halite_value = 0.0
 
   def update(self, board):
     """Updates board state at each step."""
@@ -703,8 +715,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
         keep_factor = ship_factor + cover_factor + step_factor + 1
         keep_halite = HOME_GROWN_CELL_MIN_HALITE * keep_factor
-        self.keep_halite_factor = keep_factor
+        self.keep_halite_value = keep_halite
         threshold = max(keep_halite, threshold)
+
+        # Force increase home halite cells with max value
+        if NEAR_ENDING_PHRASE_STEP <= self.step <= CLOSING_PHRASE_STEP:
+          threshold = 480
 
       # Do not go into enemy shipyard for halite.
       # enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
@@ -714,7 +730,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # # if the cell is nearer to the enemy yard.
       # return 1000
 
-      return min(threshold, 450)
+
+      return min(threshold, 499)
 
     # Init halite cells
     self.halite_cells = []
@@ -785,8 +802,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       s = len(player.ship_ids) * self.c.spawn_cost
       return h + s
 
-    MIN_ENEMY_YARD_TO_MY_YARD = 4
-
     def max_bomb_dist(enemy_yard):
       # Don't use bomb if ship group is small.
       if self.num_ships <= 16:
@@ -798,10 +813,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return self.sz * 2
 
       if self.num_ships >= 25:
-        return (self.num_ships - 20) // 5 + MIN_ENEMY_YARD_TO_MY_YARD
+        return (self.num_ships - 20) // 5 + MIN_BOMB_ENEMY_SHIPYARD_DIST
 
       # Only attack nearby enemy yard.
-      return MIN_ENEMY_YARD_TO_MY_YARD
+      return MIN_BOMB_ENEMY_SHIPYARD_DIST
 
     def is_near_my_shipyard(enemy_yard):
       for yard in self.shipyards:
@@ -882,8 +897,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       halite_ratio = num_halite_cells / (self.num_ships or 1)
       self.num_home_halite_cells = num_halite_cells
       self.halite_ratio = halite_ratio
-      if (halite_ratio < HALITE_CELL_PER_SHIP
-          and self.num_ships >= MIN_CONVERT_SHIP_NUM):
+      if halite_ratio < HALITE_CELL_PER_SHIP:
         num_yards += 1
         print('more shipyard: halite cell / ship =', halite_ratio)
       return num_yards
@@ -946,8 +960,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     def compute_convert_score(candidate_cell):
       MAX_COVER_HALITE = 2
-      SHIPYARD_TIGHT_COVER_DIST = 2
-      SHIPYARD_LOOSE_COVER_DIST = 6
 
       # Maximize the total value of halite when converting ship.
       score = 0
@@ -1130,7 +1142,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return True
 
         if getattr(enemy, 'within_home_boundary', False):
-          avoid_rate = 0.7 if self.num_ships >= 25 else AVOID_COLLIDE_RATIO
+          avoid_rate = 0.8 if self.num_ships >= 28 else AVOID_COLLIDE_RATIO
         else:
           avoid_rate = 1.0
 
@@ -1239,7 +1251,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     def spawn_threshold():
       threshold = self.save_for_converting
-      if self.is_beginning_phrase or self.num_ships <= MAX_SHIP_NUM:
+      if self.num_ships <= MAX_SHIP_NUM:
         threshold += self.c.spawn_cost
       else:
         threshold += MIN_HALITE_TO_BUILD_SHIP
@@ -1350,7 +1362,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         'home_halite=(d=%s, cover=%.0f%%, n=%s, m=%s, n/s=%.1f KF=%.1f)' %
         (self.home_grown_cell_dist, self.num_home_halite_cells /
          len(self.halite_cells) * 100, self.num_home_halite_cells,
-         int(self.mean_home_halite), self.halite_ratio, self.keep_halite_factor))
+         int(self.mean_home_halite), self.halite_ratio, self.keep_halite_value))
     print_player(self.me, end=' ')
 
     enemy = sorted(self.board.opponents, key=lambda x: -(len(x.ship_ids)))[0]
@@ -1366,10 +1378,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
                       min_mine=1):
     """Computes the expected return for mining with optimial steps.
 
-    TODO(wangfei): we could use small panelty for return home dist
     to mimic the we don't want back home.
     """
     enemy_carry = 0
+    halite_left = poi.halite
     if ship and has_enemy_ship(poi, self.me):
       # Dist to move to neighour cell of POI.
       dist = max(0, ship_to_poi - 1)
@@ -1391,8 +1403,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if opt_steps < min_mine:
       opt_steps = min_mine
 
-    total_halite = (carry + enemy_carry +
-                    (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * poi.halite)
+    total_halite = (carry +
+                    (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite_left)
     return total_halite / (ship_to_poi + opt_steps + max(poi_to_yard, 7) / 7)
 
   def get_trapped_enemy_ships(self, max_attack_num):
@@ -1405,7 +1417,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if self.num_ships >= 25:
       adjust = 1
     MAX_ATTACK_DIST = 3 + adjust
-    MIN_ATTACK_QUADRANT_NUM = 3 - int(self.num_ships >= 35)
+    MIN_ATTACK_QUADRANT_NUM = 4
+    if self.step >= 100:
+      MIN_ATTACK_QUADRANT_NUM -= 1
+    if self.num_ships >= 35:
+      MIN_ATTACK_QUADRANT_NUM -= 1
 
     def is_enemy_within_home_boundary(enemy):
       """1. Within distance of 2 of any shipyard
@@ -1414,9 +1430,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       covered = 0
       self.get_nearest_home_yard(enemy.cell)  # populate cache.
       for dist, yard in enemy.cell.nearest_home_yards:
-        if dist <= 2:
+        if dist <= SHIPYARD_TIGHT_COVER_DIST + 1:
           return True
-        if dist <= self.home_grown_cell_dist:
+        if dist <= SHIPYARD_LOOSE_COVER_DIST:
           covered += 1
       return covered >= 2
 
