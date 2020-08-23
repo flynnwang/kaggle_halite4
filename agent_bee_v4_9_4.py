@@ -2,7 +2,7 @@
 """
 v4_9_4 <- v4_9_3
 
-* Add damping for ship to yard cost.
+* Add damping for ship to yard cost. (reverted)
 * Fix enemy weight for assignment.
 
 
@@ -18,6 +18,12 @@ Fix enemy only:
  'agent_bee_v4_2_1.py': array([17.56756757, 28.37837838, 20.27027027, 33.78378378]),
  'agent_tom_v1_0_0.py': array([ 1.35135135, 10.81081081, 54.05405405, 33.78378378]),
  'agent_bee_v4_1_1.py': array([37.83783784, 39.18918919, 13.51351351,  9.45945946])}
+
+500
+{'agent_bee_v4_2_1.py': array([18.8, 23. , 24. , 34.2]),
+ 'agent_bee_v4_1_1.py': array([38.2, 42.2, 12. ,  7.6]),
+ 'agent_tom_v1_0_0.py': array([ 1. , 10.2, 49.2, 39.6]),
+ 'agent_bee_v4_9_4.py': array([42. , 24.6, 14.8, 18.6])}
 """
 
 import random
