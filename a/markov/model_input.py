@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 
-import os
-
 import numpy as np
 from kaggle_environments.envs.halite.helpers import *
-from kaggle_environments import evaluate, make
 
 MIN_WEIGHT = -99999
 

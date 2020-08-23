@@ -218,6 +218,17 @@ def direction_to_ship_action(position, next_position, board_size):
   assert False, '%s, %s' % (position, next_position)
 
 
+
+def apply_ship_action(position, ship_action, board_size):
+  if ship_action is None:
+    move = Point(0, 0)
+  else:
+    move = ship_action.to_point()
+  if move is None:
+    move = Point(0, 0)
+  return (position + move) % board_size
+
+
 def make_move(position, move, board_size):
   return (position + move) % board_size
 
@@ -643,6 +654,47 @@ def load_model():
   return model
 
 
+from a.markov.model_input import ModelInput, SHIP_ACTIONS
+
+class Prediction(StrategyBase):
+
+  def __init__(self):
+    with Timer("loading model..."):
+      self.model = load_model()
+
+    self.board = None
+    self.prev_board = None
+
+  def predict(self):
+    if self.prev_board is None:
+      return
+
+    for enemy_player in self.board.opponents:
+      mi = ModelInput(self.board, player_id=enemy_player.id,
+                      prev_board=self.prev_board)
+      player_input = mi.get_player_input(move_axis=False)
+      enemy_ships = enemy_player.ships
+      if len(enemy_ships) == 0:
+        continue
+
+      enemy_inputs = (mi.ship_centered_input(enemy, player_input,
+                                             move_axis=True)
+                      for enemy in enemy_ships)
+      X = np.concatenate([np.expand_dims(x, axis=0) for x in enemy_inputs])
+      Y = self.model.predict(X)
+      for enemy, pred in zip(enemy_ships, Y):
+        enemy.next_moves = {apply_ship_action(enemy.position, a, self.c.size): p
+                            for a, p in zip(SHIP_ACTIONS, pred)}
+        print(f'enemy[{enemy.position.x}, {enemy.position.y}] %s' % str(enemy.next_moves))
+
+  def update(self, board):
+    self.prev_board = self.board
+    super().update(board)
+
+    with Timer("predict ship moves..."):
+      self.predict()
+
+
 class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   """Sends every ships to the nearest cell with halite.
 
@@ -660,13 +712,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     super().__init__()
     self.board = None
     self.simulation = simulation
-    self.follower_detector = FollowerDetector()
-    self.gradient_map = GradientMap()
     self.keep_halite_value = 0.0
 
-    with Timer("loading model..."):
-      self.model = load_model()
-    print("hahah..")
+    self.follower_detector = FollowerDetector()
+    self.gradient_map = GradientMap()
+    self.prediction = Prediction()
 
   def update(self, board):
     """Updates board state at each step."""
@@ -692,6 +742,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     self.follower_detector.update(board)
     self.gradient_map.update(board)
+    self.prediction.update(board)
 
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
