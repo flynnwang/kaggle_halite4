@@ -11,7 +11,7 @@ MIN_WEIGHT = -99999
 BOARD_SIZE = 21
 INPUT_MAP_SIZE = (BOARD_SIZE, BOARD_SIZE)
 MODEL_INPUT_SIZE = 15
-NUM_LAYERS = 4 + 3*3 + 2  # 15
+NUM_LAYERS = 2 + 3*4 + 2  # 12
 
 HALITE_NORMALIZTION_VAL = 1000.0
 MAX_SHIP_CARGO = 2000.0
@@ -42,24 +42,30 @@ class ModelInput:
     shipyard_map = self.player_shipyard_map(me.id)
     ship_position_map = self.player_ship_map(me.id, halite_layer=False)
 
+    ship_trace_map = ship_position_map.copy()
+    if self.prev_board:
+      prev_mi = ModelInput(self.prev_board, me.id)
+      ship_trace_map += prev_mi.player_ship_map(me.id, halite_layer=False) * 0.5
+
     maps = [halite_map,  #0
             cargo_map,   #1
             shipyard_map,#2
-            ship_position_map]  #3
+            ship_position_map, #4
+            ship_trace_map]    #5
     for oppo in self.board.opponents:
       enemy_shipyard_map = self.player_shipyard_map(oppo.id)
       enemy_position_map = self.player_ship_map(oppo.id, halite_layer=False)
 
       # Enemy's previous positions
+      enemy_trace_map = enemy_position_map.copy()
       if self.prev_board:
         prev_mi = ModelInput(self.prev_board, self.me.id)
-        enemy_prev_positions = prev_mi.player_ship_map(oppo.id, halite_layer=False)
-      else:
-        enemy_prev_positions = np.zeros(shape=INPUT_MAP_SIZE)
+        enemy_trace_map += prev_mi.player_ship_map(oppo.id, halite_layer=False) * 0.5
 
-      enemy_maps = [enemy_shipyard_map,  #4
-                    enemy_position_map,  #5
-                    enemy_prev_positions]#6
+      enemy_maps = [enemy_shipyard_map,  #6
+                    enemy_position_map,  #7
+                    enemy_trace_map,     #8
+                    ]
       maps.extend(enemy_maps)
 
     v = np.stack(maps)
@@ -75,7 +81,7 @@ class ModelInput:
     ship_cargo = player_input[CARGO_MAP_INDEX,
                               ship.position.x, ship.position.y]
 
-    ENEMY_POS_INDEX = (5, 8, 11)
+    ENEMY_POS_INDEX = (6, 9, 12)
     dangerous_enemy_map = player_input[ENEMY_POS_INDEX, :, :].sum(axis=0)
     cargo_map = player_input[CARGO_MAP_INDEX, :, :].copy()
     dangerous_enemy_map[cargo_map > ship_cargo] = 0  # ignore enemy with larger halite
