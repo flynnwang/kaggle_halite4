@@ -3,14 +3,19 @@
 v4_9_5 <- v4_9_4
 
 * Force move forward for an attack shipyard ship
+* Use CLOSING_PHRASE_STEP = 300
 
-428: Force move forward for an attack shipyard ship
+----
+* Use CLOSING_PHRASE_STEP = 280
+* Force move forward for an attack shipyard ship
+428:
 {'agent_bee_v4_2_1.py': array([21.02803738, 23.59813084, 20.79439252, 34.57943925]),
  'agent_bee_v4_1_1.py': array([31.77570093, 39.95327103, 17.52336449, 10.74766355]),
  'agent_bee_v4_9_5.py': array([46.72897196, 23.59813084, 14.01869159, 15.65420561]),
  'agent_tom_v1_0_0.py': array([ 0.46728972, 12.85046729, 47.6635514 , 39.01869159])}
 
 * Use CLOSING_PHRASE_STEP = 280
+500
 {'agent_bee_v4_9_5.py': array([42.2, 22.8, 14.8, 20.2]),
  'agent_bee_v4_1_1.py': array([34.4, 42.2, 15. ,  8.4]),
  'agent_tom_v1_0_0.py': array([ 0.8, 12.6, 47.2, 39.4]),
@@ -23,9 +28,12 @@ v4_9_5 <- v4_9_4
  'agent_tom_v1_0_0.py': array([ 0.        , 14.13612565, 47.64397906, 38.21989529]),
  'agent_bee_v4_9_5.py': array([32.46073298, 31.93717277, 15.70680628, 19.89528796])}
 
-
 * Use CLOSING_PHRASE_STEP = 290
-
+500
+{'agent_bee_v4_9_5.py': array([43. , 23.8, 15.8, 17.4]),
+ 'agent_bee_v4_2_1.py': array([21.8, 23.8, 23.8, 30.6]),
+ 'agent_bee_v4_1_1.py': array([34.4, 40.4, 14.2, 11. ]),
+ 'agent_tom_v1_0_0.py': array([ 0.8, 12. , 46.2, 41. ])}
 """
 
 import random
@@ -51,7 +59,7 @@ def print(*args, **kwargs):
 MIN_WEIGHT = -99999
 
 BEGINNING_PHRASE_END_STEP = 60
-CLOSING_PHRASE_STEP = 290
+CLOSING_PHRASE_STEP = 300
 NEAR_ENDING_PHRASE_STEP = 360
 
 # If my halite is less than this, do not build ship or shipyard anymore.
