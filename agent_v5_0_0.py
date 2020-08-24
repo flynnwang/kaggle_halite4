@@ -636,7 +636,7 @@ def load_model():
   from a.markov.behaviour_model import get_keras_unet
   model = get_keras_unet()
 
-  MODEL_PATH = "/home/wangfei/data/20200801_halite/model/behaviour_model/model_15x15_0823.iter1.h5"
+  MODEL_PATH = "/home/wangfei/data/20200801_halite/model/behaviour_model/model_15x15_0823.iter2.h5"
   model.load_weights(MODEL_PATH)
   return model
 
@@ -683,8 +683,9 @@ class Prediction(StrategyBase):
         enemy_next_positions = {}
         for a, p in zip(SHIP_ACTIONS, pred):
           next_position = apply_ship_action(enemy.position, a, self.c.size)
-          self.next_positions[next_position] = (enemy, p)
+          self.next_positions[next_position].append((enemy, p))
           enemy_next_positions[next_position] = p
+        enemy.next_positions = enemy_next_positions
         # print(f'enemy[{enemy.position.x}, {enemy.position.y}] %s' % str(enemy.next_moves)) = p
 
   def update(self, board):
@@ -1142,6 +1143,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
                                           self.c.size)
       ship_dist = self.manhattan_dist(ship, target_cell)
 
+      wt = 0
       if ship.task_type not in (ShipTask.ATTACK_SHIP, ):
         wt = ship_dist - next_position_dist
 
@@ -1227,6 +1229,18 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           avoid_rate = 1.0
 
         return random.random() < avoid_rate
+
+      # Compute crash weight for possible enemy crash.
+      # next_position_enemies = self.prediction.next_positions[next_position]
+      # for enemy, prob in next_position_enemies:
+        # # Ignore enemy when near enemy shipyard
+        # if (ship.task_type == ShipTask.ATTACK_SHIPYARD and
+            # next_position_dist < 1):
+          # continue
+
+        # if enemy.halite < ship.halite:
+          # # TODO(wangfei): possible use another score instead of spawn_cost
+          # wt -= (spawn_cost + ship.halite) * prob
 
       # If there is an enemy in next_position (side by side)
       # Assume enemy been there in the next step.
