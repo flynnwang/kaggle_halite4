@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-v5_0_0 <- v4_9_4 <- v4_9_3
-
-Add prediction model.
+v5_0_0 <- v4_9_5
 
 """
 
@@ -22,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 # Mute print.
-# def print(*args, **kwargs):
-  # pass
+def print(*args, **kwargs):
+  pass
 
 
 MIN_WEIGHT = -99999
@@ -216,17 +214,6 @@ def direction_to_ship_action(position, next_position, board_size):
   if (position + Point(-1, 0)) % board_size == next_position:
     return ShipAction.WEST
   assert False, '%s, %s' % (position, next_position)
-
-
-
-def apply_ship_action(position, ship_action, board_size):
-  if ship_action is None:
-    move = Point(0, 0)
-  else:
-    move = ship_action.to_point()
-  if move is None:
-    move = Point(0, 0)
-  return (position + move) % board_size
 
 
 def make_move(position, move, board_size):
@@ -641,60 +628,6 @@ class GradientMap(StrategyBase):
     return self.compute_gradient(all_enemy_cells(), max_dist, enemy_value)
 
 
-def load_model():
-  import os
-  os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
-  os.environ["CUDA_VISIBLE_DEVICES"] = ""
-
-  from a.markov.behaviour_model import get_keras_unet
-  model = get_keras_unet()
-
-  MODEL_PATH = "/home/wangfei/data/20200801_halite/model/behaviour_model/model_15x15_0823.iter1.h5"
-  model.load_weights(MODEL_PATH)
-  return model
-
-
-from a.markov.model_input import ModelInput, SHIP_ACTIONS
-
-class Prediction(StrategyBase):
-
-  def __init__(self):
-    with Timer("loading model..."):
-      self.model = load_model()
-
-    self.board = None
-    self.prev_board = None
-
-  def predict(self):
-    if self.prev_board is None:
-      return
-
-    for enemy_player in self.board.opponents:
-      mi = ModelInput(self.board, player_id=enemy_player.id,
-                      prev_board=self.prev_board)
-      player_input = mi.get_player_input(move_axis=False)
-      enemy_ships = enemy_player.ships
-      if len(enemy_ships) == 0:
-        continue
-
-      enemy_inputs = (mi.ship_centered_input(enemy, player_input,
-                                             move_axis=True)
-                      for enemy in enemy_ships)
-      X = np.concatenate([np.expand_dims(x, axis=0) for x in enemy_inputs])
-      Y = self.model.predict(X)
-      for enemy, pred in zip(enemy_ships, Y):
-        enemy.next_moves = {apply_ship_action(enemy.position, a, self.c.size): p
-                            for a, p in zip(SHIP_ACTIONS, pred)}
-        print(f'enemy[{enemy.position.x}, {enemy.position.y}] %s' % str(enemy.next_moves))
-
-  def update(self, board):
-    self.prev_board = self.board
-    super().update(board)
-
-    with Timer("predict ship moves..."):
-      self.predict()
-
-
 class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   """Sends every ships to the nearest cell with halite.
 
@@ -712,11 +645,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     super().__init__()
     self.board = None
     self.simulation = simulation
-    self.keep_halite_value = 0.0
-
     self.follower_detector = FollowerDetector()
     self.gradient_map = GradientMap()
-    self.prediction = Prediction()
+    self.keep_halite_value = 0.0
 
   def update(self, board):
     """Updates board state at each step."""
@@ -742,7 +673,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     self.follower_detector.update(board)
     self.gradient_map.update(board)
-    self.prediction.update(board)
 
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
@@ -1130,27 +1060,28 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       target_cell = ship.target_cell
       next_cell = self.board[next_position]
 
-      # If a non-followed ship's next move is to alley SPAWNING shipyard, skip
+      # Do not move onto a spawning my own shipyard.
       yard = next_cell.shipyard
       if (yard and yard.player_id == self.me.id and
           yard.next_action == ShipyardAction.SPAWN and
           not hasattr(ship, "follower")):
         return MIN_WEIGHT
 
-      # If stay at current location, prefer not stay...
-      dist = manhattan_dist(next_position, target_cell.position, self.c.size)
+      # Encourage move toward the target cell
+      next_position_dist = manhattan_dist(next_position, target_cell.position, self.c.size)
       ship_dist = self.manhattan_dist(ship, target_cell)
-      wt = ship_dist - dist
+      wt = ship_dist - next_position_dist
 
-      # When attacking, do not stay on halite cell
+      # When attacking, try not stay on halite cell
       if (ship.task_type in (ShipTask.ATTACK_SHIP, ShipTask.ATTACK_SHIPYARD) and
           ship.position == next_position and ship.cell.halite > 0):
         wt -= 500
 
+      # TODO(wangfei): this can be applied to all halite target right?
       # If collecting halite
       if ((ship.task_type == ShipTask.GOTO_HALITE or
            ship.task_type == ShipTask.COLLECT) and target_cell.halite > 0):
-        ship_to_poi = dist
+        ship_to_poi = next_position_dist
         poi_to_yard, min_yard = self.get_nearest_home_yard(next_cell)
         if min_yard is None:
           poi_to_yard = 1
@@ -1162,29 +1093,36 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       # If go back home
       if ship.task_type == ShipTask.RETURN:
-        wt += ship.halite / (dist + 1)
+        # Q: How about just use ship.halite?
+        # A: No, we're using expectatieon here.
+        wt += ship.halite / (next_position_dist + 1)
+
+        # Q: shall we use follower in all cases?
+        # A: but follower will return, right?
+        # Add more weight, to occupy the path among my alley.
         if hasattr(ship, 'follower'):
           wt += self.c.spawn_cost
 
       # If goto enemy yard.
       if ship.task_type == ShipTask.ATTACK_SHIPYARD:
-        # TODO: use what value as weight for destory enemy yard?
-        wt += convert_cost / (dist + 1)
+        wt += convert_cost / (next_position_dist + 1)
+        # Q: shall we ignore enemy in the next-next step in this case?
+        # A: it's been done, see below.
 
-      # Do not step on shipyard
+      # Do not step on enemy shipyard
       if (ship.task_type != ShipTask.ATTACK_SHIPYARD and
           next_cell.shipyard_id and next_cell.shipyard.player_id != self.me.id):
-        wt -= convert_cost / (dist + 1)
+        wt -= spawn_cost / (next_position_dist + 1)
 
+      # Only attack ship when ship.halite < enemy.halite
       if ship.task_type == ShipTask.ATTACK_SHIP:
-        wt += convert_cost / (dist + 1)
         enemy = ship.target_enemy
-        enemy_dist = manhattan_dist(next_position, enemy.position, self.c.size)
-        wt += enemy.halite / (enemy_dist + 1)
+        if ship.halite < enemy.halite:
+          wt += (spawn_cost + enemy.halite) / (next_position_dist + 1)
 
       if ship.task_type == ShipTask.GUARD_SHIPYARD:
-        wt += 1 / (dist + 1)
-        # Only ignore enemy when the ship is on the yard.
+        wt += 1 / (next_position_dist + 1)
+        # Guard ship is willing to sacrifice itself to protect the shipyard.
         if next_position == target_cell.position:
           ignore_neighbour_cell_enemy = True
 
@@ -1207,7 +1145,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
         return random.random() < avoid_rate
 
-      # If there is an enemy in next_position with lower halite
+      # If there is an enemy in next_position (side by side)
+      # Assume enemy been there in the next step.
       if has_enemy_ship(next_cell, self.me):
         # If there is an enemy sitting on its shipyard, collide with him.
         if (ship.task_type == ShipTask.ATTACK_SHIPYARD and
@@ -1216,11 +1155,15 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         elif move_away_from_enemy(next_cell.ship, ship, side_by_side=True):
           wt -= (spawn_cost + ship.halite)
 
-      # If there is an enemy in neighbor next_position with lower halite
+      # If there is an enemy in the neighbor of next_position (two steps away)
       if not ignore_neighbour_cell_enemy:
         for nb_cell in get_neighbor_cells(next_cell):
           if has_enemy_ship(nb_cell, self.me):
-            if move_away_from_enemy(nb_cell.ship, ship, side_by_side=False):
+            if (ship.task_type == ShipTask.ATTACK_SHIPYARD and
+                nb_cell.position == target_cell.position):
+              # Assume enemy won't move away to crash with the attack shipyard.
+              pass
+            elif move_away_from_enemy(nb_cell.ship, ship, side_by_side=False):
               wt -= (spawn_cost + ship.halite)
       return wt
 
@@ -1622,7 +1565,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           if hasattr(ship, 'follower'):
             v += self.c.spawn_cost
 
-          # Force send ship home.
+          # Force send large halite ship home.
           if ship.halite >= MAX_SHIP_CARGO and self.is_closing_phrase:
             v += ship.halite
         elif is_enemy_column(j):
