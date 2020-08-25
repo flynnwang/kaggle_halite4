@@ -19,7 +19,7 @@ ACTION_TO_INDEX = {a:i for i, a in enumerate(SHIP_ACTIONS)}
 
 
 SAMPLE_NUM = 3
-DATA_DIR = "/home/wangfei/data/20200801_halite/scraping_data"
+DATA_DIR = "/home/wangfei/data/20200801_halite/scraping_data_v2"
 
 def get_json_file_paths():
   for path in Path(DATA_DIR).rglob('*.json'):
@@ -42,18 +42,19 @@ def gen_data(output_dir, replay_path, move_axis=True):
     with open(replay_path, 'r') as f:
       replay_json = json.loads(f.read())
 
-    with open(get_info_path(replay_path), 'r') as f:
-      info_json = json.loads(f.read())
+    # with open(get_info_path(replay_path), 'r') as f:
+      # info_json = json.loads(f.read())
   except Exception as e:
     print(e, replay_path)
     parse_error = True
     return 0
 
-  if parse_error or len(replay_json['steps']) <= 30:
-    path = os.path.join("/home/wangfei/data/20200801_halite/scraping_data/dead",
+  if parse_error or len(replay_json['steps']) <= 100:
+    path = os.path.join("/home/wangfei/data/20200801_halite/scraping_data_v2/dead",
                         os.path.basename(replay_path))
     os.rename(replay_path, path)
     return 0
+  return 1
 
   X = []
   Y = []
@@ -123,13 +124,14 @@ random.shuffle(replay_paths)
 
 TRAIN_DIR = "/home/wangfei/data/20200801_halite/train_data/X_train_median"
 VALID_DIR = "/home/wangfei/data/20200801_halite/train_data/X_valid_median"
-valid_replay_paths = replay_paths[-500:]
-train_replay_paths = replay_paths[:2000]
+# valid_replay_paths = replay_paths[-500:]
+# train_replay_paths = replay_paths[:2000]
 
 # TRAIN_DIR = "/home/wangfei/data/20200801_halite/train_data/X_train_large"
 # VALID_DIR = "/home/wangfei/data/20200801_halite/train_data/X_valid_large"
 # valid_replay_paths = replay_paths[-500:]
 # train_replay_paths = replay_paths[:-500]
 
+train_replay_paths = replay_paths
 # dry_run(VALID_DIR, valid_replay_paths)
 dry_run(TRAIN_DIR, train_replay_paths)

@@ -19,7 +19,8 @@ from model_input import MODEL_INPUT_SIZE, SHIP_ACTIONS
 ACTION_TO_INDEX = {a:i for i, a in enumerate(SHIP_ACTIONS)}
 
 SAMPLE_NUM = 2
-DATA_DIR = "/home/wangfei/data/20200801_halite/scraping_data"
+# DATA_DIR = "/home/wangfei/data/20200801_halite/scraping_data"
+DATA_DIR = "/home/wangfei/data/20200801_halite/scraping_data_v2"
 
 # TRAIN_DIR = "/home/wangfei/data/20200801_halite/train_data/X_train_small"
 # VALID_DIR = "/home/wangfei/data/20200801_halite/train_data/X_valid_small"
@@ -48,7 +49,7 @@ def gen_data(replay_path, move_axis=True):
     replay_json = json.loads(f.read())
 
   total_steps = len(replay_json['steps'])
-  if total_steps <= 30:
+  if total_steps <= 50:
     return 0
 
   X = []
@@ -151,15 +152,15 @@ optimizer = keras.optimizers.Adam(learning_rate=3e-4)
 model.compile(loss="sparse_categorical_crossentropy", optimizer=optimizer, metrics=['accuracy'])
 
 
-MODEL_PATH = "/home/wangfei/data/20200801_halite/model/behaviour_model/model_15x15_0823.h5"
+MODEL_PATH = "/home/wangfei/data/20200801_halite/model/behaviour_model/model_15x15_0825.h5"
 callbacks = [keras.callbacks.ModelCheckpoint(MODEL_PATH,
                                              save_weights_only=True,
                                              mode='min',
                                              monitor='val_loss',
                                              save_freq=1000)]
 
-# OLD_MODEL_PATH = "/home/wangfei/data/20200801_halite/model/behaviour_model/test_model_v3.h5"
-# model.load_weights(OLD_MODEL_PATH)
+OLD_MODEL_PATH = "/home/wangfei/data/20200801_halite/model/behaviour_model/model_15x15_0823.h5"
+model.load_weights(OLD_MODEL_PATH)
 
 epochs = 100
 

@@ -1,13 +1,17 @@
 
 import random
 import argparse
-import os
+import os, sys
 import json
 from multiprocessing import Pool
 
 from kaggle_environments import make
 
 OUTPUT_DIR = None
+
+sys.path.insert(0, "/home/wangfei/repo/flynn/kaggle_halite4")
+sys.path.insert(0, "/home/wangfei/repo/flynn/kaggle_halite4/a/markov")
+
 
 work_dir = "/home/wangfei/repo/flynn/kaggle_halite4/"
 

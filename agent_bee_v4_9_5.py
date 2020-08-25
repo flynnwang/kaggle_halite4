@@ -6,13 +6,13 @@ v4_9_5 <- v4_9_4
 * Use CLOSING_PHRASE_STEP = 300
 
 ----
-* Use CLOSING_PHRASE_STEP = 280
+* Use CLOSING_PHRASE_STEP = 300
 * Force move forward for an attack shipyard ship
 428:
 {'agent_bee_v4_2_1.py': array([21.02803738, 23.59813084, 20.79439252, 34.57943925]),
  'agent_bee_v4_1_1.py': array([31.77570093, 39.95327103, 17.52336449, 10.74766355]),
  'agent_bee_v4_9_5.py': array([46.72897196, 23.59813084, 14.01869159, 15.65420561]),
- 'agent_tom_v1_0_0.py': array([ 0.46728972, 12.85046729, 47.6635514 , 39.01869159])}
+ 'agent_tom_v1_0_0.py': array([0.46728972, 12.85046729, 47.6635514 , 39.01869159])}
 
 * Use CLOSING_PHRASE_STEP = 280
 500
