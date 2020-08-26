@@ -2,8 +2,43 @@
 """
 v4_9_6 <- v4_9_4 <- v4_9_3
 
-* Remove penality for stay on current cell when attacking.
+* initial attack (dist=4, quadrants=3)
+* initial bomb when ship num >=30, only attack when it has no money
+* add more weight when assign task for attack.
 
+
+{'agent_bee_v4_2_1.py': array([19.48955916, 21.57772622, 25.75406032, 33.17865429]),
+ 'agent_bee_v4_1_1.py': array([34.9187935 , 47.79582367, 11.25290023,  6.0324826 ]),
+ 'agent_tom_v1_0_0.py': array([ 0.5800464 ,  9.51276102, 49.4199536 , 40.48723898]),
+ 'agent_bee_v4_9_6.py': array([45.01160093, 21.1136891 , 13.57308585, 20.30162413])}
+
+
+* Add more hard penaity for stay when attack
+306
+{'agent_bee_v4_1_1.py': array([36.2745098 , 42.48366013, 15.03267974,  6.20915033]),
+ 'agent_bee_v4_9_6.py': array([42.48366013, 23.52941176, 16.0130719 , 17.97385621]),
+ 'agent_bee_v4_2_1.py': array([20.58823529, 22.54901961, 26.79738562, 30.06535948]),
+ 'agent_tom_v1_0_0.py': array([ 0.65359477, 11.4379085 , 42.15686275, 45.75163399])}
+
+950
+ {'agent_bee_v4_1_1.py': array([39.57894737, 40.73684211, 13.26315789,  6.42105263]),
+  'agent_bee_v4_9_6.py': array([39.26315789, 26.63157895, 15.05263158, 19.05263158]),
+  'agent_bee_v4_2_1.py': array([20.10526316, 21.36842105, 26.94736842, 31.57894737]),
+  'agent_tom_v1_0_0.py': array([ 1.05263158, 11.26315789, 44.73684211, 42.94736842])}
+
+* Remove penality for stay on current cell when attacking.
+(Remove penality for stay is not a good idea, how about incr it?)
+908
+{'agent_bee_v4_1_1.py': array([36.45374449, 43.39207048, 14.53744493,  5.61674009]),
+ 'agent_bee_v4_9_6.py': array([39.42731278, 21.47577093, 16.07929515, 23.01762115]),
+ 'agent_tom_v1_0_0.py': array([ 1.10132159, 13.10572687, 45.92511013, 39.86784141]),
+ 'agent_bee_v4_2_1.py': array([23.01762115, 22.02643172, 23.45814978, 31.49779736])}
+
+651
+{'agent_bee_v4_1_1.py': array([36.09831029, 43.47158218, 14.90015361,  5.52995392]),
+ 'agent_bee_v4_9_6.py': array([40.86021505, 21.04454685, 16.43625192, 21.65898618]),
+ 'agent_tom_v1_0_0.py': array([ 1.07526882, 13.82488479, 45.46850998, 39.63133641]),
+ 'agent_bee_v4_2_1.py': array([21.96620584, 21.65898618, 23.19508449, 33.1797235 ])}
 """
 
 import random
@@ -689,7 +724,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
               cell.convering_shipyards[0][0] <= home_extend_dist())
 
     def keep_halite_value(cell):
-      threshold = self.mean_halite_value * 0.7
+      # Collect larger ones first
+      discount_factor = (0.9 if self.is_beginning_phrase else 0.7)
+      threshold = self.mean_halite_value * discount_factor
+
       if self.is_final_phrase:
         return min(30, threshold)
 
@@ -803,11 +841,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           self.num_ships >= self.total_enemy_ship_num + 10):
         return self.sz * 2
 
-      if self.num_ships >= 25:
+      if self.num_ships >= 30:
         return (self.num_ships - 20) // 5 + MIN_BOMB_ENEMY_SHIPYARD_DIST
 
-      # Only attack nearby enemy yard.
-      return MIN_BOMB_ENEMY_SHIPYARD_DIST
+      # Only attack nearby enemy yard when the player is weak.
+      if enemy_yard.player.halite <= self.c.spawn_cost:
+        return MIN_BOMB_ENEMY_SHIPYARD_DIST
+      return 0
 
     def is_near_my_shipyard(enemy_yard):
       for yard in self.shipyards:
@@ -1077,7 +1117,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # When attacking, do not stay on halite cell
       if (ship.task_type in (ShipTask.ATTACK_SHIP, ShipTask.ATTACK_SHIPYARD) and
           ship.position == next_position and ship.cell.halite > 0):
-        wt -= 500
+        wt -= 2000
 
       # If collecting halite
       if ((ship.task_type == ShipTask.GOTO_HALITE or
@@ -1407,10 +1447,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     adjust = 0
     if self.num_ships >= 25:
       adjust = 1
-    MAX_ATTACK_DIST = 3 + adjust
-    MIN_ATTACK_QUADRANT_NUM = 4
-    if self.step >= 100:
-      MIN_ATTACK_QUADRANT_NUM -= 1
+    MAX_ATTACK_DIST = 4 + adjust
+
+    MIN_ATTACK_QUADRANT_NUM = 3
+    # if self.step >= 100:
+      # MIN_ATTACK_QUADRANT_NUM -= 1
     if self.num_ships >= 35:
       MIN_ATTACK_QUADRANT_NUM -= 1
 
@@ -1563,6 +1604,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           v = MIN_WEIGHT  # not exists edge.
           if (ship.id, enemy.id) in attack_pairs:
             v = (self.c.spawn_cost + enemy.halite + enemy.cell.halite) / ship_to_poi
+            if getattr(enemy, 'within_home_boundary', False):
+              v += 100
         else:
           # If shipyard is offended.
           yard = poi.shipyard
