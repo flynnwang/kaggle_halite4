@@ -3,11 +3,10 @@
 v4_9_10 <- v4_9_6
 
 * harvest at step 200
+* keep more halite by ship num: (ship_factor = num_ships / 20)
+* HALITE_CELL_PER_SHIP=3.2 after step >= 235 and ship_num >= 23
 * Support spawn multiple ships.
-
-# * keep more halite by ship num: (ship_factor = num_ships / 30)
-# * (reverted) HALITE_CELL_PER_SHIP=3.2 after step >= 235 and ship_num >= 23
-# * Do not stay for a followed ship.
+* Do not stay for a followed ship.
 
 
 170
@@ -709,7 +708,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        ship_factor = self.num_ships / 30
+        ship_factor = self.num_ships / 20
 
         step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 180 * MAX_STEP_FACTOR
         step_factor = min(MAX_STEP_FACTOR, step_factor)
@@ -886,8 +885,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     HALITE_CELL_PER_SHIP = 2.5
     if self.is_beginning_phrase:
       HALITE_CELL_PER_SHIP = 2.8
-    # elif self.step >= 230 and self.num_ships >= 23:
-      # HALITE_CELL_PER_SHIP = 3.2
+    elif self.step >= 230 and self.num_ships >= 23:
+      HALITE_CELL_PER_SHIP = 3.2
 
     MIN_CONVERT_SHIP_NUM = 9
 
@@ -1106,8 +1105,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         wt -= 2000
 
       # Do not stay when followed
-      # if ship.task_type in (ShipTask.RETURN, ) and hasattr(ship, "follower"):
-        # wt -= 2000
+      if ship.task_type in (ShipTask.RETURN, ) and hasattr(ship, "follower"):
+        wt -= 2000
 
       # If collecting halite
       if ((ship.task_type == ShipTask.GOTO_HALITE or
