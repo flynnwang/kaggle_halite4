@@ -2,15 +2,32 @@
 """
 v4_9_12 <- v4_9_11
 
+* Do not stay for a followed returning ship.
+* add enemy_carry back for halite_per_turn
+* halite_per_turn: poi_to_yard / 5
+* Use single harvest range [180-220), 60
+* ship_factor = self.num_ships / 25
+* revert initial shipyard distance
+* HALITE_CELL_PER_SHIP=3.2 if (step>300 & ship>23) or ship >= 28
+* SHIPYARD_DUPLICATE_NUM=10
+
+
+
+* Use num_ships / 25
+* add harvest range [200-225), [280-300)
+{'agent_bee_v4_1_1.py': array([36.97183099, 43.30985915, 13.38028169,  6.33802817]),
+ 'agent_bee_v4_2_1.py': array([23.23943662, 18.30985915, 27.11267606, 31.33802817]),
+ 'agent_tom_v1_0_0.py': array([ 0.70422535, 11.97183099, 48.23943662, 39.08450704]),
+ 'agent_bee_v4_9_12.py': array([39.08450704, 26.4084507 , 11.26760563, 23.23943662])}
 
 
 * Use num_ships / 20
 * add harvest range [180-195), [260-280)
-70
-{'agent_bee_v4_2_1.py': array([30.        , 17.14285714, 18.57142857, 34.28571429]),
- 'agent_bee_v4_1_1.py': array([37.14285714, 47.14285714, 11.42857143,  4.28571429]),
- 'agent_tom_v1_0_0.py': array([ 0., 10., 50., 40.]),
- 'agent_bee_v4_9_12.py': array([32.85714286, 25.71428571, 20.        , 21.42857143])}
+145
+{'agent_bee_v4_2_1.py': array([26.20689655, 20.68965517, 15.86206897, 37.24137931]),
+ 'agent_bee_v4_1_1.py': array([40.68965517, 42.75862069, 13.10344828,  3.44827586]),
+ 'agent_tom_v1_0_0.py': array([ 0.68965517, 11.72413793, 53.10344828, 34.48275862]),
+ 'agent_bee_v4_9_12.py': array([32.4137931 , 24.82758621, 17.93103448, 24.82758621])}
 
 
 * add harvest range [160-180), [260-280)
@@ -713,7 +730,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        ship_factor = self.num_ships / 20
+        ship_factor = self.num_ships / 25
 
         step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 180 * MAX_STEP_FACTOR
         step_factor = min(MAX_STEP_FACTOR, step_factor)
@@ -732,11 +749,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if NEAR_ENDING_PHRASE_STEP <= self.step <= CLOSING_PHRASE_STEP:
           threshold = 480
 
-        if (180 <= self.step < 195):
+        if 180 <= self.step < 220:
           threshold = 60
 
-        if (280 <= self.step < 295):
-          threshold = 100
+        # if (280 <= self.step < 300):
+          # threshold = 120
 
       # Do not go into enemy shipyard for halite.
       # enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
@@ -883,7 +900,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     |home_grown_cell_dist|."""
     MAX_SHIPYARD_NUM = 20
 
-    MANHATTAN_DIST_RANGE1 = range(7, 8 + 1)
+    MANHATTAN_DIST_RANGE1 = range(6, 7 + 1)
     AXIS_DIST_RANGE1 = range(3, 5 + 1)
     MANHATTAN_DIST_RANGE2 = range(6, 7 + 1)
     AXIS_DIST_RANGE2 = range(1, 6 + 1)
@@ -892,8 +909,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     HALITE_CELL_PER_SHIP = 2.5
     if self.is_beginning_phrase:
       HALITE_CELL_PER_SHIP = 2.8
-    # elif self.step >= 230 and self.num_ships >= 23:
-      # HALITE_CELL_PER_SHIP = 3.2
+    elif (self.step >= 200 and self.num_ships >= 23 or self.num_ships >= 28):
+      HALITE_CELL_PER_SHIP = 3.2
 
     MIN_CONVERT_SHIP_NUM = 9
 
@@ -1112,8 +1129,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         wt -= 2000
 
       # Do not stay when followed
-      # if ship.task_type in (ShipTask.RETURN, ) and hasattr(ship, "follower"):
-        # wt -= 2000
+      if ship.task_type in (ShipTask.RETURN, ) and hasattr(ship, "follower"):
+        wt -= 2000
 
       # If collecting halite
       if ((ship.task_type == ShipTask.GOTO_HALITE or
@@ -1428,9 +1445,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if opt_steps < min_mine:
       opt_steps = min_mine
 
-    total_halite = (carry +
+    total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite_left)
-    return total_halite / (ship_to_poi + opt_steps + max(poi_to_yard, 7) / 7)
+    # return total_halite / (ship_to_poi + opt_steps + max(poi_to_yard, 7) / 7)
+    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 5)
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
@@ -1517,7 +1535,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
   def optimal_assignment(self):
     ATTACK_PER_ENEMY = 6
-    SHIPYARD_DUPLICATE_NUM = 5
+    SHIPYARD_DUPLICATE_NUM = 10
 
     def shipyard_duplicate_num():
       if self.is_final_phrase:

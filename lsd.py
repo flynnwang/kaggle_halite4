@@ -58,7 +58,7 @@ def simulate(output_dir):
   replay_id = replay_json['id']
   rewards = replay_json['rewards']
   output_path = os.path.join(output_dir, replay_id + ".json")
-  print(f"Episode {replay_id}: {names[0]}={rewards[0]} {names[1]}={rewards[1]}"
+  print(f"Episode {replay_id.split('-')[0]} {names[0]}={rewards[0]} {names[1]}={rewards[1]}"
         f" :{names[2]}={rewards[2]} {names[3]}={rewards[3]}")
   with open(output_path, 'w') as f:
       f.write(json.dumps(replay_json))
