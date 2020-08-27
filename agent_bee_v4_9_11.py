@@ -1,20 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-v4_9_10 <- v4_9_6
+v4_9_11 <- v4_9_6
 
 * harvest at step 200
 * Support spawn multiple ships.
 
-# * keep more halite by ship num: (ship_factor = num_ships / 20)
-# * (reverted) HALITE_CELL_PER_SHIP=3.2 after step >= 235 and ship_num >= 23
-# * Do not stay for a followed ship.
-
-
-170
-{'agent_bee_v4_1_1.py': array([36.47058824, 42.35294118, 12.35294118,  8.82352941]),
- 'agent_bee_v4_9_10.py': array([46.47058824, 23.52941176, 15.29411765, 14.70588235]),
- 'agent_tom_v1_0_0.py': array([ 0.58823529, 13.52941176, 41.76470588, 44.11764706]),
- 'agent_bee_v4_2_1.py': array([16.47058824, 20.58823529, 30.58823529, 32.35294118])}
+802
+{'agent_bee_v4_9_10.py': array([46.75810474, 19.95012469, 14.4638404 , 18.82793017]),
+ 'agent_bee_v4_1_1.py': array([34.66334165, 42.01995012, 14.21446384,  9.10224439]),
+ 'agent_tom_v1_0_0.py': array([ 0.87281796, 12.84289277, 43.76558603, 42.51870324]),
+ 'agent_bee_v4_2_1.py': array([17.70573566, 25.18703242, 27.55610973, 29.55112219])}
 """
 
 import random
