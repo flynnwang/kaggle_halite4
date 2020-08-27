@@ -3,6 +3,17 @@
 v4_9_10 <- v4_9_6
 
 * harvest at step 200
+* keep more halite by ship num: (ship_factor = num_ships / 20)
+* HALITE_CELL_PER_SHIP=3.2 after step >= 235 and ship_num >= 23
+* Support spawn multiple ships.
+* Do not stay for a followed ship.
+
+
+170
+{'agent_bee_v4_1_1.py': array([36.47058824, 42.35294118, 12.35294118,  8.82352941]),
+ 'agent_bee_v4_9_10.py': array([46.47058824, 23.52941176, 15.29411765, 14.70588235]),
+ 'agent_tom_v1_0_0.py': array([ 0.58823529, 13.52941176, 41.76470588, 44.11764706]),
+ 'agent_bee_v4_2_1.py': array([16.47058824, 20.58823529, 30.58823529, 32.35294118])}
 """
 
 import random
@@ -697,7 +708,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        ship_factor = self.num_ships / 30
+        ship_factor = self.num_ships / 20
 
         step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 180 * MAX_STEP_FACTOR
         step_factor = min(MAX_STEP_FACTOR, step_factor)
@@ -871,7 +882,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     AXIS_DIST_RANGE2 = range(1, 6 + 1)
     MAX_SHIP_TO_SHIPYARD_DIST = 8
 
-    HALITE_CELL_PER_SHIP = 2.5 if self.is_beginning_phrase else 2.8
+    HALITE_CELL_PER_SHIP = 2.5
+    if self.is_beginning_phrase:
+      HALITE_CELL_PER_SHIP = 2.8
+    elif self.step >= 230 and self.num_ships >= 23:
+      HALITE_CELL_PER_SHIP = 3.2
+
     MIN_CONVERT_SHIP_NUM = 9
 
     self.halite_ratio = -1
@@ -1088,6 +1104,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           ship.position == next_position and ship.cell.halite > 0):
         wt -= 2000
 
+      # Do not stay when followed
+      if ship.task_type in (ShipTask.RETURN, ) and hasattr(ship, "follower"):
+        wt -= 2000
+
       # If collecting halite
       if ((ship.task_type == ShipTask.GOTO_HALITE or
            ship.task_type == ShipTask.COLLECT) and target_cell.halite > 0):
@@ -1273,8 +1293,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         continue
 
       spawn(shipyard)
-      # One ship at a time
-      break
 
   def final_stage_back_to_shipyard(self):
     MARGIN_STEPS = 7
