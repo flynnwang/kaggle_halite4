@@ -1,15 +1,24 @@
 # -*- coding: utf-8 -*-
 """
-v4_9_11 <- v4_9_6
+v4_9_12 <- v4_9_11
 
-* harvest at step 200
-* Support spawn multiple ships.
 
-802
-{'agent_bee_v4_9_11.py': array([46.75810474, 19.95012469, 14.4638404 , 18.82793017]),
- 'agent_bee_v4_1_1.py': array([34.66334165, 42.01995012, 14.21446384,  9.10224439]),
- 'agent_tom_v1_0_0.py': array([ 0.87281796, 12.84289277, 43.76558603, 42.51870324]),
- 'agent_bee_v4_2_1.py': array([17.70573566, 25.18703242, 27.55610973, 29.55112219])}
+
+* Use num_ships / 20
+* add harvest range [180-195), [260-280)
+70
+{'agent_bee_v4_2_1.py': array([30.        , 17.14285714, 18.57142857, 34.28571429]),
+ 'agent_bee_v4_1_1.py': array([37.14285714, 47.14285714, 11.42857143,  4.28571429]),
+ 'agent_tom_v1_0_0.py': array([ 0., 10., 50., 40.]),
+ 'agent_bee_v4_9_12.py': array([32.85714286, 25.71428571, 20.        , 21.42857143])}
+
+
+* add harvest range [160-180), [260-280)
+{'agent_bee_v4_1_1.py': array([37.08133971, 40.90909091, 14.35406699,  7.65550239]),
+ 'agent_tom_v1_0_0.py': array([ 1.4354067 , 14.11483254, 45.215311  , 39.23444976]),
+ 'agent_bee_v4_9_12.py': array([41.62679426, 20.57416268, 14.59330144, 23.20574163]),
+ 'agent_bee_v4_2_1.py': array([19.85645933, 24.40191388, 25.83732057, 29.90430622])}
+
 """
 
 import random
@@ -704,7 +713,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        ship_factor = self.num_ships / 30
+        ship_factor = self.num_ships / 20
 
         step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 180 * MAX_STEP_FACTOR
         step_factor = min(MAX_STEP_FACTOR, step_factor)
@@ -723,9 +732,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if NEAR_ENDING_PHRASE_STEP <= self.step <= CLOSING_PHRASE_STEP:
           threshold = 480
 
-        if (200 <= self.step <= 225):
-            # or 280 <= self.step <= 294):
+        if (180 <= self.step < 195):
           threshold = 60
+
+        if (280 <= self.step < 295):
+          threshold = 100
 
       # Do not go into enemy shipyard for halite.
       # enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)

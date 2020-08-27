@@ -5,7 +5,7 @@ v4_9_10 <- v4_9_6
 * harvest at step 200
 * Support spawn multiple ships.
 
-# * keep more halite by ship num: (ship_factor = num_ships / 20)
+# * keep more halite by ship num: (ship_factor = num_ships / 30)
 # * (reverted) HALITE_CELL_PER_SHIP=3.2 after step >= 235 and ship_num >= 23
 # * Do not stay for a followed ship.
 
