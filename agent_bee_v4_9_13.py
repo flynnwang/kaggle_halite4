@@ -1,45 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-v4_9_12 <- v4_9_11
+v4_9_13 <- v4_9_12
 
-* Do not stay for a followed returning ship.
-* add enemy_carry back for halite_per_turn
-* halite_per_turn: poi_to_yard / 5
-* Use single harvest range [180-220), 60
-* ship_factor = self.num_ships / 25
-* revert initial shipyard distance
-* HALITE_CELL_PER_SHIP=3.2 if (step>300 & ship>23) or ship >= 28
-* SHIPYARD_DUPLICATE_NUM=10
-
-97
-{'agent_bee_v4_9_12.py': array([47.42268041, 14.43298969, 19.58762887, 18.55670103]),
- 'agent_bee_v4_1_1.py': array([30.92783505, 49.48453608,  9.27835052, 10.30927835]),
- 'agent_bee_v4_2_1.py': array([21.64948454, 21.64948454, 31.95876289, 24.74226804]),
- 'agent_tom_v1_0_0.py': array([ 0.        , 14.43298969, 39.17525773, 46.39175258])}
-
-
-* Use num_ships / 25
-* add harvest range [200-225), [280-300)
-{'agent_bee_v4_1_1.py': array([36.97183099, 43.30985915, 13.38028169,  6.33802817]),
- 'agent_bee_v4_2_1.py': array([23.23943662, 18.30985915, 27.11267606, 31.33802817]),
- 'agent_tom_v1_0_0.py': array([ 0.70422535, 11.97183099, 48.23943662, 39.08450704]),
- 'agent_bee_v4_9_12.py': array([39.08450704, 26.4084507 , 11.26760563, 23.23943662])}
-
-
-* Use num_ships / 20
-* add harvest range [180-195), [260-280)
-145
-{'agent_bee_v4_2_1.py': array([26.20689655, 20.68965517, 15.86206897, 37.24137931]),
- 'agent_bee_v4_1_1.py': array([40.68965517, 42.75862069, 13.10344828,  3.44827586]),
- 'agent_tom_v1_0_0.py': array([ 0.68965517, 11.72413793, 53.10344828, 34.48275862]),
- 'agent_bee_v4_9_12.py': array([32.4137931 , 24.82758621, 17.93103448, 24.82758621])}
-
-
-* add harvest range [160-180), [260-280)
-{'agent_bee_v4_1_1.py': array([37.08133971, 40.90909091, 14.35406699,  7.65550239]),
- 'agent_tom_v1_0_0.py': array([ 1.4354067 , 14.11483254, 45.215311  , 39.23444976]),
- 'agent_bee_v4_9_12.py': array([41.62679426, 20.57416268, 14.59330144, 23.20574163]),
- 'agent_bee_v4_2_1.py': array([19.85645933, 24.40191388, 25.83732057, 29.90430622])}
 
 """
 
