@@ -2,7 +2,9 @@
 """
 v4_9_13 <- v4_9_12
 
-
+* MAX_SHIP_CARGO = 300
+* poi_to_yard / 10
+* ATTACK_PER_ENEMY = 10
 """
 
 import random
@@ -37,7 +39,7 @@ MIN_HALITE_TO_BUILD_SHIP = 1000
 
 # Controls the number of ships.
 MAX_SHIP_NUM = 60
-MAX_SHIP_CARGO = 450
+MAX_SHIP_CARGO = 300
 
 # Threshold for attack enemy nearby my shipyard
 TIGHT_ENEMY_SHIP_DEFEND_DIST = 5
@@ -1415,7 +1417,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite_left)
     # return total_halite / (ship_to_poi + opt_steps + max(poi_to_yard, 7) / 7)
-    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 5)
+    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 10)
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
@@ -1501,7 +1503,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yield ship_idx, poi_idx
 
   def optimal_assignment(self):
-    ATTACK_PER_ENEMY = 6
+    ATTACK_PER_ENEMY = 10
     SHIPYARD_DUPLICATE_NUM = 10
 
     def shipyard_duplicate_num():

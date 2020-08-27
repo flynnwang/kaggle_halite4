@@ -38,7 +38,8 @@ AGENTS = [
   # agent("agent_bee_v4_9_8.py", check=True) ,
   # agent("agent_bee_v4_9_9.py", check=True) ,
   # agent("agent_bee_v4_9_10.py", check=True),
-  agent("agent_bee_v4_9_12.py", check=True),
+  # agent("agent_bee_v4_9_12.py", check=True),
+  agent("agent_bee_v4_9_13.py", check=True),
 
   # agent("agent_v5_0_0.py", check=True) ,
 ]
