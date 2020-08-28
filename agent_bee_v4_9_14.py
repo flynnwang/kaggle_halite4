@@ -10,6 +10,13 @@ v4_9_14 <- v4_9_13
 * ATTACK_PER_ENEMY=8
 * discount_factor = 0.8
 * remove keep 480 halite during ending.
+
+
+403
+{'agent_bee_v4_1_1.py': array([46.89826303, 34.98759305, 11.1662531 ,  6.94789082]),
+ 'agent_tom_v1_0_0.py': array([ 3.22580645, 16.87344913, 49.87593052, 30.0248139 ]),
+ 'agent_bee_v4_2_1.py': array([27.0471464 , 25.06203474, 21.09181141, 26.79900744]),
+ 'agent_bee_v4_9_14.py': array([22.82878412, 23.07692308, 17.86600496, 36.22828784])}
 """
 
 import random
