@@ -2,6 +2,8 @@
 """
 v4_9_15 <- v4_9_10
 
+* Only use prob collision when side by side with home enemy.
+
 * Use 500 whe during ending for home grown cell.
 * ATTACK_PER_ENEMY = 6
 {'agent_bee_v4_1_1.py': array([30.32258065, 43.22580645, 20.        ,  6.4516129 ]),
@@ -1182,8 +1184,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if ship.halite > 0:
           return True
 
-        if getattr(enemy, 'within_home_boundary', False):
-          avoid_rate = 0.8 if self.num_ships >= 28 else AVOID_COLLIDE_RATIO
+        if getattr(enemy, 'within_home_boundary', False) and side_by_side:
+          avoid_rate = 0.9 if self.num_ships >= 35 else AVOID_COLLIDE_RATIO
         else:
           avoid_rate = 1.0
 
