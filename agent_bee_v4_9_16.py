@@ -2,7 +2,11 @@
 """
 v4_9_16 <- v4_9_10
 
-* Add halite gradient map.
+* Add halite gradient map, (dist=4, ratio=0.1)
+* Remove assert of ship num and ship task
+* harvest step=[190, 230]
+* keep_halite_value, step factor, max at step 220
+* bomb dist = 5, player halite <= 1000
 
 
 """
@@ -21,10 +25,12 @@ from kaggle_environments.envs.halite.helpers import *
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+MUTE = 0
 
 # Mute print.
-def print(*args, **kwargs):
-  pass
+if MUTE:
+  def print(*args, **kwargs):
+    pass
 
 
 MIN_WEIGHT = -99999
@@ -48,7 +54,7 @@ AVOID_COLLIDE_RATIO = 0.95
 
 SHIPYARD_TIGHT_COVER_DIST = 2
 SHIPYARD_LOOSE_COVER_DIST = 6
-MIN_BOMB_ENEMY_SHIPYARD_DIST = 4
+MIN_BOMB_ENEMY_SHIPYARD_DIST = 5
 
 
 # Threshod used to send bomb to enemy shipyard
@@ -624,11 +630,29 @@ class GradientMap(StrategyBase):
       h = enemy.halite
       if h <= min_halite:
         h = 0
+
+      # TODO(wangfei): play with this value
       h = min(50, h)
       hurt_factor = 1 - (h / 50)
       return hurt_factor * self.c.spawn_cost / (dist + 1)
 
     return self.compute_gradient(all_enemy_cells(), max_dist, enemy_value)
+
+  def get_halite_gradient_map(self, max_dist=5, min_halite=0,
+                              include_center=False):
+    def all_halite_cells():
+      for cell in self.board.cells.values():
+        if cell.halite > min_halite:
+          yield cell
+
+    def halite_value(cell, nb_cell):
+      dist = self.manhattan_dist(nb_cell, cell)
+      # Do not account for the halite of the cell itself.
+      if dist == 0 and not include_center:
+        return 0
+      return cell.halite / (dist + 1)
+
+    return self.compute_gradient(all_halite_cells(), max_dist, halite_value)
 
 
 class ShipStrategy(InitializeFirstShipyard, StrategyBase):
@@ -676,6 +700,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     self.follower_detector.update(board)
     self.gradient_map.update(board)
+    # with Timer("Update halite gradient: "):
+    self.halite_gradient = self.gradient_map.get_halite_gradient_map(max_dist=3)
 
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
@@ -701,7 +727,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if is_home_grown_cell(cell):
         ship_factor = self.num_ships / 20
 
-        step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 180 * MAX_STEP_FACTOR
+        step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 150 * MAX_STEP_FACTOR
         step_factor = min(MAX_STEP_FACTOR, step_factor)
 
         cover_factor = 0
@@ -718,9 +744,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if NEAR_ENDING_PHRASE_STEP <= self.step <= CLOSING_PHRASE_STEP:
           threshold = 480
 
-        if (200 <= self.step <= 225):
-            # or 280 <= self.step <= 294):
-          threshold = 60
+        if (190 <= self.step <= 220):
+          threshold = 80
 
       # Do not go into enemy shipyard for halite.
       # enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
@@ -816,7 +841,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return (self.num_ships - 20) // 5 + MIN_BOMB_ENEMY_SHIPYARD_DIST
 
       # Only attack nearby enemy yard when the player is weak.
-      if enemy_yard.player.halite <= self.c.spawn_cost:
+      if enemy_yard.player.halite <= self.c.spawn_cost * 2:
         return MIN_BOMB_ENEMY_SHIPYARD_DIST
       return 0
 
@@ -879,7 +904,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     elif self.step >= 230 and self.num_ships >= 23:
       HALITE_CELL_PER_SHIP = 3.2
 
-    MIN_CONVERT_SHIP_NUM = 9
+    MIN_CONVERT_SHIP_NUM = 11
 
     self.halite_ratio = -1
     # No ship left.
@@ -1238,8 +1263,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           next_position = make_move(ship.position, move, self.c.size)
           wt = compute_weight(ship, next_position)
           print('   to %s, wt=%.2f' % (next_position, wt))
-    assert len(rows) == len(ships), "match=%s, ships=%s" % (len(rows),
-                                                            len(ships))
 
   def spawn_ships(self):
     """Spawns farmer ships if we have enough money and no collision with my own
@@ -1412,9 +1435,15 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if opt_steps < min_mine:
       opt_steps = min_mine
 
-    total_halite = (carry +
-                    (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite_left)
-    return total_halite / (ship_to_poi + opt_steps + max(poi_to_yard, 7) / 7)
+    GRADIENT_RATIO = 0.1
+    halite_gradient = (self.halite_gradient[poi.position.x, poi.position.y]
+                       * GRADIENT_RATIO)
+
+    mined_halite = (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite_left
+    total_halite = (carry + mined_halite + halite_gradient)
+
+    # return total_halite / (ship_to_poi + opt_steps + max(poi_to_yard, 7) / 7)
+    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""

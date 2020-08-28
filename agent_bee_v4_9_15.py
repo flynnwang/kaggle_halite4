@@ -2,6 +2,13 @@
 """
 v4_9_15 <- v4_9_10
 
+* Use 500 whe during ending for home grown cell.
+* ATTACK_PER_ENEMY = 6
+{'agent_bee_v4_1_1.py': array([30.32258065, 43.22580645, 20.        ,  6.4516129 ]),
+ 'agent_bee_v4_2_1.py': array([21.29032258, 19.35483871, 25.16129032, 34.19354839]),
+ 'agent_bee_v4_9_15.py': array([46.4516129 , 20.64516129,  7.09677419, 25.80645161]),
+ 'agent_tom_v1_0_0.py': array([ 1.93548387, 16.77419355, 47.74193548, 33.5483871 ])}
+
 
 * Use 500 whe during ending for home grown cell.
 * ATTACK_PER_ENEMY = 4
