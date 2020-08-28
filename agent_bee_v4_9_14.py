@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-v4_9_13 <- v4_9_12
+v4_9_14 <- v4_9_13
 
+* revert bomb to dist=4 (drop enemy halite check)
+* halite_per_turn: poi_to_yard / 6
+* MANHATTAN_DIST_RANGE1 = range(7, 8 + 1)
+* MIN_CONVERT_SHIP_NUM=10 (add check for halite_ratio convert)
+* keep_halite: ship_factor=ships / 12 + convert/3 + max_step_factor=2
+* ATTACK_PER_ENEMY=8
+* discount_factor = 0.8
+* remove keep 480 halite during ending.
 """
 
 import random
@@ -687,24 +695,21 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
               cell.convering_shipyards[0][0] <= home_extend_dist())
 
     def keep_halite_value(cell):
-
       # Collect larger ones first
-      discount_factor = (0.9 if self.is_beginning_phrase else 0.7)
+      discount_factor = 0.8
       threshold = self.mean_halite_value * discount_factor
 
       if self.is_final_phrase:
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        ship_factor = self.num_ships / 25
+        ship_factor = self.num_ships / 12
 
-        step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 180 * MAX_STEP_FACTOR
+        step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 240 * MAX_STEP_FACTOR
         step_factor = min(MAX_STEP_FACTOR, step_factor)
 
-        cover_factor = 0
-        if self.num_ships >= 28:
-          num_covered = len(cell.convering_shipyards)
-          cover_factor += num_covered / 3
+        num_covered = len(cell.convering_shipyards)
+        cover_factor = num_covered / 3
 
         keep_factor = ship_factor + cover_factor + step_factor + 1
         keep_halite = HOME_GROWN_CELL_MIN_HALITE * keep_factor
@@ -712,8 +717,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         threshold = max(keep_halite, threshold)
 
         # Force increase home halite cells with max value
-        if NEAR_ENDING_PHRASE_STEP <= self.step <= CLOSING_PHRASE_STEP:
-          threshold = 480
+        # if NEAR_ENDING_PHRASE_STEP <= self.step <= CLOSING_PHRASE_STEP:
+          # threshold = 480
 
         if 180 <= self.step < 220:
           threshold = 60
@@ -811,13 +816,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           self.num_ships >= self.total_enemy_ship_num + 10):
         return self.sz * 2
 
-      if self.num_ships >= 30:
+      # Only attack nearby enemy yard when the player is weak.
+      if self.num_ships >= 30 and enemy_yard.player.halite <= self.c.spawn_cost:
         return (self.num_ships - 20) // 5 + MIN_BOMB_ENEMY_SHIPYARD_DIST
 
-      # Only attack nearby enemy yard when the player is weak.
-      if enemy_yard.player.halite <= self.c.spawn_cost:
-        return MIN_BOMB_ENEMY_SHIPYARD_DIST
-      return 0
+      return MIN_BOMB_ENEMY_SHIPYARD_DIST
 
     def is_near_my_shipyard(enemy_yard):
       for yard in self.shipyards:
@@ -866,7 +869,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     |home_grown_cell_dist|."""
     MAX_SHIPYARD_NUM = 20
 
-    MANHATTAN_DIST_RANGE1 = range(6, 7 + 1)
+    MANHATTAN_DIST_RANGE1 = range(7, 8 + 1)
     AXIS_DIST_RANGE1 = range(3, 5 + 1)
     MANHATTAN_DIST_RANGE2 = range(6, 7 + 1)
     AXIS_DIST_RANGE2 = range(1, 6 + 1)
@@ -878,15 +881,15 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     elif (self.step >= 200 and self.num_ships >= 23 or self.num_ships >= 28):
       HALITE_CELL_PER_SHIP = 3.2
 
-    MIN_CONVERT_SHIP_NUM = 9
 
     self.halite_ratio = -1
     # No ship left.
     if not self.num_ships:
       return
 
+    MIN_CONVERT_SHIP_NUM = 10
     def shipyard_num_by_ship_num():
-      # Force build shipyard with 10 ships
+      # Force build shipyard with |MIN_CONVERT_SHIP_NUM| ships
       if self.num_ships >= MIN_CONVERT_SHIP_NUM:
         return min(2 + max((self.num_ships - MIN_CONVERT_SHIP_NUM) // 6, 0),
                    MAX_SHIPYARD_NUM)
@@ -903,7 +906,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       halite_ratio = num_halite_cells / (self.num_ships or 1)
       self.num_home_halite_cells = num_halite_cells
       self.halite_ratio = halite_ratio
-      if halite_ratio < HALITE_CELL_PER_SHIP:
+      if (halite_ratio < HALITE_CELL_PER_SHIP
+          and self.num_ships >= MIN_CONVERT_SHIP_NUM):
         num_yards += 1
         print('more shipyard: halite cell / ship =', halite_ratio)
       return num_yards
@@ -1414,7 +1418,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite_left)
     # return total_halite / (ship_to_poi + opt_steps + max(poi_to_yard, 7) / 7)
-    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 10)
+    return total_halite / (ship_to_poi / 1.5 + opt_steps + poi_to_yard / 6)
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
@@ -1500,7 +1504,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yield ship_idx, poi_idx
 
   def optimal_assignment(self):
-    ATTACK_PER_ENEMY = 10
+    ATTACK_PER_ENEMY = 8
     SHIPYARD_DUPLICATE_NUM = 10
 
     def shipyard_duplicate_num():
