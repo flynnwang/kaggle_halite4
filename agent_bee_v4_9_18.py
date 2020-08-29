@@ -8,6 +8,11 @@ v4_9_18 <- v4_9_10
 Notes:
 * if carry is zero for expectation, cargo will be small.
 
+{'agent_bee_v4_1_1.py': array([33.66733467, 44.78957916, 14.42885772,  7.11422846]),
+ 'agent_bee_v4_9_18.py': array([44.98997996, 21.64328657, 14.42885772, 18.93787575]),
+ 'agent_tom_v1_0_0.py': array([ 0.80160321, 10.62124248, 45.19038076, 43.38677355]),
+ 'agent_bee_v4_2_1.py': array([20.54108216, 22.94589178, 25.95190381, 30.56112224])}
+
 """
 
 import random
@@ -1412,7 +1417,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     CARRY_DISCOUNT = 0
     carry = ship and ship.halite or 0
-    # carry *= CARRY_DISCOUNT
 
     travel = ship_to_poi + poi_to_yard
     opt_steps = optimal_mining_steps(carry * CARRY_DISCOUNT, poi.halite, travel)
