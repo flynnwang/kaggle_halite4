@@ -4,16 +4,18 @@ import argparse
 import os, sys
 import json
 from multiprocessing import Pool
+import getpass
 
 from kaggle_environments import make
 
 OUTPUT_DIR = None
 
-sys.path.insert(0, "/home/wangfei/repo/flynn/kaggle_halite4")
-sys.path.insert(0, "/home/wangfei/repo/flynn/kaggle_halite4/a/markov")
+username = getpass.getuser()
+sys.path.insert(0, f"/home/wangfei/repo/{username}/kaggle_halite4")
+sys.path.insert(0, f"/home/wangfei/repo/{username}/kaggle_halite4/a/markov")
 
 
-work_dir = "/home/wangfei/repo/flynn/kaggle_halite4/"
+work_dir = f"/home/{username}/repo/flynn/kaggle_halite4/"
 
 def agent(name, collection=False, check=True):
   path = os.path.join(work_dir, collection and 'collection' or '', name)
