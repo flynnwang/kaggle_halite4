@@ -2,7 +2,11 @@
 """
 v4_9_18 <- v4_9_10
 
+* Limit first shipyard convert ship num
 * Discount ship carry in halite_per_turn: r=0
+
+Notes:
+* if carry is zero for expectation, cargo will be small.
 
 """
 
@@ -903,7 +907,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       halite_ratio = num_halite_cells / (self.num_ships or 1)
       self.num_home_halite_cells = num_halite_cells
       self.halite_ratio = halite_ratio
-      if halite_ratio < HALITE_CELL_PER_SHIP:
+      if (halite_ratio < HALITE_CELL_PER_SHIP
+          and self.num_ships >= MIN_CONVERT_SHIP_NUM):
         num_yards += 1
         print('more shipyard: halite cell / ship =', halite_ratio)
       return num_yards
@@ -1405,9 +1410,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       enemy_carry = enemy.halite
 
+    CARRY_DISCOUNT = 0
     carry = ship and ship.halite or 0
+    # carry *= CARRY_DISCOUNT
+
     travel = ship_to_poi + poi_to_yard
-    opt_steps = optimal_mining_steps(carry, poi.halite, travel)
+    opt_steps = optimal_mining_steps(carry * CARRY_DISCOUNT, poi.halite, travel)
     if opt_steps < min_mine:
       opt_steps = min_mine
 
