@@ -2,7 +2,9 @@
 """
 v4_9_17 <- v4_9_10 <- v4_9_6
 
-* Fix enemy.halite when attacking.
+* CHECK_TRAP_DIST = 5
+* Use (enemy_gradient - halite) to avoid getting trapped when colleting halite.
+
 """
 
 import random
@@ -1484,7 +1486,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
-    CHECK_TRAP_DIST = 7
+    CHECK_TRAP_DIST = 5
     enemy_gradient = self.gradient_map.get_full_map_enemy_gradient(
         min_halite=10)
     for poi_idx, cell in enumerate(halites):
@@ -1492,7 +1494,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         # Do not go to halite with too many enemy around.
         dist = self.manhattan_dist(ship, cell)
         if dist <= CHECK_TRAP_DIST:
-          if enemy_gradient[cell.position.x, cell.position.y] >= 350:
+          enemy_cost = enemy_gradient[cell.position.x, cell.position.y]
+          halite = cell.halite
+          if enemy_cost - halite >= 350:
             continue
 
         yield ship_idx, poi_idx
