@@ -2,7 +2,7 @@
 """
 v4_9_20 <- v4_9_19
 
-* test drop max halite for mining
+* fix max halite for mining
 * remove max on poi_to_yard
 """
 
@@ -38,7 +38,7 @@ MIN_HALITE_TO_BUILD_SHIP = 1000
 
 # Controls the number of ships.
 MAX_SHIP_NUM = 60
-MAX_SHIP_CARGO = 450
+MAX_SHIP_CARGO  = 500
 
 # Threshold for attack enemy nearby my shipyard
 TIGHT_ENEMY_SHIP_DEFEND_DIST = 5
@@ -1418,7 +1418,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     CARRY_DISCOUNT_EXP = 1.5
     total_halite = (carry * CARRY_DISCOUNT_EXP +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite_left)
-    return total_halite / (ship_to_poi + opt_steps + max(poi_to_yard, 7) / 7)
+    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
@@ -1578,7 +1578,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             v += self.c.spawn_cost
 
           # Force send ship home.
-          if ship.halite >= MAX_SHIP_CARGO and self.is_closing_phrase:
+          if ship.halite >= MAX_SHIP_CARGO and not self.is_closing_phrase:
             v += ship.halite
         elif is_enemy_column(j):
           # If attack enemy
