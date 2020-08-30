@@ -736,6 +736,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.halite_cells = []
     for cell in self.board.cells.values():
       cell.is_targetd = False
+      cell.is_home_grown_cell = False
+
       if cell.halite > 0:
         self.halite_cells.append(cell)
 
@@ -771,13 +773,15 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return min_dist
 
     self.mean_home_halite = 100
-    home_cells = [
-        cell.halite
-        for cell in self.halite_cells
-        if cell_to_yard_dist(cell) <= self.home_grown_cell_dist
-    ]
-    if home_cells:
-      self.mean_home_halite = np.mean(home_cells)
+
+    home_cell_halite = []
+    for cell in self.halite_cells:
+      if cell_to_yard_dist(cell) <= self.home_grown_cell_dist:
+        home_cell_halite.append(cell.halite)
+        cell.is_home_grown_cell = True
+
+    if home_cell_halite:
+      self.mean_home_halite = np.mean(home_cell_halite)
 
     # Player info
     self.me.total_halite = self.me.halite + cargo(self.me)
@@ -1085,7 +1089,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           not hasattr(ship, "follower")):
         return MIN_WEIGHT
 
-      # If stay at current location, prefer not stay...
       dist = manhattan_dist(next_position, target_cell.position, self.c.size)
       ship_dist = self.manhattan_dist(ship, target_cell)
       wt = ship_dist - dist
@@ -1098,6 +1101,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # Do not stay when followed
       if ship.task_type in (ShipTask.RETURN, ) and hasattr(ship, "follower"):
         wt -= 2000
+
+      # Try not move onto home halite cells when possible
+      if next_cell.halite > 0 and next_position != target_cell.position:
+        wt -= 0.5
 
       # If collecting halite
       if ((ship.task_type == ShipTask.GOTO_HALITE or
