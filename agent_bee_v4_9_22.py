@@ -3,6 +3,7 @@
 v4_9_22 <- v4_9_21
 
 * Mimic v4_2_1 move_away_from_enemy
+* Add cell.halite as positive weight for move_away_from_enemy
 
 """
 
@@ -1160,7 +1161,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return True
 
         if getattr(enemy, 'within_home_boundary', False):
-          avoid_rate = 0.8 if self.num_ships >= 28 else AVOID_COLLIDE_RATIO
+          if side_by_side:
+            avoid_rate = 0.9 if self.num_ships >= 28 else AVOID_COLLIDE_RATIO
+          else:
+            # If not side by side, force moving forward
+            avoid_rate = 0.1
         else:
           avoid_rate = 1.0
 
@@ -1173,14 +1178,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             next_cell.position == target_cell.position):
           pass
         elif move_away_from_enemy(next_cell.ship, ship, side_by_side=True):
-          wt -= (spawn_cost + ship.halite)
+          wt -= (spawn_cost + ship.halite - next_cell.halite)
 
       # If there is an enemy in neighbor next_position with lower halite
       if not ignore_neighbour_cell_enemy:
         for nb_cell in get_neighbor_cells(next_cell):
           if has_enemy_ship(nb_cell, self.me):
             if move_away_from_enemy(nb_cell.ship, ship, side_by_side=False):
-              wt -= (spawn_cost + ship.halite)
+              wt -= (spawn_cost + ship.halite - nb_cell.halite)
       return wt
 
     # Skip only convert ships.
