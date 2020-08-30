@@ -5,6 +5,11 @@ v4_9_22 <- v4_9_21
 * Mimic v4_2_1 move_away_from_enemy
 * Add cell.halite as positive weight for move_away_from_enemy
 
+507
+{'agent_bee_v4_9_22.py': array([42.80078895, 24.65483235, 11.83431953, 20.71005917]),
+ 'agent_bee_v4_1_1.py': array([42.6035503 , 39.84220907, 10.25641026,  7.29783037]),
+ 'agent_tom_v1_0_0.py': array([ 0.78895464, 15.97633136, 55.62130178, 27.61341223]),
+ 'agent_bee_v4_2_1.py': array([13.80670611, 19.52662722, 22.28796844, 44.37869822])}
 """
 
 import random

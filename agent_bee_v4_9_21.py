@@ -4,6 +4,7 @@ v4_9_21 <- v4_9_20
 
 * Try avoid move onto halite cell within home boundary.
 
+634
 {'agent_bee_v4_2_1.py': array([15.14195584, 25.23659306, 30.12618297, 29.49526814]),
  'agent_bee_v4_1_1.py': array([35.01577287, 43.05993691, 13.88012618,  8.04416404]),
  'agent_tom_v1_0_0.py': array([ 0.78864353,  9.4637224 , 41.95583596, 47.79179811]),
