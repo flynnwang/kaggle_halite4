@@ -2,9 +2,13 @@
 """
 v4_9_25 <- v4_9_22
 
-* Mimic v4_2_1 move_away_from_enemy (1-step=0.95, 2-steps: 0.9/0.8)
-* Add cell.halite as positive weight for move_away_from_enemy
+* move_away_from_enemy (1-step=0.95, 2-steps: 0.9/0.8)
 
+1056
+{'agent_bee_v4_2_1.py': array([15.34090909, 26.51515152, 27.46212121, 30.68181818]),
+ 'agent_bee_v4_1_1.py': array([35.60606061, 42.04545455, 13.4469697 ,  8.90151515]),
+ 'agent_tom_v1_0_0.py': array([ 1.13636364, 10.98484848, 47.15909091, 40.71969697]),
+ 'agent_bee_v4_9_25.py': array([47.91666667, 20.45454545, 11.93181818, 19.6969697 ])}
 """
 
 import random
