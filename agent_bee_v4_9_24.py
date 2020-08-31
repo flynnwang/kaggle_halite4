@@ -629,6 +629,25 @@ class GradientMap(StrategyBase):
 
     return self.compute_gradient(all_enemy_cells(), max_dist, enemy_value)
 
+  def get_halite_gradient_map(self, max_dist=5, min_halite=0,
+                              include_center=True, normalize=True):
+    def all_halite_cells():
+      for cell in self.board.cells.values():
+        if cell.halite > min_halite:
+          yield cell
+
+    def halite_value(cell, nb_cell):
+      dist = self.manhattan_dist(nb_cell, cell)
+      # Do not account for the halite of the cell itself.
+      if dist == 0 and not include_center:
+        return 0
+      return cell.halite / (dist + 1)
+
+    g = self.compute_gradient(all_halite_cells(), max_dist, halite_value)
+    if normalize:
+      g / np.max(g)
+    return g
+
 
 class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   """Sends every ships to the nearest cell with halite.
@@ -675,6 +694,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     self.follower_detector.update(board)
     self.gradient_map.update(board)
+    self.halite_gradient = self.gradient_map.get_halite_gradient_map()
 
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
@@ -1104,7 +1124,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       # Try not move onto home halite cells when possible
       if next_cell.halite > 0 and next_position != target_cell.position:
-        wt -= 0.5
+        halite_gradient = self.halite_gradient[nexp_position.x, next_position.y]
+        wt -= halite_gradient * 0.5
 
       # If collecting halite
       if ((ship.task_type == ShipTask.GOTO_HALITE or
