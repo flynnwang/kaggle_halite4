@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 
-v4_9_21 <- v4_9_21
+v4_9_26 <- v4_9_21
 
 * Limit max halite value on cell to 350
 * convert ship by discounted halite value.
+* keep halite threshold: min(self.mean_halite_value * discount_factor, 30)
 
 """
 
@@ -694,7 +695,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       # Collect larger ones first
       discount_factor = (0.9 if self.is_beginning_phrase else 0.7)
-      threshold = self.mean_halite_value * discount_factor
+      threshold = min(self.mean_halite_value * discount_factor, 30)
 
       if self.is_final_phrase:
         return min(30, threshold)
@@ -732,7 +733,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # return 1000
 
 
-      return min(threshold, 499)
+      return min(threshold, 350)
 
     # Init halite cells
     self.halite_cells = []
@@ -972,10 +973,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return True
 
     def compute_convert_score(candidate_cell):
-      MAX_COVER_HALITE = 2
-
       # Maximize the total value of halite when converting ship.
-      score = 0
+      total_halite = 0
       shipyards = self.shipyards + [candidate_cell
                                    ]  # Fake the cell as shipyard.
       for cell in self.halite_cells:
@@ -987,15 +986,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         dist_yards = sorted(dist_yards, key=lambda x: x[0])
         dist_yards = [(d, y) for (d, y) in dist_yards
                       if d <= SHIPYARD_LOOSE_COVER_DIST]
-
-        if dist_yards:
-          score += 0.1
-
-        # Strongly covered cell
-        if dist_yards and (len(dist_yards) >= MAX_COVER_HALITE
-                           or dist_yards[0][0] <= SHIPYARD_TIGHT_COVER_DIST):
-          score += 1
-      return score
+        if dist_yards and dist_yards[0][0] <= SHIPYARD_TIGHT_COVER_DIST:
+          total_halite += cell.halite / dist_yards[0][0]
+      return total_halite
 
     def nominate_shipyard_positions():
       for cell in self.board.cells.values():

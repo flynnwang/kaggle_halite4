@@ -54,7 +54,8 @@ AGENTS = [
   # agent("agent_bee_v4_9_22.py", check=True),
   # agent("agent_bee_v4_9_23.py", check=True),
   # agent("agent_bee_v4_9_24.py", check=True),
-  agent("agent_bee_v4_9_25.py", check=True),
+  # agent("agent_bee_v4_9_25.py", check=True),
+  agent("agent_bee_v4_9_26.py", check=True),
 
   # agent("agent_v5_0_0.py", check=True) ,
 ]
