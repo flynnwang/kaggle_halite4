@@ -645,7 +645,7 @@ class GradientMap(StrategyBase):
 
     g = self.compute_gradient(all_halite_cells(), max_dist, halite_value)
     if normalize:
-      g / np.max(g)
+      g = g / np.max(g)
     return g
 
 
@@ -1122,9 +1122,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if ship.task_type in (ShipTask.RETURN, ) and hasattr(ship, "follower"):
         wt -= 2000
 
-      # Try not move onto home halite cells when possible
+      # Try not move onto halite cells when possible
       if next_cell.halite > 0 and next_position != target_cell.position:
-        halite_gradient = self.halite_gradient[nexp_position.x, next_position.y]
+        halite_gradient = self.halite_gradient[next_position.x, next_position.y]
         wt -= halite_gradient * 0.5
 
       # If collecting halite

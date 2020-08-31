@@ -52,7 +52,8 @@ AGENTS = [
   # agent("agent_bee_v4_9_20.py", check=True),
   # agent("agent_bee_v4_9_21.py", check=True),
   # agent("agent_bee_v4_9_22.py", check=True),
-  agent("agent_bee_v4_9_23.py", check=True),
+  # agent("agent_bee_v4_9_23.py", check=True),
+  agent("agent_bee_v4_9_24.py", check=True),
 
   # agent("agent_v5_0_0.py", check=True) ,
 ]
@@ -76,6 +77,15 @@ def simulate(output_dir):
         f" :{names[2]}={rewards[2]} {names[3]}={rewards[3]}")
   with open(output_path, 'w') as f:
       f.write(json.dumps(replay_json))
+
+  # Save only meta info for computing statistics.
+  output_path = os.path.join(output_dir, replay_id + "_info.json")
+  j = {
+    'rewards': rewards,
+    'agent_names': names
+  }
+  with open(output_path, 'w') as f:
+      f.write(json.dumps(j))
 
 
 def run_lsd(output_dir, episode_num):
