@@ -3,9 +3,9 @@
 
 v4_9_26 <- v4_9_21
 
-* Limit max halite value on cell to 350
 * convert ship by discounted halite value.
-* keep halite threshold: min(self.mean_halite_value * discount_factor, 30)
+* Limit max halite value on cell to 400
+* keep halite threshold: 0.5
 
 """
 
@@ -694,8 +694,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     def keep_halite_value(cell):
 
       # Collect larger ones first
-      discount_factor = (0.9 if self.is_beginning_phrase else 0.7)
-      threshold = min(self.mean_halite_value * discount_factor, 30)
+      discount_factor = 0.5
+      threshold = self.mean_halite_value * discount_factor
 
       if self.is_final_phrase:
         return min(30, threshold)
@@ -733,7 +733,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # return 1000
 
 
-      return min(threshold, 350)
+      return min(threshold, 400)
 
     # Init halite cells
     self.halite_cells = []
