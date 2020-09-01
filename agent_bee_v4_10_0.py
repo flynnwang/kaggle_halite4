@@ -5,9 +5,13 @@ v4_10_0 <- v4_9_27
 Try use low value inside homeyard.
 
 * lower home halite to 50 when step<=100
-* max step factor = 1, ship factor = ship / 10
+* max step factor = 3, ship factor = ship / 40
 * Convert 4th shipyard, when ship num >= 28
 * Harvest at step 250
+* Drop eliminate program
+* CLOSING_PHRASE_STEP=310 NEAR_ENDING_PHRASE_STEP=370
+* Drop num_ships >= 35 to inc quadrant num
+* Lower enemy gradient trap threshold to 300
 """
 
 import random
@@ -33,8 +37,8 @@ logger = logging.getLogger(__name__)
 MIN_WEIGHT = -99999
 
 BEGINNING_PHRASE_END_STEP = 60
-CLOSING_PHRASE_STEP = 300
-NEAR_ENDING_PHRASE_STEP = 360
+CLOSING_PHRASE_STEP = 310
+NEAR_ENDING_PHRASE_STEP = 370
 
 # If my halite is less than this, do not build ship or shipyard anymore.
 MIN_HALITE_TO_BUILD_SHIPYARD = 1000
@@ -682,7 +686,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
-    MAX_STEP_FACTOR = 1
+    MAX_STEP_FACTOR = 3
 
     def home_extend_dist():
       return max(self.num_ships // 10, 2)
@@ -697,9 +701,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if self.step <= 100:
         return 50
 
-      ship_factor = self.num_ships / 10
+      ship_factor = self.num_ships / 40
 
-      step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 190 * MAX_STEP_FACTOR
+      step_factor = max(self.step - 100, 0) / 150 * MAX_STEP_FACTOR
       step_factor = min(MAX_STEP_FACTOR, step_factor)
 
       cover_factor = 0
@@ -822,9 +826,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return 0
 
       # Elimination program.
-      if (self.num_ships >= 50 and
-          self.num_ships >= self.total_enemy_ship_num + 10):
-        return self.sz * 2
+      # if (self.num_ships >= 50 and
+          # self.num_ships >= self.total_enemy_ship_num + 10):
+        # return self.sz * 2
 
       if self.num_ships >= 30:
         return (self.num_ships - 20) // 5 + MIN_BOMB_ENEMY_SHIPYARD_DIST
@@ -930,7 +934,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       v = min(self.num_shipyards + 1, v)  # max one at a time.
 
       # If not enough ship, open max of 3 shipyard
-      if self.num_ships <= 28:
+      if self.num_ships <= 30:
         v = min(2, v)
       return v
 
@@ -1178,7 +1182,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return True
 
         if getattr(enemy, 'within_home_boundary', False):
-          avoid_rate = 0.8 if self.num_ships >= 28 else AVOID_COLLIDE_RATIO
+          # avoid_rate = 0.8 if self.num_ships >= 28 else AVOID_COLLIDE_RATIO
+          if side_by_side:
+            avoid_rate = AVOID_COLLIDE_RATIO
+          else:
+            # If not side by side, force moving forward
+            avoid_rate = 0.9
         else:
           avoid_rate = 1.0
 
@@ -1460,8 +1469,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     MIN_ATTACK_QUADRANT_NUM = 3
     # if self.step >= 100:
       # MIN_ATTACK_QUADRANT_NUM -= 1
-    if self.num_ships >= 35:
-      MIN_ATTACK_QUADRANT_NUM -= 1
+    # if self.num_ships >= 35:
+      # MIN_ATTACK_QUADRANT_NUM -= 1
 
     def is_enemy_within_home_boundary(enemy):
       """1. Within distance of 2 of any shipyard
@@ -1517,6 +1526,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
   def get_ship_halite_pairs(self, ships, halites):
     CHECK_TRAP_DIST = 5
+    TRAP_COST_VALUE = 250
     enemy_gradient = self.gradient_map.get_full_map_enemy_gradient(
         min_halite=10)
     for poi_idx, cell in enumerate(halites):
@@ -1524,7 +1534,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         # Do not go to halite with too many enemy around.
         dist = self.manhattan_dist(ship, cell)
         if dist <= CHECK_TRAP_DIST:
-          if enemy_gradient[cell.position.x, cell.position.y] >= 350:
+          if enemy_gradient[cell.position.x, cell.position.y] >= TRAP_COST_VALUE:
             continue
 
         yield ship_idx, poi_idx
