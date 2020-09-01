@@ -2,7 +2,7 @@
 """
 v4_2_3 <- v4_2_1
 
-* backport: try avoid move onto halite cell within home boundary.
+* backport: try avoid move onto halite cell
 
 """
 
