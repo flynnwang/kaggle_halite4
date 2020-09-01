@@ -4,6 +4,10 @@ v4_10_0 <- v4_9_27
 
 Try use low value inside homeyard.
 
+* lower home halite to 50 when step<=100
+* max step factor = 1, ship factor = ship / 10
+* Convert 4th shipyard, when ship num >= 28
+* Harvest at step 250
 """
 
 import random
@@ -22,8 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 # Mute print.
-def print(*args, **kwargs):
-  pass
+# def print(*args, **kwargs):
+  # pass
 
 
 MIN_WEIGHT = -99999
@@ -678,7 +682,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
-    MAX_STEP_FACTOR = 2
+    MAX_STEP_FACTOR = 1
 
     def home_extend_dist():
       return max(self.num_ships // 10, 2)
@@ -687,6 +691,34 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       num_covered = len(cell.convering_shipyards)
       return (num_covered >= 2 or num_covered > 0 and
               cell.convering_shipyards[0][0] <= home_extend_dist())
+
+    def home_grown_cell_halite(threshold, cell):
+      # Use small halite value in begining phrase, so enemy won't come.
+      if self.step <= 100:
+        return 50
+
+      ship_factor = self.num_ships / 10
+
+      step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 190 * MAX_STEP_FACTOR
+      step_factor = min(MAX_STEP_FACTOR, step_factor)
+
+      cover_factor = 0
+      if self.num_ships >= 28:
+        num_covered = len(cell.convering_shipyards)
+        cover_factor += num_covered / 3
+
+      keep_factor = ship_factor + cover_factor + step_factor + 1
+      keep_halite = HOME_GROWN_CELL_MIN_HALITE * keep_factor
+      self.keep_halite_value = keep_halite
+      threshold = max(keep_halite, threshold)
+
+      # Force increase home halite cells with max value
+      if NEAR_ENDING_PHRASE_STEP <= self.step <= CLOSING_PHRASE_STEP:
+        threshold = 480
+
+      if 250 <= self.step <= 280:
+        threshold = HOME_GROWN_CELL_MIN_HALITE
+      return threshold
 
     def keep_halite_value(cell):
 
@@ -698,28 +730,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        ship_factor = self.num_ships / 20
-
-        step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 180 * MAX_STEP_FACTOR
-        step_factor = min(MAX_STEP_FACTOR, step_factor)
-
-        cover_factor = 0
-        if self.num_ships >= 28:
-          num_covered = len(cell.convering_shipyards)
-          cover_factor += num_covered / 3
-
-        keep_factor = ship_factor + cover_factor + step_factor + 1
-        keep_halite = HOME_GROWN_CELL_MIN_HALITE * keep_factor
-        self.keep_halite_value = keep_halite
-        threshold = max(keep_halite, threshold)
-
-        # Force increase home halite cells with max value
-        if NEAR_ENDING_PHRASE_STEP <= self.step <= CLOSING_PHRASE_STEP:
-          threshold = 480
-
-        if (200 <= self.step <= 225):
-            # or 280 <= self.step <= 294):
-          threshold = 60
+        threshold = home_grown_cell_halite(threshold, cell)
 
       # Do not go into enemy shipyard for halite.
       # enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
@@ -914,7 +925,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return num_yards
 
     def max_shipyard_num():
-      return max(shipyard_num_by_ship_num(), shipyard_num_by_halite_ratio())
+      v = shipyard_num_by_ship_num()
+      v = max(v, shipyard_num_by_halite_ratio())
+      v = min(self.num_shipyards + 1, v)  # max one at a time.
+
+      # If not enough ship, open max of 3 shipyard
+      if self.num_ships <= 28:
+        v = min(2, v)
+      return v
 
     # Reach max shipyard num.
     if self.num_shipyards >= max_shipyard_num():

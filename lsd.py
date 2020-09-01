@@ -56,7 +56,8 @@ AGENTS = [
   # agent("agent_bee_v4_9_24.py", check=True),
   # agent("agent_bee_v4_9_25.py", check=True),
   # agent("agent_bee_v4_9_26.py", check=True),
-  agent("agent_bee_v4_9_27.py", check=True),
+  # agent("agent_bee_v4_9_27.py", check=True),
+  agent("agent_bee_v4_10_0.py", check=True),
 
   # agent("agent_v5_0_0.py", check=True) ,
 ]
@@ -100,7 +101,7 @@ def run_lsd(output_dir, episode_num):
       yield output_dir
 
   sim_args = list(gen_simulation_args())
-  with Pool() as pool:
+  with Pool(1) as pool:
     for _ in pool.imap_unordered(simulate, sim_args):
       pass
 
