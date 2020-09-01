@@ -26,7 +26,8 @@ def agent(name, collection=False, check=True):
 
 AGENTS = [
   agent("agent_tom_v1_0_0.py"),
-  agent("agent_bee_v4_1_1.py", check=True),
+  # agent("agent_bee_v4_1_1.py", check=True),
+  agent("optimus_mining_agent.py", collection=True),
   agent("agent_bee_v4_2_1.py", check=True),
   # agent("agent_bee_v4_2_2.py", check=True),
   # agent("agent_bee_v4_8_3.py", check=True),
