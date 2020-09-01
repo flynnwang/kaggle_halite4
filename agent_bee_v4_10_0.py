@@ -4,14 +4,18 @@ v4_10_0 <- v4_9_27
 
 Try use low value inside homeyard.
 
-* lower home halite to 50 when step<=100
+* lower home halite to 50 when step<=80
 * max step factor = 3, ship factor = ship / 40
 * Convert 4th shipyard, when ship num >= 28
-* Harvest at step 250
+* Harvest at step 230
 * Drop eliminate program
-* CLOSING_PHRASE_STEP=310 NEAR_ENDING_PHRASE_STEP=370
 * Drop num_ships >= 35 to inc quadrant num
 * Lower enemy gradient trap threshold to 300
+
+{'agent_bee_v4_1_1.py': array([37.81094527, 35.32338308, 18.65671642,  8.20895522]),
+ 'agent_bee_v4_2_1.py': array([41.04477612, 23.88059701, 12.43781095, 22.63681592]),
+ 'agent_tom_v1_0_0.py': array([11.44278607, 26.86567164, 49.50248756, 12.18905473]),
+ 'agent_bee_v4_10_0.py': array([ 9.70149254, 13.93034826, 19.40298507, 56.96517413])}
 """
 
 import random
@@ -37,8 +41,8 @@ def print(*args, **kwargs):
 MIN_WEIGHT = -99999
 
 BEGINNING_PHRASE_END_STEP = 60
-CLOSING_PHRASE_STEP = 310
-NEAR_ENDING_PHRASE_STEP = 370
+CLOSING_PHRASE_STEP = 300
+NEAR_ENDING_PHRASE_STEP = 360
 
 # If my halite is less than this, do not build ship or shipyard anymore.
 MIN_HALITE_TO_BUILD_SHIPYARD = 1000
@@ -707,9 +711,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       step_factor = min(MAX_STEP_FACTOR, step_factor)
 
       cover_factor = 0
-      if self.num_ships >= 28:
-        num_covered = len(cell.convering_shipyards)
-        cover_factor += num_covered / 3
+      # if self.num_ships >= 28:
+        # num_covered = len(cell.convering_shipyards)
+        # cover_factor += num_covered / 3
 
       keep_factor = ship_factor + cover_factor + step_factor + 1
       keep_halite = HOME_GROWN_CELL_MIN_HALITE * keep_factor
@@ -720,7 +724,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if NEAR_ENDING_PHRASE_STEP <= self.step <= CLOSING_PHRASE_STEP:
         threshold = 480
 
-      if 250 <= self.step <= 280:
+      if 230 <= self.step <= 260:
         threshold = HOME_GROWN_CELL_MIN_HALITE
       return threshold
 
@@ -1526,7 +1530,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
   def get_ship_halite_pairs(self, ships, halites):
     CHECK_TRAP_DIST = 5
-    TRAP_COST_VALUE = 250
+    TRAP_COST_VALUE = 300
     enemy_gradient = self.gradient_map.get_full_map_enemy_gradient(
         min_halite=10)
     for poi_idx, cell in enumerate(halites):
