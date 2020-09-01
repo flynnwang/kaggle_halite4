@@ -2,8 +2,12 @@
 """
 v4_11_0 <- v4_9_27
 
-Integrate recent changes.
-
+* Harvest home grown cell in beginning phrase (for more ships)
+* Move the second harvest down to 250
+* Use more step factor = 3, ship factor=ship/40
+* NEAR_ENDING_PHRASE_STEP=365
+* TRAP_COST_VALUE = 300
+* move_away_from_enemy (1-step=0.95, 2-steps: 0.9/0.8)
 
 """
 
@@ -31,7 +35,7 @@ MIN_WEIGHT = -99999
 
 BEGINNING_PHRASE_END_STEP = 60
 CLOSING_PHRASE_STEP = 300
-NEAR_ENDING_PHRASE_STEP = 360
+NEAR_ENDING_PHRASE_STEP = 365
 
 # If my halite is less than this, do not build ship or shipyard anymore.
 MIN_HALITE_TO_BUILD_SHIPYARD = 1000
@@ -692,20 +696,20 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     def keep_halite_value(cell):
 
       # Collect larger ones first
-      discount_factor = (0.9 if self.is_beginning_phrase else 0.7)
+      discount_factor = (0.9 if self.is_beginning_phrase else 0.5)
       threshold = self.mean_halite_value * discount_factor
 
       if self.is_final_phrase:
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        ship_factor = self.num_ships / 20
+        ship_factor = self.num_ships / 40
 
         step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 180 * MAX_STEP_FACTOR
         step_factor = min(MAX_STEP_FACTOR, step_factor)
 
         cover_factor = 0
-        if self.num_ships >= 28:
+        if self.num_ships >= 30:
           num_covered = len(cell.convering_shipyards)
           cover_factor += num_covered / 3
 
@@ -718,8 +722,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if NEAR_ENDING_PHRASE_STEP <= self.step <= CLOSING_PHRASE_STEP:
           threshold = 480
 
-        if (200 <= self.step <= 225):
-            # or 280 <= self.step <= 294):
+        if 250 <= self.step <= 275:
+          threshold = 60
+
+        if self.step < 80:
           threshold = 60
 
       # Do not go into enemy shipyard for halite.
@@ -880,8 +886,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     HALITE_CELL_PER_SHIP = 2.5
     if self.is_beginning_phrase:
       HALITE_CELL_PER_SHIP = 2.8
-    elif self.step >= 230 and self.num_ships >= 23:
-      HALITE_CELL_PER_SHIP = 3.2
+    elif self.step >= 200 and self.num_ships >= 30:
+      HALITE_CELL_PER_SHIP = 3.0
 
     MIN_CONVERT_SHIP_NUM = 9
 
@@ -1161,7 +1167,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return True
 
         if getattr(enemy, 'within_home_boundary', False):
-          avoid_rate = 0.8 if self.num_ships >= 28 else AVOID_COLLIDE_RATIO
+          if side_by_side:
+            avoid_rate = AVOID_COLLIDE_RATIO
+          else:
+            # If not side by side, force moving forward
+            avoid_rate = 0.8 if self.num_ships >= 28 else 0.9
         else:
           avoid_rate = 1.0
 
@@ -1500,6 +1510,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
   def get_ship_halite_pairs(self, ships, halites):
     CHECK_TRAP_DIST = 5
+    TRAP_COST_VALUE = 300
     enemy_gradient = self.gradient_map.get_full_map_enemy_gradient(
         min_halite=10)
     for poi_idx, cell in enumerate(halites):
@@ -1507,7 +1518,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         # Do not go to halite with too many enemy around.
         dist = self.manhattan_dist(ship, cell)
         if dist <= CHECK_TRAP_DIST:
-          if enemy_gradient[cell.position.x, cell.position.y] >= 350:
+          if enemy_gradient[cell.position.x, cell.position.y] >= TRAP_COST_VALUE:
             continue
 
         yield ship_idx, poi_idx
