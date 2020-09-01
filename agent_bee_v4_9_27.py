@@ -7,6 +7,11 @@ v4_9_27 <- v4_9_21
 * Attack enemy in halite_per_turn when halite_left >= 100
 * CHECK_TRAP_DIST = 5
 
+584
+{'agent_bee_v4_1_1.py': array([30.36020583, 45.45454545, 15.4373928 ,  8.74785592]),
+  'agent_bee_v4_9_27.py': array([46.31217839, 19.2109777 , 15.60891938, 18.86792453]),
+  'agent_bee_v4_2_1.py': array([22.46998285, 22.81303602, 25.55746141, 29.15951973]),
+  'agent_tom_v1_0_0.py': array([ 0.85763293, 12.52144082, 43.39622642, 43.22469983])}
 """
 
 import random
