@@ -3,6 +3,9 @@
 v4_9_27 <- v4_9_21
 
 * Make sure ship with large cargo return.
+* Do not guard if nearer than enemy
+* Attack enemy in halite_per_turn when halite_left >= 100
+* CHECK_TRAP_DIST = 5
 
 """
 
@@ -1422,8 +1425,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       opt_steps = min_mine
 
     total_halite = (carry
-                    + enemy_carry
                     + (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite_left)
+    # Only add enemy_carry if halite_left is large enough
+    if halite_left >= 100:
+      total_halite += enemy_carry
     return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
 
   def get_trapped_enemy_ships(self, max_attack_num):
@@ -1496,7 +1501,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
-    CHECK_TRAP_DIST = 7
+    CHECK_TRAP_DIST = 5
     enemy_gradient = self.gradient_map.get_full_map_enemy_gradient(
         min_halite=10)
     for poi_idx, cell in enumerate(halites):
@@ -1585,7 +1590,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
           # Force send ship home.
           if ship.halite >= MAX_SHIP_CARGO and not self.is_closing_phrase:
-            v += ship.halite
+            v += 5000
         elif is_enemy_column(j):
           # If attack enemy
           enemy = poi.ship
@@ -1678,8 +1683,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if yard.next_action == ShipyardAction.SPAWN and enemy.halite > 0:
         continue
 
-      yard.is_in_danger = True
       defend_ships = list(get_defend_ships(yard, enemy, min_enemy_dist))
+      for ship in defend_ships:
+        dist_to_yard = self.manhattan_dist(ship, yard)
+        # If my move away is still more near than enemy, not in danger.
+        if dist_to_yard + 1 <= min_enemy_dist - 1:
+          continue
+
+      yard.is_in_danger = True
       if defend_ships:
         yard.offend_enemy = enemy
         yield yard, defend_ships
