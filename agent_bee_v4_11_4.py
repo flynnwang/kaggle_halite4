@@ -1461,6 +1461,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           covered += 1
       return covered >= 2
 
+    MAX_OTHER_ENEMY_DIST = 2
     def get_attack_ships(enemy):
       # Extra attack distance for enemy within home boundary.
       max_attack_dist = MAX_ATTACK_DIST
@@ -1471,6 +1472,16 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         dist = self.manhattan_dist(ship, enemy)
         if dist <= max_attack_dist and ship.halite < enemy.halite:
           yield dist, ship
+
+      enemy_player_id = enemy.player_id
+      for e in self.board.opponents:
+        if e.id == enemy_player_id:
+          continue
+        for ship in e.ships:
+          dist = self.manhattan_dist(ship, enemy)
+          if dist <= MAX_OTHER_ENEMY_DIST and ship.halite < enemy.halite:
+            yield dist, ship
+
 
     def annotate_by_quadrant(dist_ships, enemy):
       """Sort to make sure at least one ship is selected in each quadrant."""
@@ -1489,15 +1500,16 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       quadrant_num = len({
           get_quadrant(ship.position - enemy.position) for _, ship in dist_ships
       })
+      my_quadrant_num = len({
+          get_quadrant(ship.position - enemy.position) for _, ship in dist_ships
+        if ship.player_id == self.me.id
+      })
 
-      # Reduce quadrant_num for home boundary enemy.
       min_attack_quadrant_num = MIN_ATTACK_QUADRANT_NUM
-      # if enemy.within_home_boundary:
-      # min_attack_quadrant_num -= 1
-
-      if quadrant_num >= min_attack_quadrant_num:
-        enemy.quadrant_num = quadrant_num
-        enemy.attack_ships = [ship for _, ship in dist_ships][:max_attack_num]
+      if (my_quadrant_num >= min_attack_quadrant_num
+          or (my_quadrant_num >= 2 and quadrant_num >= 4)):
+        enemy.attack_ships = [ship for _, ship in dist_ships
+                              if ship.player_id == self.me.id][:max_attack_num]
         yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
