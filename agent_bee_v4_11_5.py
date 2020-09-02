@@ -1529,6 +1529,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         # Do not go to halite with too many enemy around.
         dist = self.manhattan_dist(ship, cell)
         if dist <= CHECK_TRAP_DIST and is_dangerous(cell):
+          continue
 
         yield ship_idx, poi_idx
 
