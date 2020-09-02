@@ -610,10 +610,10 @@ class GradientMap(StrategyBase):
 
     return self.compute_gradient(nearby_enemy_cells(), max_dist, enemy_value)
 
-  def get_full_map_enemy_gradient(self, max_dist=4, min_halite=10):
-
+  def get_full_map_enemy_gradient(self, enemy_player, max_dist=4,
+                                  min_halite=10):
     def all_enemy_cells():
-      for enemy in self.enemy_ships:
+      for enemy in enemy_player.ships:
         yield enemy.cell
 
     def enemy_value(enemy_cell, nb_cell):
@@ -1514,15 +1514,21 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   def get_ship_halite_pairs(self, ships, halites):
     CHECK_TRAP_DIST = 5
     TRAP_COST_VALUE = 350
-    enemy_gradient = self.gradient_map.get_full_map_enemy_gradient(
-        min_halite=10)
+
+    enemy_gradients = [self.gradient_map.get_full_map_enemy_gradient(p)
+                       for p in self.board.opponents]
+
+    def is_dangerous(cell):
+      for g in enemy_gradients:
+        if g[cell.position.x, cell.position.y] >= TRAP_COST_VALUE:
+          return True
+      return False
+
     for poi_idx, cell in enumerate(halites):
       for ship_idx, ship in enumerate(ships):
         # Do not go to halite with too many enemy around.
         dist = self.manhattan_dist(ship, cell)
-        if dist <= CHECK_TRAP_DIST:
-          if enemy_gradient[cell.position.x, cell.position.y] >= TRAP_COST_VALUE:
-            continue
+        if dist <= CHECK_TRAP_DIST and is_dangerous(cell):
 
         yield ship_idx, poi_idx
 
