@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-
 v4_11_4 <- v4_11_2
 
-* Attack enemy with other enemies.
+* Attack enemy with other enemies (dist=2)
 
+1177
+{'agent_bee_v4_11_4.py': array([42.05607477, 23.27952421, 14.52846219, 20.13593883]),
+ 'agent_bee_v4_1_1.py': array([32.37043331, 42.05607477, 15.5480034 , 10.02548853]),
+ 'agent_bee_v4_2_1.py': array([24.63891249, 21.92013594, 25.913339  , 27.52761257]),
+ 'agent_tom_v1_0_0.py': array([ 0.93457944, 12.74426508, 44.01019541, 42.31096007])}
 """
 
 import random
