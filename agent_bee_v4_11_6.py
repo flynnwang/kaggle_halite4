@@ -4,7 +4,9 @@ v4_11_6 <- v4_11_5
 
 Harvest curve fine-tune.
 
-* 
+* Exhaust non-home cells faster. (0.9 s<30 / 0.5)
+* Pure step based halite control, G=1.013
+* Harvest steps [225, 260]
 
 """
 
@@ -31,7 +33,7 @@ MIN_WEIGHT = -99999
 
 BEGINNING_PHRASE_END_STEP = 60
 CLOSING_PHRASE_STEP = 300
-NEAR_ENDING_PHRASE_STEP = 365
+NEAR_ENDING_PHRASE_STEP = 350
 
 # If my halite is less than this, do not build ship or shipyard anymore.
 MIN_HALITE_TO_BUILD_SHIPYARD = 1000
@@ -678,11 +680,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.gradient_map.update(board)
 
   def init_halite_cells(self):
-    HOME_GROWN_CELL_MIN_HALITE = 80
-    MAX_STEP_FACTOR = 2
-
     def home_extend_dist():
-      return max(self.num_ships // 10, 2)
+      return max(self.num_ships // 6, 2)
 
     def is_home_grown_cell(cell):
       num_covered = len(cell.convering_shipyards)
@@ -692,36 +691,24 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     def keep_halite_value(cell):
 
       # Collect larger ones first
-      discount_factor = (0.9 if self.is_beginning_phrase else 0.5)
+      # discount_factor = (0.9 if self.is_beginning_phrase else 0.5)
+      discount_factor = (0.9 if self.step <= 30 else 0.5)
       threshold = self.mean_halite_value * discount_factor
 
       if self.is_final_phrase:
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        ship_factor = self.num_ships / 40
+        keep_halite = 1.013 ** (self.step - BEGINNING_PHRASE_END_STEP) * 60
+        keep_halite = min(500, keep_halite)
 
-        step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 180 * MAX_STEP_FACTOR
-        step_factor = min(MAX_STEP_FACTOR, step_factor)
-
-        cover_factor = 0
-        if self.num_ships >= 30:
-          num_covered = len(cell.convering_shipyards)
-          cover_factor += num_covered / 3
-
-        keep_factor = ship_factor + cover_factor + step_factor + 1
-        keep_halite = HOME_GROWN_CELL_MIN_HALITE * keep_factor
         self.keep_halite_value = keep_halite
         threshold = max(keep_halite, threshold)
 
-        # Force increase home halite cells with max value
-        if NEAR_ENDING_PHRASE_STEP <= self.step <= CLOSING_PHRASE_STEP:
-          threshold = 480
-
-        if 250 <= self.step <= 275:
+        if 225 <= self.step <= 260:
           threshold = 60
 
-        if self.step < 80:
+        if self.step <= BEGINNING_PHRASE_END_STEP:
           threshold = 60
 
       # Do not go into enemy shipyard for halite.
