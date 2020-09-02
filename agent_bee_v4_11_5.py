@@ -4,6 +4,11 @@ v4_11_5 <- v4_11_4
 
 * Split enemy gradient by player.
 
+878
+{'agent_bee_v4_11_5.py': array([48.46066135, 18.81413911, 14.02508552, 18.70011403]),
+  'agent_bee_v4_2_1.py': array([21.66476625, 23.48916762, 25.76966933, 29.07639681]),
+  'agent_tom_v1_0_0.py': array([ 1.48232611, 11.63055872, 45.15393387, 41.7331813 ]),
+  'agent_bee_v4_1_1.py': array([28.39224629, 46.06613455, 15.05131129, 10.49030787])}
 """
 
 import random
@@ -22,8 +27,8 @@ logger = logging.getLogger(__name__)
 
 
 # Mute print.
-def print(*args, **kwargs):
-  pass
+# def print(*args, **kwargs):
+  # pass
 
 
 MIN_WEIGHT = -99999
