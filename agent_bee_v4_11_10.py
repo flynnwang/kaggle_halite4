@@ -1,20 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-v4_11_8 <- v4_11_7
 
-* Use linear grow.
-{'agent_bee_v4_1_1.py': array([35.58776167, 42.99516908, 14.49275362,  6.92431562]),
- 'agent_bee_v4_2_1.py': array([23.83252818, 25.44283414, 25.12077295, 25.60386473]),
- 'agent_tom_v1_0_0.py': array([ 0.64412238, 12.72141707, 46.69887279, 39.93558776]),
- 'agent_bee_v4_11_9.py': array([39.93558776, 18.84057971, 13.68760064, 27.53623188])}
+v4_11_10 <- v4_11_6
 
+* Harvest more step [225, 300]
+* only bomb with larger dist when the shipyard is empty.
 
-* Test remove harvet step at 200+
-92
-{'agent_bee_v4_11_8.py': array([48.91304348, 17.39130435, 11.95652174, 21.73913043]),
- 'agent_bee_v4_1_1.py': array([27.17391304, 46.73913043, 17.39130435,  8.69565217]),
- 'agent_bee_v4_2_1.py': array([22.82608696, 23.91304348, 26.08695652, 27.17391304]),
- 'agent_tom_v1_0_0.py': array([ 1.08695652, 11.95652174, 44.56521739, 42.39130435])}
 """
 
 import random
@@ -69,19 +60,6 @@ POSSIBLE_MOVES = [
     Point(1, 0),
     Point(-1, 0)
 ]
-
-# TURNS_OPTIMAL = np.array(
-# [[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8],
-# [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
-# [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7],
-# [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6],
-# [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6],
-# [0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5],
-# [0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4],
-# [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3],
-# [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2],
-# [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-# [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
 
 TURNS_OPTIMAL = np.array(
     [[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8],
@@ -696,7 +674,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
               cell.convering_shipyards[0][0] <= home_extend_dist())
 
     def keep_halite_value(cell):
-
       # Collect larger ones first
       discount_factor = (0.9 if self.step <= 30 else 0.5)
       threshold = self.mean_halite_value * discount_factor
@@ -705,20 +682,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        # G = 1.011
-        # keep_halite = (G ** (self.step - BEGINNING_PHRASE_END_STEP)) * 60
-        MAX_STEP_FACTOR = 4
-        HOME_GROWN_CELL_MIN_HALITE = 80
-
-        step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 180 * MAX_STEP_FACTOR
-        step_factor = min(MAX_STEP_FACTOR, step_factor)
-        keep_halite = step_factor * HOME_GROWN_CELL_MIN_HALITE
+        keep_halite = 1.013 ** (self.step - BEGINNING_PHRASE_END_STEP) * 60
+        keep_halite = min(500, keep_halite)
 
         self.keep_halite_value = keep_halite
         threshold = max(keep_halite, threshold)
 
-        if 225 <= self.step <= 260:
-          threshold = 60
+        if 225 <= self.step <= 300:
+          threshold = 100
 
         if self.step <= BEGINNING_PHRASE_END_STEP:
           threshold = 60
@@ -808,7 +779,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           # self.num_ships >= self.total_enemy_ship_num + 10):
         # return self.sz * 2
 
-      if self.num_ships >= 35 and enemy_yard.cell.ship_id is None:
+      if self.num_ships >= 30 and enemy_yard.cell.ship_id is None:
         return (self.num_ships - 20) // 5 + MIN_BOMB_ENEMY_SHIPYARD_DIST
 
       # Only attack nearby enemy yard when the player is weak.
