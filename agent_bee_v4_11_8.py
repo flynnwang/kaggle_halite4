@@ -2,8 +2,10 @@
 """
 v4_11_8 <- v4_11_7
 
-* Test remove harvet step at 200+
+* Use linear grow.
 
+
+* Test remove harvet step at 200+
 92
 {'agent_bee_v4_11_8.py': array([48.91304348, 17.39130435, 11.95652174, 21.73913043]),
  'agent_bee_v4_1_1.py': array([27.17391304, 46.73913043, 17.39130435,  8.69565217]),
@@ -692,7 +694,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     def keep_halite_value(cell):
 
       # Collect larger ones first
-      # discount_factor = (0.9 if self.is_beginning_phrase else 0.5)
       discount_factor = (0.9 if self.step <= 30 else 0.5)
       threshold = self.mean_halite_value * discount_factor
 
@@ -700,27 +701,23 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        G = 1.011
-        keep_halite = (G ** (self.step - BEGINNING_PHRASE_END_STEP)) * 60
-        keep_halite = min(500, keep_halite)
+        # G = 1.011
+        # keep_halite = (G ** (self.step - BEGINNING_PHRASE_END_STEP)) * 60
+        MAX_STEP_FACTOR = 4
+        HOME_GROWN_CELL_MIN_HALITE = 80
+
+        step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 180 * MAX_STEP_FACTOR
+        step_factor = min(MAX_STEP_FACTOR, step_factor)
+        keep_halite = step_factor * HOME_GROWN_CELL_MIN_HALITE
 
         self.keep_halite_value = keep_halite
         threshold = max(keep_halite, threshold)
 
-        # if 225 <= self.step <= 260:
-          # threshold = 60
+        if 225 <= self.step <= 260:
+          threshold = 60
 
         if self.step <= BEGINNING_PHRASE_END_STEP:
           threshold = 60
-
-      # Do not go into enemy shipyard for halite.
-      # enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
-      # if (enemy_yard and enemy_yard_dist <= 5):
-      # ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
-      # if (alley_yard and enemy_yard_dist < ally_yard_dist):
-      # # if the cell is nearer to the enemy yard.
-      # return 1000
-
 
       return min(threshold, 499)
 

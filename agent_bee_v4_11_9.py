@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-
 v4_11_9 <- v4_11_4
 
 Harvest curve fine-tune (without per-enemy gradient)
