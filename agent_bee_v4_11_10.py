@@ -1,11 +1,28 @@
 # -*- coding: utf-8 -*-
 """
-
 v4_11_10 <- v4_11_6
 
-* Harvest more step [225, 300]
+* Harvest ASA cell.halite >= 490
 * only bomb with larger dist when the shipyard is empty.
 
+
+317 (cell.halite >= 450)
+{'agent_bee_v4_11_10.py': array([56.15141956, 14.51104101, 10.09463722, 19.24290221]),
+ 'agent_bee_v4_1_1.py': array([18.61198738, 59.93690852, 15.45741325,  5.99369085]),
+ 'agent_bee_v4_2_1.py': array([25.23659306, 15.77287066, 27.44479495, 31.54574132]),
+ 'agent_tom_v1_0_0.py': array([ 0.        ,  9.77917981, 47.00315457, 43.21766562])}
+
+223, reach 400, cut down to 300
+{'agent_bee_v4_1_1.py': array([25.56053812, 48.43049327, 17.48878924,  8.52017937]),
+ 'agent_bee_v4_2_1.py': array([30.04484305, 22.42152466, 17.48878924, 30.04484305]),
+ 'agent_tom_v1_0_0.py': array([ 0.89686099, 10.76233184, 50.67264574, 37.66816143]),
+ 'agent_bee_v4_11_10.py': array([43.49775785, 18.38565022, 14.34977578, 23.76681614])}
+
+356, reach 490 cut down to 390, exhaust during [250, 280]
+ {'agent_bee_v4_11_10.py': array([43.25842697, 18.53932584, 14.60674157, 23.59550562]),
+  'agent_bee_v4_1_1.py': array([30.33707865, 44.94382022, 16.01123596,  8.70786517]),
+  'agent_bee_v4_2_1.py': array([24.43820225, 22.47191011, 25.84269663, 27.24719101]),
+  'agent_tom_v1_0_0.py': array([ 1.96629213, 14.04494382, 43.53932584, 40.4494382 ])}
 """
 
 import random
@@ -665,13 +682,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.gradient_map.update(board)
 
   def init_halite_cells(self):
-    def home_extend_dist():
-      return max(self.num_ships // 6, 2)
-
     def is_home_grown_cell(cell):
       num_covered = len(cell.convering_shipyards)
       return (num_covered >= 2 or num_covered > 0 and
-              cell.convering_shipyards[0][0] <= home_extend_dist())
+              cell.convering_shipyards[0][0] <= 2)
 
     def keep_halite_value(cell):
       # Collect larger ones first
@@ -688,8 +702,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         self.keep_halite_value = keep_halite
         threshold = max(keep_halite, threshold)
 
-        if 225 <= self.step <= 300:
-          threshold = 100
+        if cell.halite >= 450:
+          threshold = cell.halite - 10
 
         if self.step <= BEGINNING_PHRASE_END_STEP:
           threshold = 60
@@ -783,7 +797,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return (self.num_ships - 20) // 5 + MIN_BOMB_ENEMY_SHIPYARD_DIST
 
       # Only attack nearby enemy yard when the player is weak.
-      if enemy_yard.player.halite <= self.c.spawn_cost:
+      if enemy_yard.player.halite < self.c.spawn_cost * 2:
         return MIN_BOMB_ENEMY_SHIPYARD_DIST
       return 0
 
@@ -843,7 +857,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     HALITE_CELL_PER_SHIP = 2.5
     if self.is_beginning_phrase:
       HALITE_CELL_PER_SHIP = 2.8
-    elif self.step >= 230 and self.num_ships >= 23:
+    elif self.step >= 230 and self.num_ships >= 25:
       HALITE_CELL_PER_SHIP = 3.2
 
     MIN_CONVERT_SHIP_NUM = 9
