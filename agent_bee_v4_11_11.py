@@ -3,7 +3,7 @@
 v4_11_11 <- v4_11_6
 
 * Add collect when cell.halite >= 450
-* harvest during range [230, 260]
+* harvest during range [230, 270]
 """
 
 import random
@@ -686,7 +686,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         self.keep_halite_value = keep_halite
         threshold = max(keep_halite, threshold)
 
-        if 225 <= self.step <= 260:
+        # Collect if cell is almost full
+        if cell.halite >= 450:
+          threshold = cell.halite - 1
+
+        if 230 <= self.step <= 270:
           threshold = 60
 
         if self.step <= BEGINNING_PHRASE_END_STEP:
