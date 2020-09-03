@@ -3,6 +3,9 @@
 v4_11_7 <- v4_11_6
 
 * Pure step based halite control, G=1.01
+* Bomb enemy when s>35 and no ship guard on a shipyard.
+
+
 """
 
 import random
@@ -694,7 +697,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        keep_halite = 1.013 ** (self.step - BEGINNING_PHRASE_END_STEP) * 60
+        keep_halite = (1.01 ** (self.step - BEGINNING_PHRASE_END_STEP)) * 60
         keep_halite = min(500, keep_halite)
 
         self.keep_halite_value = keep_halite
@@ -796,11 +799,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return 0
 
       # Elimination program.
-      if (self.num_ships >= 50 and
-          self.num_ships >= self.total_enemy_ship_num + 10):
-        return self.sz * 2
+      # if (self.num_ships >= 50 and
+          # self.num_ships >= self.total_enemy_ship_num + 10):
+        # return self.sz * 2
 
-      if self.num_ships >= 30:
+      if self.num_ships >= 35 and enemy_yard.cell.ship_id is None:
         return (self.num_ships - 20) // 5 + MIN_BOMB_ENEMY_SHIPYARD_DIST
 
       # Only attack nearby enemy yard when the player is weak.
