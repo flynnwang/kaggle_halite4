@@ -5,7 +5,37 @@ v4_11_7 <- v4_11_6
 * Pure step based halite control, G=1.01
 * Bomb enemy when s>35 and no ship guard on a shipyard.
 
+G=1.015, 957
+{'agent_bee_v4_11_7.py': array([45.76802508, 18.07732497, 12.33019854, 23.82445141]),
+ 'agent_bee_v4_1_1.py': array([27.06374086, 46.81295716, 15.67398119, 10.44932079]),
+ 'agent_tom_v1_0_0.py': array([ 0.83594566, 13.79310345, 47.43991641, 37.93103448]),
+ 'agent_bee_v4_2_1.py': array([26.3322884 , 21.31661442, 24.55590387, 27.79519331])}
 
+
+G=1.014, 898
+{'agent_bee_v4_2_1.py': array([26.26025791, 25.08792497, 22.74325909, 25.90855803]),
+ 'agent_bee_v4_11_7.py': array([44.66588511, 17.93669402, 14.1852286 , 23.21219226]),
+ 'agent_bee_v4_1_1.py': array([27.54982415, 43.84525205, 18.87456038,  9.73036342]),
+ 'agent_tom_v1_0_0.py': array([ 1.52403283, 13.13012896, 44.19695193, 41.14888628])}
+
+G=1.012, 909
+{'agent_bee_v4_2_1.py': array([25.19251925, 22.33223322, 26.51265127, 25.96259626]),
+ 'agent_bee_v4_1_1.py': array([22.77227723, 49.28492849, 18.59185919,  9.35093509]),
+ 'agent_bee_v4_11_7.py': array([51.26512651, 15.73157316, 13.75137514, 19.25192519]),
+ 'agent_tom_v1_0_0.py': array([ 0.77007701, 12.65126513, 41.14411441, 45.43454345])}
+
+G=1.011, 976
+{'agent_bee_v4_2_1.py': array([23.25819672, 24.3852459 , 26.8442623 , 25.51229508]),
+ 'agent_bee_v4_1_1.py': array([24.3852459 , 43.95491803, 20.28688525, 11.37295082]),
+ 'agent_tom_v1_0_0.py': array([ 1.02459016, 13.62704918, 39.44672131, 45.90163934]),
+ 'agent_bee_v4_11_7.py': array([51.33196721, 18.03278689, 13.42213115, 17.21311475])}
+
+
+G=1.01, 279
+{'agent_bee_v4_11_7.py': array([45.51971326, 21.14695341, 14.6953405 , 18.63799283]),
+ 'agent_bee_v4_1_1.py': array([28.31541219, 42.29390681, 18.63799283, 10.75268817]),
+ 'agent_tom_v1_0_0.py': array([ 0.        , 13.97849462, 40.86021505, 45.16129032]),
+ 'agent_bee_v4_2_1.py': array([26.16487455, 22.58064516, 25.80645161, 25.44802867])}
 """
 
 import random
@@ -697,7 +727,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        keep_halite = (1.01 ** (self.step - BEGINNING_PHRASE_END_STEP)) * 60
+        G = 1.011
+        keep_halite = (G ** (self.step - BEGINNING_PHRASE_END_STEP)) * 60
         keep_halite = min(500, keep_halite)
 
         self.keep_halite_value = keep_halite
