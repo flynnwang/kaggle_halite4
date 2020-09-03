@@ -914,7 +914,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           wt = compute_weight(ship, next_position)
           print('   to %s, wt=%.2f' % (move, wt))
 
-    assert len(matches) == len(ships), "match=%s, ships=%s" % (len(matches), len(ships))
+    # assert len(matches) == len(ships), "match=%s, ships=%s" % (len(matches), len(ships))
 
     for ship_id, next_position in matches:
       # Assume ship id is str.

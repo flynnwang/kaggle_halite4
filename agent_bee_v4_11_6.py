@@ -8,6 +8,11 @@ Harvest curve fine-tune.
 * Pure step based halite control, G=1.013
 * Harvest steps [225, 260]
 
+702
+{'agent_bee_v4_1_1.py': array([24.71428571, 46.57142857, 18.42857143, 10.28571429]),
+ 'agent_bee_v4_11_6.py': array([51.85714286, 15.14285714, 13.71428571, 19.28571429]),
+ 'agent_bee_v4_2_1.py': array([22.14285714, 26.85714286, 27.28571429, 23.71428571]),
+ 'agent_tom_v1_0_0.py': array([ 1.28571429, 11.42857143, 40.57142857, 46.71428571])}
 """
 
 import random
@@ -25,8 +30,8 @@ logger = logging.getLogger(__name__)
 
 
 # Mute print.
-# def print(*args, **kwargs):
-  # pass
+def print(*args, **kwargs):
+  pass
 
 
 MIN_WEIGHT = -99999
