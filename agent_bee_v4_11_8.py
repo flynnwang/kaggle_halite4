@@ -1,18 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-v4_11_6 <- v4_11_5
+v4_11_8 <- v4_11_7
 
-Harvest curve fine-tune.
+* Test remove harvet step at 200+
 
-* Exhaust non-home cells faster. (0.9 s<30 / 0.5)
-* Pure step based halite control, G=1.013
-* Harvest steps [225, 260]
-
-702
-{'agent_bee_v4_1_1.py': array([24.71428571, 46.57142857, 18.42857143, 10.28571429]),
- 'agent_bee_v4_11_6.py': array([51.85714286, 15.14285714, 13.71428571, 19.28571429]),
- 'agent_bee_v4_2_1.py': array([22.14285714, 26.85714286, 27.28571429, 23.71428571]),
- 'agent_tom_v1_0_0.py': array([ 1.28571429, 11.42857143, 40.57142857, 46.71428571])}
+92
+{'agent_bee_v4_11_8.py': array([48.91304348, 17.39130435, 11.95652174, 21.73913043]),
+ 'agent_bee_v4_1_1.py': array([27.17391304, 46.73913043, 17.39130435,  8.69565217]),
+ 'agent_bee_v4_2_1.py': array([22.82608696, 23.91304348, 26.08695652, 27.17391304]),
+ 'agent_tom_v1_0_0.py': array([ 1.08695652, 11.95652174, 44.56521739, 42.39130435])}
 """
 
 import random
@@ -67,6 +63,19 @@ POSSIBLE_MOVES = [
     Point(1, 0),
     Point(-1, 0)
 ]
+
+# TURNS_OPTIMAL = np.array(
+# [[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8],
+# [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
+# [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7],
+# [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6],
+# [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6],
+# [0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5],
+# [0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4],
+# [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3],
+# [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2],
+# [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+# [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
 
 TURNS_OPTIMAL = np.array(
     [[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8],
@@ -681,7 +690,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
               cell.convering_shipyards[0][0] <= home_extend_dist())
 
     def keep_halite_value(cell):
+
       # Collect larger ones first
+      # discount_factor = (0.9 if self.is_beginning_phrase else 0.5)
       discount_factor = (0.9 if self.step <= 30 else 0.5)
       threshold = self.mean_halite_value * discount_factor
 
@@ -689,17 +700,27 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        keep_halite = 1.013 ** (self.step - BEGINNING_PHRASE_END_STEP) * 60
+        G = 1.011
+        keep_halite = (G ** (self.step - BEGINNING_PHRASE_END_STEP)) * 60
         keep_halite = min(500, keep_halite)
 
         self.keep_halite_value = keep_halite
         threshold = max(keep_halite, threshold)
 
-        if 225 <= self.step <= 260:
-          threshold = 60
+        # if 225 <= self.step <= 260:
+          # threshold = 60
 
         if self.step <= BEGINNING_PHRASE_END_STEP:
           threshold = 60
+
+      # Do not go into enemy shipyard for halite.
+      # enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
+      # if (enemy_yard and enemy_yard_dist <= 5):
+      # ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
+      # if (alley_yard and enemy_yard_dist < ally_yard_dist):
+      # # if the cell is nearer to the enemy yard.
+      # return 1000
+
 
       return min(threshold, 499)
 
@@ -782,11 +803,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return 0
 
       # Elimination program.
-      if (self.num_ships >= 50 and
-          self.num_ships >= self.total_enemy_ship_num + 10):
-        return self.sz * 2
+      # if (self.num_ships >= 50 and
+          # self.num_ships >= self.total_enemy_ship_num + 10):
+        # return self.sz * 2
 
-      if self.num_ships >= 30:
+      if self.num_ships >= 35 and enemy_yard.cell.ship_id is None:
         return (self.num_ships - 20) // 5 + MIN_BOMB_ENEMY_SHIPYARD_DIST
 
       # Only attack nearby enemy yard when the player is weak.

@@ -1,18 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-v4_11_6 <- v4_11_5
 
-Harvest curve fine-tune.
+v4_11_9 <- v4_11_4
+
+Harvest curve fine-tune (without per-enemy gradient)
 
 * Exhaust non-home cells faster. (0.9 s<30 / 0.5)
 * Pure step based halite control, G=1.013
-* Harvest steps [225, 260]
+* Harvest steps [230, 260]
 
-702
-{'agent_bee_v4_1_1.py': array([24.71428571, 46.57142857, 18.42857143, 10.28571429]),
- 'agent_bee_v4_11_6.py': array([51.85714286, 15.14285714, 13.71428571, 19.28571429]),
- 'agent_bee_v4_2_1.py': array([22.14285714, 26.85714286, 27.28571429, 23.71428571]),
- 'agent_tom_v1_0_0.py': array([ 1.28571429, 11.42857143, 40.57142857, 46.71428571])}
 """
 
 import random
@@ -21,6 +17,7 @@ import logging
 from collections import Counter, defaultdict
 from enum import Enum, auto
 
+import networkx as nx
 import numpy as np
 import scipy.optimize
 from kaggle_environments.envs.halite.helpers import *
@@ -38,7 +35,7 @@ MIN_WEIGHT = -99999
 
 BEGINNING_PHRASE_END_STEP = 60
 CLOSING_PHRASE_STEP = 300
-NEAR_ENDING_PHRASE_STEP = 350
+NEAR_ENDING_PHRASE_STEP = 365
 
 # If my halite is less than this, do not build ship or shipyard anymore.
 MIN_HALITE_TO_BUILD_SHIPYARD = 1000
@@ -605,10 +602,10 @@ class GradientMap(StrategyBase):
 
     return self.compute_gradient(nearby_enemy_cells(), max_dist, enemy_value)
 
-  def get_full_map_enemy_gradient(self, enemy_player, max_dist=4,
-                                  min_halite=10):
+  def get_full_map_enemy_gradient(self, max_dist=4, min_halite=10):
+
     def all_enemy_cells():
-      for enemy in enemy_player.ships:
+      for enemy in self.enemy_ships:
         yield enemy.cell
 
     def enemy_value(enemy_cell, nb_cell):
@@ -670,6 +667,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     self.follower_detector.update(board)
     self.gradient_map.update(board)
+
 
   def init_halite_cells(self):
     def home_extend_dist():
@@ -1483,22 +1481,15 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   def get_ship_halite_pairs(self, ships, halites):
     CHECK_TRAP_DIST = 5
     TRAP_COST_VALUE = 350
-
-    enemy_gradients = [self.gradient_map.get_full_map_enemy_gradient(p)
-                       for p in self.board.opponents]
-
-    def is_dangerous(cell):
-      for g in enemy_gradients:
-        if g[cell.position.x, cell.position.y] >= TRAP_COST_VALUE:
-          return True
-      return False
-
+    enemy_gradient = self.gradient_map.get_full_map_enemy_gradient(
+        min_halite=10)
     for poi_idx, cell in enumerate(halites):
       for ship_idx, ship in enumerate(ships):
         # Do not go to halite with too many enemy around.
         dist = self.manhattan_dist(ship, cell)
-        if dist <= CHECK_TRAP_DIST and is_dangerous(cell):
-          continue
+        if dist <= CHECK_TRAP_DIST:
+          if enemy_gradient[cell.position.x, cell.position.y] >= TRAP_COST_VALUE:
+            continue
 
         yield ship_idx, poi_idx
 
