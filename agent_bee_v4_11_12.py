@@ -6,6 +6,12 @@ v4_11_12 <- v4_11_11
 * Use merged enemy gradient after step 100
 * Limit max shipyard num to 3 when step < 230 or s < 25
 
+469
+{'agent_bee_v4_11_12.py': array([39.23240938, 17.69722814, 11.51385928, 31.5565032 ]),
+ 'agent_tom_v1_0_0.py': array([ 1.70575693, 18.12366738, 46.0554371 , 34.11513859]),
+ 'agent_bee_v4_2_1.py': array([28.9978678 , 27.71855011, 23.02771855, 20.25586354]),
+ 'agent_bee_v4_1_1.py': array([30.06396588, 36.46055437, 19.40298507, 14.07249467])}
+
 """
 
 import random
