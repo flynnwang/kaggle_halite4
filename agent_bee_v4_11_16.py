@@ -5,6 +5,27 @@ v4_11_16 <- v4_11_15
 
 * Revert move_away_from_enemy
 * Add enemy gradient as background score for computing weight
+* Do not move into enemy shipyard for halite
+* convert shipyard with shipyard_gradient
+
+
+* Revert move_away_from_enemy
+* Add enemy gradient as background score for computing weight
+* Do not move into enemy shipyard for halite
+160
+{'agent_bee_v4_2_1.py': array([47.5 , 26.25, 17.5 ,  8.75]),
+ 'agent_bee_v4_1_1.py': array([21.25 , 40.625, 21.25 , 16.875]),
+  'agent_tom_v1_0_0.py': array([ 0.625,  8.125, 44.375, 46.875]),
+   'agent_bee_v4_11_16.py': array([30.625, 25.   , 16.875, 27.5  ])}
+
+
+* Revert move_away_from_enemy
+* Add enemy gradient as background score for computing weight
+266
+{'agent_bee_v4_1_1.py': array([31.95488722, 39.84962406, 18.04511278, 10.15037594]),
+ 'agent_bee_v4_11_16.py': array([34.58646617, 22.18045113, 18.79699248, 24.43609023]),
+  'agent_bee_v4_2_1.py': array([31.20300752, 25.56390977, 19.54887218, 23.68421053]),
+   'agent_tom_v1_0_0.py': array([ 2.2556391 , 12.40601504, 43.60902256, 41.72932331])}
 """
 
 import random
@@ -607,6 +628,23 @@ class GradientMap(StrategyBase):
 
     return self.compute_gradient(all_enemy_cells(), max_dist, enemy_value)
 
+
+  def get_full_map_shipyard_gradient(self, max_dist=7):
+    def all_shipyard_cells():
+      for player in self.board.players.values():
+        for yard in player.shipyards:
+          yield yard.cell
+
+    def yard_value(yard_cell, nb_cell):
+      dist = self.manhattan_dist(nb_cell, yard_cell)
+      value = 1 / (dist + 1)
+      is_my_yard = yard_cell.shipyard.player_id == self.me.id
+      if not is_my_yard:
+        value = -value
+      return values
+    return self.compute_gradient(all_shipyard_cells(), max_dist, yard_value)
+
+
   def get_halite_gradient_map(self, max_dist=3, min_halite=0,
                               include_center=True, normalize=True):
     def all_halite_cells():
@@ -710,6 +748,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if self.step <= BEGINNING_PHRASE_END_STEP:
           threshold = 60
 
+      # Do not go into enemy shipyard for halite.
+      if self.num_ships <= 35:
+        enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
+        if enemy_yard and enemy_yard_dist <= 4:
+          ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
+          if (alley_yard and enemy_yard_dist < ally_yard_dist):
+            # if the cell is nearer to the enemy yard.
+            return 1000
       return min(threshold, 499)
 
     # Init halite cells
@@ -949,6 +995,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return False
       return True
 
+    shipyard_gradient = self.gradient_map.get_full_map_shipyard_gradient()
     def compute_convert_score(candidate_cell):
       MAX_COVER_HALITE = 2
 
@@ -973,7 +1020,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if dist_yards and (len(dist_yards) >= MAX_COVER_HALITE
                            or dist_yards[0][0] <= SHIPYARD_TIGHT_COVER_DIST):
           score += 1
-      return score
+
+      p = candidate_cell.position
+      return shipyard_gradient[p.x, p.y], score
 
     def nominate_shipyard_positions():
       for cell in self.board.cells.values():
@@ -1024,8 +1073,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return True
 
         if ship.position != cell.position:
-          print("Send ship(%s %s) to shipyard position (%s), dist=%s" %
-                (ship.id, ship.position, cell.position, dist_to_yard))
+          print("Send ship(%s %s) to shipyard position (%s), dist=%s, convert_score=%s" %
+                (ship.id, ship.position, cell.position, dist_to_yard,
+                 cell.convert_score))
           # Let's use GOTO_HALITE for now.
           self.assign_task(ship, cell, ShipTask.INITIAL_SHIPYARD)
           return True
