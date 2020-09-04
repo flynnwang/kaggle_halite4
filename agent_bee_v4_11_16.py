@@ -3,6 +3,17 @@
 v4_11_16 <- v4_11_15
 
 
+
+* Revert move_away_from_enemy
+* Add enemy gradient as background score for computing weight
+* Do not move into enemy shipyard for halite (s=28, dist=3)
+* convert shipyard with shipyard_gradient
+* Expansion step >= 160 and num_ships >= 23
+* step > 300, keep_threshold=400
+* discount_factor for mean_halite_value = 0.4
+* count_down with 80, G=1.015, step = [160, 220, 280]
+
+
 * Revert move_away_from_enemy
 * Add enemy gradient as background score for computing weight
 * Do not move into enemy shipyard for halite (s=28)
@@ -10,8 +21,12 @@ v4_11_16 <- v4_11_15
 * Expansion step >= 160 and num_ships >= 23
 * step > 300, keep_threshold=450
 * discount_factor for mean_halite_value = 0.4
-* count_down with 80, G=1.015, step = [170, 270]
+* count_down with 80, G=1.015, step = [140, 240]
 
+{'agent_bee_v4_11_16.py': array([37.5       , 25.65789474, 22.69736842, 14.14473684]),
+ 'agent_bee_v4_2_1.py': array([40.46052632, 29.60526316, 21.71052632,  8.22368421]),
+ 'agent_tom_v1_0_0.py': array([ 0.32894737,  2.96052632, 28.94736842, 67.76315789]),
+ 'agent_bee_v4_1_1.py': array([21.71052632, 41.77631579, 26.64473684,  9.86842105])}
 
 
 * Revert move_away_from_enemy
@@ -770,19 +785,19 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if cell.halite >= 450:
           threshold = cell.halite - 1
 
-        if self.step in [140, 240]:
+        if self.step in [160, 220, 280]:
           self.count_down_step = self.step
 
         if self.step <= BEGINNING_PHRASE_END_STEP:
           threshold = 60
 
         if self.step >= 300:
-          threshold = 450
+          threshold = 400
 
       # Do not go into enemy shipyard for halite.
       if self.num_ships <= 28:
         enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
-        if enemy_yard and enemy_yard_dist <= 4:
+        if enemy_yard and enemy_yard_dist <= 3:
           ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
           if (alley_yard and enemy_yard_dist < ally_yard_dist):
             # if the cell is nearer to the enemy yard.
