@@ -5,8 +5,35 @@ v4_11_16 <- v4_11_15
 
 * Revert move_away_from_enemy
 * Add enemy gradient as background score for computing weight
+* Do not move into enemy shipyard for halite (s=28)
+* convert shipyard with shipyard_gradient
+* Expansion step >= 160 and num_ships >= 23
+* step > 300, keep_threshold=450
+* discount_factor for mean_halite_value = 0.4
+* count_down with 80, G=1.015, step = [170, 270]
+
+
+
+* Revert move_away_from_enemy
+* Add enemy gradient as background score for computing weight
+* Do not move into enemy shipyard for halite (s=28)
+* convert shipyard with shipyard_gradient
+* Expansion step >= 160 and num_ships >= 23
+{'agent_bee_v4_1_1.py': array([18.51851852, 33.95061728, 37.65432099,  9.87654321]),
+ 'agent_bee_v4_2_1.py': array([45.67901235, 31.48148148, 14.81481481,  8.02469136]),
+ 'agent_tom_v1_0_0.py': array([ 0.61728395,  3.08641975, 22.83950617, 73.45679012]),
+ 'agent_bee_v4_11_16.py': array([35.18518519, 31.48148148, 24.69135802,  8.64197531])}
+
+
+* Revert move_away_from_enemy
+* Add enemy gradient as background score for computing weight
 * Do not move into enemy shipyard for halite
 * convert shipyard with shipyard_gradient
+160
+{'agent_bee_v4_2_1.py': array([41.875, 32.5  , 18.125,  7.5  ]),
+ 'agent_bee_v4_11_16.py': array([34.375, 35.625, 17.5  , 12.5  ]),
+ 'agent_bee_v4_1_1.py': array([23.75 , 28.75 , 33.125, 14.375]),
+ 'agent_tom_v1_0_0.py': array([ 0.   ,  3.125, 31.25 , 65.625])}
 
 
 * Revert move_away_from_enemy
@@ -724,7 +751,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     def keep_halite_value(cell):
       # Collect larger ones first
-      discount_factor = (0.9 if self.step <= 30 else 0.5)
+      # discount_factor = (0.9 if self.step <= 30 else 0.5)
+      discount_factor = 0.4
       threshold = self.mean_halite_value * discount_factor
 
       if self.is_final_phrase:
@@ -732,7 +760,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       if is_home_grown_cell(cell):
         # count_down_step = 60, 160, 260
-        keep_halite = 1.014 ** max((self.step - self.count_down_step), 0) * 60
+        keep_halite = 1.015 ** max((self.step - self.count_down_step), 0) * 80
         keep_halite = min(500, keep_halite)
 
         self.keep_halite_value = keep_halite
@@ -742,14 +770,17 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if cell.halite >= 450:
           threshold = cell.halite - 1
 
-        if self.step in [160, 260]:
+        if self.step in [140, 240]:
           self.count_down_step = self.step
 
         if self.step <= BEGINNING_PHRASE_END_STEP:
           threshold = 60
 
+        if self.step >= 300:
+          threshold = 450
+
       # Do not go into enemy shipyard for halite.
-      if self.num_ships <= 35:
+      if self.num_ships <= 28:
         enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
         if enemy_yard and enemy_yard_dist <= 4:
           ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
@@ -905,7 +936,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     HALITE_CELL_PER_SHIP = 2.5
     if self.is_beginning_phrase:
       HALITE_CELL_PER_SHIP = 2.8
-    elif self.step >= 230 and self.num_ships >= 23:
+    elif self.step >= 160 and self.num_ships >= 23:
       HALITE_CELL_PER_SHIP = 3.2
 
     MIN_CONVERT_SHIP_NUM = 9
