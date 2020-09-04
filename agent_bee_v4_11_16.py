@@ -3,6 +3,8 @@
 v4_11_16 <- v4_11_15
 
 
+* Revert move_away_from_enemy
+* Add enemy gradient as background score for computing weight
 """
 
 import random
@@ -20,8 +22,8 @@ logger = logging.getLogger(__name__)
 
 
 # Mute print.
-# def print(*args, **kwargs):
-  # pass
+def print(*args, **kwargs):
+  pass
 
 
 MIN_WEIGHT = -99999
@@ -1061,9 +1063,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       next_cell = self.board[next_position]
 
       # If ship is in danger, use enemy gradient for move
+      enemy_cost = self.gradient_map.get_enemy_cost(next_cell, ship.halite,
+                                                    max_dist=3)
       if ship.in_danger:
-        enemy_cost = self.gradient_map.get_enemy_cost(next_cell, ship.halite,
-                                                      max_dist=3)
         return -enemy_cost
 
       # If a non-followed ship's next move is to alley SPAWNING shipyard, skip
@@ -1146,10 +1148,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
         if getattr(enemy, 'within_home_boundary', False):
           if side_by_side:
-            avoid_rate = AVOID_COLLIDE_RATIO
+            avoid_rate = 1.0
           else:
             # If not side by side, force moving forward
-            avoid_rate = 0.8 if self.num_ships >= 28 else 0.9
+            avoid_rate = 0.9 if self.num_ships >= 28 else AVOID_COLLIDE_RATIO
         else:
           avoid_rate = 1.0
 
@@ -1170,6 +1172,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           if has_enemy_ship(nb_cell, self.me):
             if move_away_from_enemy(nb_cell.ship, ship, side_by_side=False):
               wt -= (spawn_cost + ship.halite)
+
+      wt += (-enemy_cost / self.c.spawn_cost)
       return wt
 
     # Skip only convert ships.
