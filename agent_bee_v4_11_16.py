@@ -641,7 +641,7 @@ class GradientMap(StrategyBase):
       is_my_yard = yard_cell.shipyard.player_id == self.me.id
       if not is_my_yard:
         value = -value
-      return values
+      return value
     return self.compute_gradient(all_shipyard_cells(), max_dist, yard_value)
 
 
