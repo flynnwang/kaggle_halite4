@@ -2,8 +2,9 @@
 """
 v4_11_12 <- v4_11_11
 
-* Do not collide with enemy (even in home boundary).
+* Do not collide with enemy side_by_side
 * Use merged enemy gradient after step 100
+* Limit max shipyard num to 3 when step < 230 or s < 25
 
 """
 
@@ -637,6 +638,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.follower_detector = FollowerDetector()
     self.gradient_map = GradientMap()
     self.keep_halite_value = 0.0
+    self.active_cell_positions = {}
 
   def update(self, board):
     """Updates board state at each step."""
@@ -689,10 +691,19 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
         # Collect if cell is almost full
         if cell.halite >= 450:
-          threshold = cell.halite - 1
+          # Collect 2 times.
+          self.active_cell_positions[cell.position] = cell.halite * (0.75 ** 2) - 10
+
+        if cell.position in self.active_cell_positions:
+          th = self.active_cell_positions[cell.position]
+          if cell.halite < th:
+            # No longer active
+            del self.active_cell_positions[cell.position]
+          else:
+            threshold = th
 
         if 230 <= self.step <= 270:
-          threshold = 60
+          threshold = 50
 
         if self.step <= BEGINNING_PHRASE_END_STEP:
           threshold = 60
@@ -881,6 +892,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return num_yards
 
     def max_shipyard_num():
+      if self.step <= 230 or self.num_ships <= 25:
+        return 3
       return max(shipyard_num_by_ship_num(), shipyard_num_by_halite_ratio())
 
     # Reach max shipyard num.
@@ -1124,6 +1137,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         # enemy.halite == ship.halite
         assert enemy.halite == ship.halite
         if ship.halite > 0:
+          return True
+
+        if side_by_side:
           return True
 
         if getattr(enemy, 'within_home_boundary', False):
@@ -1482,6 +1498,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     enemy_gradients = [self.gradient_map.get_full_map_enemy_gradient(p)
                        for p in self.board.opponents]
+    if self.step >= 75:
+      enemy_gradients = [np.sum(enemy_gradients, axis=0)]
 
     def is_dangerous(cell):
       for g in enemy_gradients:
