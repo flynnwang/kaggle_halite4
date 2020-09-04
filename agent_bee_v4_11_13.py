@@ -616,6 +616,25 @@ class GradientMap(StrategyBase):
 
     return self.compute_gradient(all_enemy_cells(), max_dist, enemy_value)
 
+  def get_halite_gradient_map(self, max_dist=3, min_halite=0,
+                              include_center=True, normalize=True):
+    def all_halite_cells():
+      for cell in self.board.cells.values():
+        if cell.halite > min_halite:
+          yield cell
+
+    def halite_value(cell, nb_cell):
+      dist = self.manhattan_dist(nb_cell, cell)
+      # Do not account for the halite of the cell itself.
+      if dist == 0 and not include_center:
+        return 0
+      return cell.halite / (dist + 1)
+
+    g = self.compute_gradient(all_halite_cells(), max_dist, halite_value)
+    if normalize:
+      g = g / np.max(g)
+    return g
+
 
 class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   """Sends every ships to the nearest cell with halite.
@@ -662,6 +681,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     self.follower_detector.update(board)
     self.gradient_map.update(board)
+    self.halite_gradient = self.gradient_map.get_halite_gradient_map(max_dist=3)
 
   def init_halite_cells(self):
     def home_extend_dist():
@@ -1071,7 +1091,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       # Try not move onto home halite cells when possible
       if next_cell.halite > 0 and next_position != target_cell.position:
-        wt -= 0.5
+        halite_gradient = self.halite_gradient[next_position.x, next_position.y]
+        wt -= halite_gradient * 0.5
 
       # If collecting halite
       if ((ship.task_type == ShipTask.GOTO_HALITE or
@@ -1127,9 +1148,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return True
 
         if getattr(enemy, 'within_home_boundary', False):
-          avoid_rate = AVOID_COLLIDE_RATIO
+          if side_by_side:
+            avoid_rate = AVOID_COLLIDE_RATIO
+          else:
+            # If not side by side, force moving forward
+            avoid_rate = 0.8 if self.num_ships >= 28 else 0.9
         else:
-          avoid_rate = 0.99
+          avoid_rate = 1.0
 
         return random.random() < avoid_rate
 
@@ -1437,15 +1462,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if dist <= max_attack_dist and ship.halite < enemy.halite:
           yield dist, ship
 
-      enemy_player_id = enemy.player_id
-      for e in self.board.opponents:
-        if e.id == enemy_player_id:
-          continue
-        for ship in e.ships:
-          dist = self.manhattan_dist(ship, enemy)
-          if dist <= MAX_OTHER_ENEMY_DIST and ship.halite < enemy.halite:
-            yield dist, ship
-
 
     def annotate_by_quadrant(dist_ships, enemy):
       """Sort to make sure at least one ship is selected in each quadrant."""
@@ -1464,16 +1480,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       quadrant_num = len({
           get_quadrant(ship.position - enemy.position) for _, ship in dist_ships
       })
-      my_quadrant_num = len({
-          get_quadrant(ship.position - enemy.position) for _, ship in dist_ships
-        if ship.player_id == self.me.id
-      })
 
       min_attack_quadrant_num = MIN_ATTACK_QUADRANT_NUM
-      if (my_quadrant_num >= min_attack_quadrant_num
-          or (my_quadrant_num >= 2 and quadrant_num >= 4)):
-        enemy.attack_ships = [ship for _, ship in dist_ships
-                              if ship.player_id == self.me.id][:max_attack_num]
+      if quadrant_num >= min_attack_quadrant_num:
+        enemy.attack_ships = [ship for _, ship in dist_ships][:max_attack_num]
         yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
