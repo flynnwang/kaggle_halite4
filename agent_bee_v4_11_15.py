@@ -2,7 +2,7 @@
 """
 v4_11_15 <- v4_11_14
 
-* No more saving after step 270: step>270, keep 100
+* Reset keep_halite at step 160, 260 with G=1.014
 
 """
 
@@ -646,6 +646,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.follower_detector = FollowerDetector()
     self.gradient_map = GradientMap()
     self.keep_halite_value = 0.0
+    self.count_down_step = BEGINNING_PHRASE_END_STEP
 
   def update(self, board):
     """Updates board state at each step."""
@@ -691,7 +692,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        keep_halite = 1.013 ** (self.step - BEGINNING_PHRASE_END_STEP) * 60
+        # count_down_step = 60, 160, 260
+        keep_halite = 1.014 ** max((self.step - self.count_down_step), 0) * 60
         keep_halite = min(500, keep_halite)
 
         self.keep_halite_value = keep_halite
@@ -701,11 +703,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if cell.halite >= 450:
           threshold = cell.halite - 1
 
-        if 230 <= self.step <= 270:
-          threshold = 60
-
-        if self.step > 270:
-          threshold = 100
+        if self.step in [160, 260]:
+          self.count_down_step = self.step
 
         if self.step <= BEGINNING_PHRASE_END_STEP:
           threshold = 60
