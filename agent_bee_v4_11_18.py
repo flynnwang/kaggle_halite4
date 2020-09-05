@@ -674,15 +674,16 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     def keep_halite_value(cell):
       # Collect larger ones first
-      discount_factor = (0.9 if self.step <= 30 else 0.5)
+      discount_factor = 0.45
       threshold = self.mean_halite_value * discount_factor
 
       if self.is_final_phrase:
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        keep_halite = 1.013 ** (self.step - BEGINNING_PHRASE_END_STEP) * 60
-        keep_halite = min(500, keep_halite)
+        RAISE_FACTOR = 2
+        keep_halite = 1.014 ** (self.step - BEGINNING_PHRASE_END_STEP) * 60
+        keep_halite = min(self.mean_halite_value * RAISE_FACTOR, keep_halite)
 
         self.keep_halite_value = keep_halite
         threshold = max(keep_halite, threshold)
@@ -842,7 +843,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     HALITE_CELL_PER_SHIP = 2.5
     if self.is_beginning_phrase:
       HALITE_CELL_PER_SHIP = 2.8
-    elif self.step >= 230 and self.num_ships >= 23:
+    elif self.step >= 160 and self.num_ships >= 23:
       HALITE_CELL_PER_SHIP = 3.2
 
     MIN_CONVERT_SHIP_NUM = 9

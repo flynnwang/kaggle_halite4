@@ -5,6 +5,12 @@ v4_11_17 <- v4_11_6
 * Sensitive follower: FOLLOW_COUNT = 1
 * Use halite gradient map.
 * (revert) Attack enemy with other enemies (dist=2)
+
+36
+{'agent_bee_v4_2_1.py': array([38.88888889,  5.55555556, 22.22222222, 33.33333333]),
+ 'agent_bee_v4_1_1.py': array([19.44444444, 47.22222222, 22.22222222, 11.11111111]),
+ 'agent_tom_v1_0_0.py': array([ 0.        , 19.44444444, 47.22222222, 33.33333333]),
+ 'agent_bee_v4_11_17.py': array([41.66666667, 27.77777778,  8.33333333, 22.22222222])}
 """
 
 import random
