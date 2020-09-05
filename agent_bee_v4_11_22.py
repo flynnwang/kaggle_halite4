@@ -1,13 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-v4_11_21 <- v4_11_18
+v4_11_22 <- v4_11_21
 
-Merge with v4_11_17.
-
-* Sensitive follower: FOLLOW_COUNT = 1
-* Use halite gradient map.
-* (revert) Attack enemy with other enemies (dist=2)
-* Set minimum home halite by board halite mean.
+* Drop harvest.
 
 """
 
