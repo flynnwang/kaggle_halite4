@@ -11,6 +11,12 @@ v4_11_16 <- v4_11_15
 * discount_factor for mean_halite_value = 0.4
 * count_down with 80, G=1.015, step = [160, 220, 280]
 
+1000
+{'agent_bee_v4_2_1.py': array([33.3, 27.1, 30.8,  8.8]),
+ 'agent_bee_v4_1_1.py': array([16.4, 45. , 29.3,  9.3]),
+ 'agent_tom_v1_0_0.py': array([ 0.3,  3.6, 24.3, 71.8]),
+ 'agent_bee_v4_11_16.py': array([50. , 24.3, 15.6, 10.1])}
+
 640
 {'agent_bee_v4_1_1.py': array([16.40625, 42.5    , 29.0625 , 12.03125]),
  'agent_bee_v4_11_16.py': array([55.    , 20.3125, 13.4375, 11.25  ]),
