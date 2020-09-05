@@ -8,6 +8,7 @@ Merge with v4_11_17.
 * Use halite gradient map.
 * (revert) Attack enemy with other enemies (dist=2)
 * Set minimum home halite by board halite mean.
+* Max home halite 400
 
 """
 
@@ -718,7 +719,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if self.step <= BEGINNING_PHRASE_END_STEP:
           threshold = self.mean_halite_value * 0.6
 
-      return min(threshold, 499)
+      return min(threshold, 400)
 
     # Init halite cells
     self.halite_cells = []

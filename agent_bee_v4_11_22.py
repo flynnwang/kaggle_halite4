@@ -707,13 +707,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         self.keep_halite_value = keep_halite
         threshold = max(keep_halite, threshold)
 
-        if 220 <= self.step <= 270:
-          threshold = self.mean_halite_value * 0.6
+        # if 220 <= self.step <= 270:
+          # threshold = self.mean_halite_value * 0.6
 
         if self.step <= BEGINNING_PHRASE_END_STEP:
           threshold = self.mean_halite_value * 0.6
 
-      return min(threshold, 499)
+      return min(threshold, 400)
 
     # Init halite cells
     self.halite_cells = []
