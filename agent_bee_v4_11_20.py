@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-
 v4_11_20 <- v4_11_18
 
 Merge with v4_11_17.
@@ -9,7 +8,11 @@ Merge with v4_11_17.
 * Use halite gradient map.
 * (revert) Attack enemy with other enemies (dist=2)
 
-
+72
+{'agent_bee_v4_11_20.py': array([61.11111111,  9.72222222, 11.11111111, 18.05555556]),
+ 'agent_tom_v1_0_0.py': array([ 1.38888889, 18.05555556, 34.72222222, 45.83333333]),
+  'agent_bee_v4_1_1.py': array([18.05555556, 36.11111111, 30.55555556, 15.27777778]),
+   'agent_bee_v4_2_1.py': array([19.44444444, 36.11111111, 23.61111111, 20.83333333])}
 """
 
 import random
@@ -410,7 +413,7 @@ class StrategyBase:
 class FollowerDetector(StrategyBase):
 
   # >= 2 is considered as following.
-  FOLLOW_COUNT = 2
+  FOLLOW_COUNT = 1
 
   def __init__(self):
     self.board = None
@@ -621,6 +624,25 @@ class GradientMap(StrategyBase):
 
     return self.compute_gradient(all_enemy_cells(), max_dist, enemy_value)
 
+  def get_halite_gradient_map(self, max_dist=3, min_halite=0,
+                              include_center=True, normalize=True):
+    def all_halite_cells():
+      for cell in self.board.cells.values():
+        if cell.halite > min_halite:
+          yield cell
+
+    def halite_value(cell, nb_cell):
+      dist = self.manhattan_dist(nb_cell, cell)
+      # Do not account for the halite of the cell itself.
+      if dist == 0 and not include_center:
+        return 0
+      return cell.halite / (dist + 1)
+
+    g = self.compute_gradient(all_halite_cells(), max_dist, halite_value)
+    if normalize:
+      g = g / np.max(g)
+    return g
+
 
 class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   """Sends every ships to the nearest cell with halite.
@@ -667,6 +689,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     self.follower_detector.update(board)
     self.gradient_map.update(board)
+    self.halite_gradient = self.gradient_map.get_halite_gradient_map(max_dist=3)
 
   def init_halite_cells(self):
     def home_extend_dist():
@@ -1073,7 +1096,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       # Try not move onto home halite cells when possible
       if next_cell.halite > 0 and next_position != target_cell.position:
-        wt -= 0.5
+        halite_gradient = self.halite_gradient[next_position.x, next_position.y]
+        wt -= halite_gradient * 0.5
 
       # If collecting halite
       if ((ship.task_type == ShipTask.GOTO_HALITE or
@@ -1439,14 +1463,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if dist <= max_attack_dist and ship.halite < enemy.halite:
           yield dist, ship
 
-      enemy_player_id = enemy.player_id
-      for e in self.board.opponents:
-        if e.id == enemy_player_id:
-          continue
-        for ship in e.ships:
-          dist = self.manhattan_dist(ship, enemy)
-          if dist <= MAX_OTHER_ENEMY_DIST and ship.halite < enemy.halite:
-            yield dist, ship
+      # enemy_player_id = enemy.player_id
+      # for e in self.board.opponents:
+        # if e.id == enemy_player_id:
+          # continue
+        # for ship in e.ships:
+          # dist = self.manhattan_dist(ship, enemy)
+          # if dist <= MAX_OTHER_ENEMY_DIST and ship.halite < enemy.halite:
+            # yield dist, ship
 
 
     def annotate_by_quadrant(dist_ships, enemy):
