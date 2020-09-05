@@ -2,7 +2,14 @@
 """
 v4_11_19 <- v4_11_18
 
-* raise halite for all cells.
+* raise halite for all cells, min halite 50
+* max keep halite 450
+
+42
+{'agent_bee_v4_2_1.py': array([54.76190476, 16.66666667, 19.04761905,  9.52380952]),
+ 'agent_bee_v4_1_1.py': array([19.04761905, 54.76190476, 14.28571429, 11.9047619 ]),
+ 'agent_tom_v1_0_0.py': array([ 0.        ,  7.14285714, 40.47619048, 52.38095238]),
+ 'agent_bee_v4_11_19.py': array([26.19047619, 21.42857143, 26.19047619, 26.19047619])}
 """
 
 import random
@@ -666,20 +673,23 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return max(self.num_ships // 6, 2)
 
     def is_home_grown_cell(cell):
+      # consider all cells as home grown.
+      return True
+
       num_covered = len(cell.convering_shipyards)
       return (num_covered >= 2 or num_covered > 0 and
               cell.convering_shipyards[0][0] <= home_extend_dist())
 
     def keep_halite_value(cell):
       # Collect larger ones first
-      discount_factor = 0.45
+      discount_factor = 0.5
       threshold = self.mean_halite_value * discount_factor
 
       if self.is_final_phrase:
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        RAISE_FACTOR = 2
+        RAISE_FACTOR = 3
         keep_halite = 1.014 ** (self.step - BEGINNING_PHRASE_END_STEP) * 60
         keep_halite = min(self.mean_halite_value * RAISE_FACTOR, keep_halite)
 
@@ -687,12 +697,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         threshold = max(keep_halite, threshold)
 
         if 225 <= self.step <= 260:
-          threshold = 60
+          threshold = 50
 
         if self.step <= BEGINNING_PHRASE_END_STEP:
-          threshold = 60
+          threshold = 50
 
-      return min(threshold, 499)
+      return min(threshold, 450)
 
     # Init halite cells
     self.halite_cells = []
