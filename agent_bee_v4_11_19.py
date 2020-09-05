@@ -1,17 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-v4_11_18 <- v4_11_6
+v4_11_19 <- v4_11_18
 
-* Use 2 times of mean_halite_value as upper bound.
-* discount_factor = 0.45
-* raise halite_per_ship when step >= 160 and s > 23
-
-
-212
-{'agent_bee_v4_11_18.py': array([58.01886792, 15.09433962, 13.67924528, 13.20754717]),
- 'agent_tom_v1_0_0.py': array([ 2.35849057, 15.56603774, 41.03773585, 41.03773585]),
- 'agent_bee_v4_1_1.py': array([17.45283019, 45.28301887, 20.28301887, 16.98113208]),
- 'agent_bee_v4_2_1.py': array([22.16981132, 24.05660377, 25.        , 28.77358491])}
+* raise halite for all cells.
 """
 
 import random
