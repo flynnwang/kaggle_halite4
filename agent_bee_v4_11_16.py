@@ -2,8 +2,6 @@
 """
 v4_11_16 <- v4_11_15
 
-
-
 * Revert move_away_from_enemy
 * Add enemy gradient as background score for computing weight
 * Do not move into enemy shipyard for halite (s=28, dist=3)
@@ -13,6 +11,11 @@ v4_11_16 <- v4_11_15
 * discount_factor for mean_halite_value = 0.4
 * count_down with 80, G=1.015, step = [160, 220, 280]
 
+640
+{'agent_bee_v4_1_1.py': array([16.40625, 42.5    , 29.0625 , 12.03125]),
+ 'agent_bee_v4_11_16.py': array([55.    , 20.3125, 13.4375, 11.25  ]),
+ 'agent_tom_v1_0_0.py': array([ 0.3125 ,  4.21875, 28.90625, 66.5625 ]),
+ 'agent_bee_v4_2_1.py': array([28.28125, 32.96875, 28.59375, 10.15625])}
 
 479: step >= 160
 {'agent_bee_v4_11_16.py': array([52.19206681, 23.5908142 , 13.9874739 , 10.22964509]),
