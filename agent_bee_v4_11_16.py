@@ -8,10 +8,17 @@ v4_11_16 <- v4_11_15
 * Add enemy gradient as background score for computing weight
 * Do not move into enemy shipyard for halite (s=28, dist=3)
 * convert shipyard with shipyard_gradient
-* Expansion step >= 160 and num_ships >= 23
+* Expansion step >= 100 and num_ships >= 23
 * step > 300, keep_threshold=400
 * discount_factor for mean_halite_value = 0.4
 * count_down with 80, G=1.015, step = [160, 220, 280]
+
+
+479: step >= 160
+{'agent_bee_v4_11_16.py': array([52.19206681, 23.5908142 , 13.9874739 , 10.22964509]),
+ 'agent_bee_v4_1_1.py': array([16.70146138, 41.54488518, 30.89770355, 10.8559499 ]),
+  'agent_bee_v4_2_1.py': array([31.10647182, 30.89770355, 26.7223382 , 11.27348643]),
+   'agent_tom_v1_0_0.py': array([ 0.        ,  3.96659708, 28.39248434, 67.64091858])}
 
 
 * Revert move_away_from_enemy
@@ -951,7 +958,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     HALITE_CELL_PER_SHIP = 2.5
     if self.is_beginning_phrase:
       HALITE_CELL_PER_SHIP = 2.8
-    elif self.step >= 160 and self.num_ships >= 23:
+    elif self.step >= 100 and self.num_ships >= 23:
       HALITE_CELL_PER_SHIP = 3.2
 
     MIN_CONVERT_SHIP_NUM = 9
