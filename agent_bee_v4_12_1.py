@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-v4_12_1 <- v4_9_24
+v4_12_1 <- v4_12_0
 
 * Protect ship being followed.
 """
@@ -707,10 +707,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
               cell.convering_shipyards[0][0] <= home_extend_dist())
 
     def keep_halite_value(cell):
-
-      # Collect larger ones first
-      discount_factor = (0.9 if self.is_beginning_phrase else 0.7)
-      threshold = self.mean_halite_value * discount_factor
+      threshold = 1
 
       if self.is_final_phrase:
         return min(30, threshold)
@@ -1495,8 +1492,17 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         quadrants.add(q)
         yield (q_exist, dist), ship
 
+    # Collect follower enemy ships.
+    enemy_follower_ids = set()
+    for ship in self.me.ships:
+      follower = getattr(ship, 'follower', None)
+      if follower:
+        enemy_follower_ids.add(follower.id)
+
     for enemy in self.enemy_ships:
       enemy.within_home_boundary = is_enemy_within_home_boundary(enemy)
+      enemy.is_follower = (enemy.id in enemy_follower_ids)
+
       dist_ships = get_attack_ships(enemy)
       dist_ships = list(annotate_by_quadrant(dist_ships, enemy))
       dist_ships.sort(key=lambda x: x[0])
@@ -1513,6 +1519,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         enemy.quadrant_num = quadrant_num
         enemy.attack_ships = [ship for _, ship in dist_ships][:max_attack_num]
         yield enemy
+      elif enemy.is_follower and len(dist_ships) > 0:
+        enemy.attack_ships = [ship for _, ship in dist_ships][:2]
+        yield enemy
+
 
   def get_ship_halite_pairs(self, ships, halites):
     CHECK_TRAP_DIST = 7

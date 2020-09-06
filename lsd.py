@@ -30,7 +30,9 @@ AGENTS = [
   # agent("optimus_mining_agent.py", collection=True),
   agent("agent_bee_v4_2_1.py", check=True),
 
-  agent("agent_bee_v4_11_21.py", check=True),
+  agent("agent_bee_v4_12_1.py", check=True),
+
+  # agent("agent_bee_v4_11_21.py", check=True),
   # agent("agent_bee_v4_11_20.py", check=True),
   # agent("agent_bee_v4_11_19.py", check=True),
   # agent("agent_bee_v4_11_18.py", check=True),
