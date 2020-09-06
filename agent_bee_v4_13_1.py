@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-v4_13_1 <- v4_13_0 
+v4_13_1 <- v4_13_0
+
+* Convert shipyard earlier: step>=150 and s>=23, halite/ship=3.0
+* MANHATTAN_DIST_RANGE2 = [7, 8]
+* ATTACK_PER_ENEMY = 5, SHIPYARD_DUPLICATE_NUM = 4
+* harvest during [200, 240]
 
 
 """
@@ -716,8 +721,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if NEAR_ENDING_PHRASE_STEP <= self.step <= CLOSING_PHRASE_STEP:
           threshold = 480
 
-        if (200 <= self.step <= 225):
-            # or 280 <= self.step <= 294):
+        if (200 <= self.step <= 240):
           threshold = 60
 
       # Do not go into enemy shipyard for halite.
@@ -871,15 +875,15 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     MANHATTAN_DIST_RANGE1 = range(7, 8 + 1)
     AXIS_DIST_RANGE1 = range(3, 5 + 1)
-    MANHATTAN_DIST_RANGE2 = range(6, 7 + 1)
+    MANHATTAN_DIST_RANGE2 = range(7, 8 + 1)
     AXIS_DIST_RANGE2 = range(1, 6 + 1)
     MAX_SHIP_TO_SHIPYARD_DIST = 8
 
     HALITE_CELL_PER_SHIP = 2.5
     if self.is_beginning_phrase:
       HALITE_CELL_PER_SHIP = 2.8
-    elif self.step >= 230 and self.num_ships >= 23:
-      HALITE_CELL_PER_SHIP = 3.2
+    elif self.step >= 150 and self.num_ships >= 23:
+      HALITE_CELL_PER_SHIP = 3
 
     MIN_CONVERT_SHIP_NUM = 9
 
@@ -1098,7 +1102,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         wt -= 2000
 
       # Do not stay when followed
-      if ship.task_type in (ShipTask.RETURN, ) and hasattr(ship, "follower"):
+      if (ship.task_type in (ShipTask.RETURN, ) and hasattr(ship, "follower")
+          and ship.position == next_position):
         wt -= 2000
 
       # Try not move onto home halite cells when possible
@@ -1521,8 +1526,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yield ship_idx, poi_idx
 
   def optimal_assignment(self):
-    ATTACK_PER_ENEMY = 6
-    SHIPYARD_DUPLICATE_NUM = 5
+    ATTACK_PER_ENEMY = 5
+    SHIPYARD_DUPLICATE_NUM = 4
 
     def shipyard_duplicate_num():
       if self.is_final_phrase:

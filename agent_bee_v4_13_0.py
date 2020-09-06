@@ -3,6 +3,7 @@
 v4_13_0 <- v4_9_21
 
 * Protect ship being followed.
+* Fix do not stay when followed
 
 1349
 {'agent_bee_v4_1_1.py': array([32.98662704, 46.13670134, 12.92719168,  7.94947994]),
@@ -1104,7 +1105,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         wt -= 2000
 
       # Do not stay when followed
-      if ship.task_type in (ShipTask.RETURN, ) and hasattr(ship, "follower"):
+      if (ship.task_type in (ShipTask.RETURN, ) and hasattr(ship, "follower")
+          and ship.position == next_position):
         wt -= 2000
 
       # Try not move onto home halite cells when possible
