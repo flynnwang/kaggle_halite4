@@ -715,7 +715,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     def keep_halite_value(cell):
 
       # Collect larger ones first
-      discount_factor = 0.3
+      discount_factor = (0.9 if self.step < 40 else 0.4)
       threshold = self.mean_halite_value * discount_factor
 
       if self.is_final_phrase:
@@ -1684,8 +1684,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     """Guard shipyard."""
 
     def shipyard_defend_dist():
-      # if len(self.me.shipyard_ids) > 1 or self.me_halite >= self.c.spawn_cost:
-        # return 3
+      if len(self.me.shipyard_ids) > 1 or self.me_halite >= self.c.spawn_cost:
+        return 3
       return 4
 
     def offend_enemy_ships(yard):
