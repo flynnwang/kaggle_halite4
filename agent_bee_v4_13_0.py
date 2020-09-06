@@ -1475,8 +1475,17 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         quadrants.add(q)
         yield (q_exist, dist), ship
 
+    # Collect follower enemy ships.
+    enemy_follower_ids = set()
+    for ship in self.me.ships:
+      follower = getattr(ship, 'follower', None)
+      if follower:
+        enemy_follower_ids.add(follower.id)
+
     for enemy in self.enemy_ships:
       enemy.within_home_boundary = is_enemy_within_home_boundary(enemy)
+      enemy.is_follower = (enemy.id in enemy_follower_ids)
+
       dist_ships = get_attack_ships(enemy)
       dist_ships = list(annotate_by_quadrant(dist_ships, enemy))
       dist_ships.sort(key=lambda x: x[0])
@@ -1492,6 +1501,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if quadrant_num >= min_attack_quadrant_num:
         enemy.quadrant_num = quadrant_num
         enemy.attack_ships = [ship for _, ship in dist_ships][:max_attack_num]
+        yield enemy
+      elif enemy.is_follower and len(dist_ships) > 0:
+        enemy.attack_ships = [ship for _, ship in dist_ships][:2]
         yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
@@ -1591,7 +1603,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           v = MIN_WEIGHT  # not exists edge.
           if (ship.id, enemy.id) in attack_pairs:
             v = (self.c.spawn_cost + enemy.halite + enemy.cell.halite) / ship_to_poi
-            if getattr(enemy, 'within_home_boundary', False):
+
+            if (getattr(enemy, 'within_home_boundary', False)
+                or getattr(enemy, 'is_follower', False)):
               v += 100
         else:
           # If shipyard is offended.
