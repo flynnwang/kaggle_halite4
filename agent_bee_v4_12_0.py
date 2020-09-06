@@ -2,7 +2,7 @@
 """
 v4_12_0 <- v4_9_24
 
-* Use halite gradient map to make next move.
+* Remove threshold limit on non-home halite cells.
 
 """
 
@@ -710,8 +710,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     def keep_halite_value(cell):
 
       # Collect larger ones first
-      discount_factor = (0.9 if self.is_beginning_phrase else 0.7)
-      threshold = self.mean_halite_value * discount_factor
+      # discount_factor = (0.9 if self.is_beginning_phrase else 0.7)
+      # threshold = self.mean_halite_value * discount_factor
+      threshold = 1
 
       if self.is_final_phrase:
         return min(30, threshold)

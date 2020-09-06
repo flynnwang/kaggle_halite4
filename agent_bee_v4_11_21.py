@@ -10,6 +10,10 @@ Merge with v4_11_17.
 * Set minimum home halite by board halite mean.
 * Max home halite 400
 
+{'agent_bee_v4_11_21.py': array([54.3, 17. , 13.5, 15.2]),
+ 'agent_bee_v4_1_1.py': array([21.6, 42.7, 22.7, 13. ]),
+ 'agent_bee_v4_2_1.py': array([21.7, 28.3, 26.5, 23.5]),
+ 'agent_tom_v1_0_0.py': array([ 2.4, 12. , 37.3, 48.3])}
 """
 
 import random
