@@ -4,8 +4,28 @@ v4_13_1 <- v4_13_0
 
 * Convert shipyard earlier: step>=150 and s>=23, halite/ship=3.0
 * MANHATTAN_DIST_RANGE2 = [7, 8]
-* ATTACK_PER_ENEMY = 5, SHIPYARD_DUPLICATE_NUM = 4
+* ATTACK_PER_ENEMY = 5
 * harvest during [200, 240]
+
+320
+{'agent_bee_v4_13_1.py': array([52.17391304, 16.77018634, 12.42236025, 18.63354037]),
+ 'agent_tom_v1_0_0.py': array([ 0.62111801,  9.9378882 , 42.23602484, 47.20496894]),
+  'agent_bee_v4_1_1.py': array([30.1242236 , 48.13664596, 14.28571429,  7.45341615]),
+   'agent_bee_v4_2_1.py': array([17.08074534, 25.1552795 , 31.05590062, 26.70807453])}
+
+* MAX_STEP_FACTOR=1.5, SHIP_FACTOR = s/15
+* Exhaust during step <= 80
+* NEAR_ENDING_PHRASE_STEP = 350
+* Fix do not guard if nearer than enemy
+* Protect enemy from shipyard when halite <30
+
+455
+{'agent_bee_v4_2_1.py': array([27.91208791, 27.47252747, 26.81318681, 17.8021978 ]),
+ 'agent_bee_v4_13_1.py': array([47.91208791, 15.82417582, 18.24175824, 18.02197802]),
+ 'agent_tom_v1_0_0.py': array([ 0.21978022,  9.89010989, 36.26373626, 53.62637363]),
+ 'agent_bee_v4_1_1.py': array([23.95604396, 46.81318681, 18.68131868, 10.54945055])}
+
+* discount_factor = 0.3
 
 
 """
@@ -34,7 +54,7 @@ MIN_WEIGHT = -99999
 
 BEGINNING_PHRASE_END_STEP = 60
 CLOSING_PHRASE_STEP = 300
-NEAR_ENDING_PHRASE_STEP = 360
+NEAR_ENDING_PHRASE_STEP = 350
 
 # If my halite is less than this, do not build ship or shipyard anymore.
 MIN_HALITE_TO_BUILD_SHIPYARD = 1000
@@ -682,10 +702,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
-    MAX_STEP_FACTOR = 2
+    MAX_STEP_FACTOR = 1.5
 
     def home_extend_dist():
-      return max(self.num_ships // 10, 2)
+      return max(self.num_ships // 7, 2)
 
     def is_home_grown_cell(cell):
       num_covered = len(cell.convering_shipyards)
@@ -695,14 +715,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     def keep_halite_value(cell):
 
       # Collect larger ones first
-      discount_factor = (0.9 if self.is_beginning_phrase else 0.7)
+      discount_factor = 0.3
       threshold = self.mean_halite_value * discount_factor
 
       if self.is_final_phrase:
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        ship_factor = self.num_ships / 20
+        ship_factor = self.num_ships / 15
 
         step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 180 * MAX_STEP_FACTOR
         step_factor = min(MAX_STEP_FACTOR, step_factor)
@@ -719,9 +739,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
         # Force increase home halite cells with max value
         if NEAR_ENDING_PHRASE_STEP <= self.step <= CLOSING_PHRASE_STEP:
-          threshold = 480
+          threshold = 450
 
-        if (200 <= self.step <= 240):
+        if 200 <= self.step <= 240:
+          threshold = 60
+
+        if self.step <= 80:
           threshold = 60
 
       # Do not go into enemy shipyard for halite.
@@ -733,7 +756,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # return 1000
 
 
-      return min(threshold, 499)
+      return min(threshold, 490)
 
     # Init halite cells
     self.halite_cells = []
@@ -1527,7 +1550,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
   def optimal_assignment(self):
     ATTACK_PER_ENEMY = 5
-    SHIPYARD_DUPLICATE_NUM = 4
+    SHIPYARD_DUPLICATE_NUM = 5
 
     def shipyard_duplicate_num():
       if self.is_final_phrase:
@@ -1661,8 +1684,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     """Guard shipyard."""
 
     def shipyard_defend_dist():
-      if len(self.me.shipyard_ids) > 1 or self.me_halite >= self.c.spawn_cost:
-        return 3
+      # if len(self.me.shipyard_ids) > 1 or self.me_halite >= self.c.spawn_cost:
+        # return 3
       return 4
 
     def offend_enemy_ships(yard):
@@ -1672,7 +1695,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           continue
 
         # If the enemy has money, then I'll just let it send it for me.
-        if not_enough_halite_to_spawn or enemy.halite == 0:
+        if not_enough_halite_to_spawn or enemy.halite < 30:
           yield enemy
 
     def get_defend_ships(yard, enemy, enemy_to_yard_dist):
@@ -1691,6 +1714,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
                                                       offend_enemy_ships(yard))
       if enemy is None:
         continue
+
       # No need guard shipyard if enemy has halite (by turn order, spawn comes
       # before collision)
       if yard.next_action == ShipyardAction.SPAWN and enemy.halite > 0:

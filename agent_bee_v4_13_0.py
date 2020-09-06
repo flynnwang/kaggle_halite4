@@ -1688,12 +1688,21 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           # print('defend enemy(%s) by ship(%s, %s)' % (enemy.position, ship.id, ship.position))
           yield ship
 
+    def my_ship_is_nearer(dist_ships):
+      for ship in defend_ships:
+        dist_to_yard = self.manhattan_dist(ship, yard)
+        # If my move away is still more near than enemy, not in danger.
+        if dist_to_yard + 1 <= min_enemy_dist - 1:
+          return True
+      return False
+
     for yard in self.shipyards:
       yard.is_in_danger = False
       min_enemy_dist, enemy = self.find_nearest_enemy(yard.cell,
                                                       offend_enemy_ships(yard))
       if enemy is None:
         continue
+
       # No need guard shipyard if enemy has halite (by turn order, spawn comes
       # before collision)
       if yard.next_action == ShipyardAction.SPAWN and enemy.halite > 0:
@@ -1701,6 +1710,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       yard.is_in_danger = True
       defend_ships = list(get_defend_ships(yard, enemy, min_enemy_dist))
+      if my_ship_is_nearer(defend_ships):
+        continue
+
       if defend_ships:
         yard.offend_enemy = enemy
         yield yard, defend_ships
