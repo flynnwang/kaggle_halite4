@@ -1,14 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-v4_12_1 <- v4_12_0
+v4_13_0 <- v4_9_21
 
 * Protect ship being followed.
-
-1000
-{'agent_bee_v4_2_1.py': array([26.1, 25.5, 27.6, 20.8]),
- 'agent_bee_v4_1_1.py': array([34.1, 43.3, 14.9,  7.7]),
- 'agent_tom_v1_0_0.py': array([ 0.9, 11.6, 41.9, 45.6]),
- 'agent_bee_v4_12_1.py': array([38.9, 19.6, 15.6, 25.9])}
 """
 
 import random
@@ -43,6 +37,7 @@ MIN_HALITE_TO_BUILD_SHIP = 1000
 
 # Controls the number of ships.
 MAX_SHIP_NUM = 60
+MAX_SHIP_CARGO  = 500
 
 # Threshold for attack enemy nearby my shipyard
 TIGHT_ENEMY_SHIP_DEFEND_DIST = 5
@@ -633,25 +628,6 @@ class GradientMap(StrategyBase):
 
     return self.compute_gradient(all_enemy_cells(), max_dist, enemy_value)
 
-  def get_halite_gradient_map(self, max_dist=5, min_halite=0,
-                              include_center=True, normalize=True):
-    def all_halite_cells():
-      for cell in self.board.cells.values():
-        if cell.halite > min_halite:
-          yield cell
-
-    def halite_value(cell, nb_cell):
-      dist = self.manhattan_dist(nb_cell, cell)
-      # Do not account for the halite of the cell itself.
-      if dist == 0 and not include_center:
-        return 0
-      return cell.halite / (dist + 1)
-
-    g = self.compute_gradient(all_halite_cells(), max_dist, halite_value)
-    if normalize:
-      g = g / np.max(g)
-    return g
-
 
 class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   """Sends every ships to the nearest cell with halite.
@@ -698,7 +674,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     self.follower_detector.update(board)
     self.gradient_map.update(board)
-    self.halite_gradient = self.gradient_map.get_halite_gradient_map(max_dist=3)
 
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
@@ -713,7 +688,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
               cell.convering_shipyards[0][0] <= home_extend_dist())
 
     def keep_halite_value(cell):
-      threshold = 1
+
+      # Collect larger ones first
+      discount_factor = (0.9 if self.is_beginning_phrase else 0.7)
+      threshold = self.mean_halite_value * discount_factor
 
       if self.is_final_phrase:
         return min(30, threshold)
@@ -1123,10 +1101,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if ship.task_type in (ShipTask.RETURN, ) and hasattr(ship, "follower"):
         wt -= 2000
 
-      # Try not move onto halite cells when possible
+      # Try not move onto home halite cells when possible
       if next_cell.halite > 0 and next_position != target_cell.position:
-        halite_gradient = self.halite_gradient[next_position.x, next_position.y]
-        wt -= halite_gradient * 0.5
+        wt -= 0.5
 
       # If collecting halite
       if ((ship.task_type == ShipTask.GOTO_HALITE or
@@ -1498,17 +1475,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         quadrants.add(q)
         yield (q_exist, dist), ship
 
-    # Collect follower enemy ships.
-    enemy_follower_ids = set()
-    for ship in self.me.ships:
-      follower = getattr(ship, 'follower', None)
-      if follower:
-        enemy_follower_ids.add(follower.id)
-
     for enemy in self.enemy_ships:
       enemy.within_home_boundary = is_enemy_within_home_boundary(enemy)
-      enemy.is_follower = (enemy.id in enemy_follower_ids)
-
       dist_ships = get_attack_ships(enemy)
       dist_ships = list(annotate_by_quadrant(dist_ships, enemy))
       dist_ships.sort(key=lambda x: x[0])
@@ -1525,10 +1493,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         enemy.quadrant_num = quadrant_num
         enemy.attack_ships = [ship for _, ship in dist_ships][:max_attack_num]
         yield enemy
-      elif enemy.is_follower and len(dist_ships) > 0:
-        enemy.attack_ships = [ship for _, ship in dist_ships][:2]
-        yield enemy
-
 
   def get_ship_halite_pairs(self, ships, halites):
     CHECK_TRAP_DIST = 7
@@ -1618,6 +1582,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           if hasattr(ship, 'follower'):
             v += self.c.spawn_cost
 
+          # Force send ship home.
+          if ship.halite >= MAX_SHIP_CARGO and not self.is_closing_phrase:
+            v += ship.halite
         elif is_enemy_column(j):
           # If attack enemy
           enemy = poi.ship
