@@ -28,6 +28,11 @@ v4_13_1 <- v4_13_0
 * discount_factor = 0.4 if s>40 else 0.9
 
 
+160
+{'agent_bee_v4_2_1.py': array([28.125, 21.875, 35.   , 15.   ]),
+ 'agent_bee_v4_1_1.py': array([20.625, 50.625, 15.625, 13.125]),
+ 'agent_tom_v1_0_0.py': array([ 0.625, 15.625, 36.25 , 47.5  ]),
+ 'agent_bee_v4_13_1.py': array([50.625, 11.875, 13.125, 24.375])}
 """
 
 import random
