@@ -3,7 +3,8 @@
 v4_13_5 <- v4_13_4
 
 * Extend shipyard position candidates for later ones.
-* BOOST_TOP_HALITE_FACTOR=2
+* BOOST_TOP_HALITE_FACTOR=2, step<=60, top_cell_num=num_ships+5
+* Drop harvest
 
 """
 
@@ -684,7 +685,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if self.initial_ship_position:
       self.top_cell_map = self.gradient_map.get_top_cell_map(self.halite_cells,
                                                              board[self.initial_ship_position],
-                                                             top_cell_num=self.num_ships+2)
+                                                             top_cell_num=self.num_ships+5)
 
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
@@ -701,7 +702,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     def keep_halite_value(cell):
 
       # Collect larger ones first
-      discount_factor = (0.8 if self.step < 40 else 0.4)
+      discount_factor = (0.7 if self.step < 30 else 0.4)
       threshold = self.mean_halite_value * discount_factor
 
       if self.is_final_phrase:
@@ -711,7 +712,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         ship_factor = self.num_ships / 12
 
         step_factor = max(self.step - BEGINNING_PHRASE_END_STEP,
-                          0) / 220 * MAX_STEP_FACTOR
+                          0) / 180 * MAX_STEP_FACTOR
         step_factor = min(MAX_STEP_FACTOR, step_factor)
 
         cover_factor = 0
@@ -724,8 +725,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         self.keep_halite_value = keep_halite
         threshold = max(keep_halite, threshold)
 
-        if 180 <= self.step <= 220:
-          threshold = 60
+        # if 180 <= self.step <= 220:
+          # threshold = 60
 
         if self.step <= 80:
           threshold = 60
@@ -738,7 +739,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # # if the cell is nearer to the enemy yard.
       # return 1000
 
-      return min(threshold, 490)
+      return min(threshold, 420)
 
     # Init halite cells
     self.halite_cells = []
@@ -1073,7 +1074,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     # Only consider top2 positions.
     candidate_cells.sort(key=lambda c: c.convert_score, reverse=True)
-    for cell in candidate_cells[:2]:
+    TOP_SHIPYAD_CELLS = 2 if self.num_shipyards == 1 else 4
+    for cell in candidate_cells[:TOP_SHIPYAD_CELLS]:
       # Not convert too near enemy shipyard.
       if has_enemy_shipyard_nearby(cell):
         continue
@@ -1445,7 +1447,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       opt_steps = min_mine
 
     BOOST_TOP_HALITE_FACTOR = 1
-    if (self.step <= 80
+    if (self.step <= 60
         and self.top_cell_map is not None
         and self.top_cell_map[poi.position.x, poi.position.y] > 0):
       BOOST_TOP_HALITE_FACTOR = 3
@@ -1468,7 +1470,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     MIN_ATTACK_QUADRANT_NUM = 3
     # if self.step >= 100:
     # MIN_ATTACK_QUADRANT_NUM -= 1
-    if self.num_ships >= 35:
+    if self.num_ships >= 40:
       MIN_ATTACK_QUADRANT_NUM -= 1
 
     def is_enemy_within_home_boundary(enemy):
