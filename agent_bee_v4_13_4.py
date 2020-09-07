@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-v4_13_3 <- v4_13_3
+v4_13_4 <- v4_13_3
 
 * Adds more weight to tops cells in beginning stage
+* Bomb enemy if it's near and no ship protecting
 """
 
 import random
@@ -614,6 +615,23 @@ class GradientMap(StrategyBase):
 
     return self.compute_gradient(all_enemy_cells(), max_dist, enemy_value)
 
+  def get_top_cell_map(self, halite_cells, initial_yard, top_cell_num, max_dist=6):
+    home_halite_cells = []
+    for cell in halite_cells:
+      dist_x, dist_y = axis_manhattan_dists(cell.position,
+                                            initial_yard.position,
+                                            self.c.size)
+      if dist_x <= max_dist and dist_y <= max_dist:
+        home_halite_cells.append(cell)
+
+    home_halite_cells.sort(key=lambda c: c.halite, reverse=True)
+
+    gradient = np.zeros((self.sz, self.sz))
+    for cell in home_halite_cells[:top_cell_num]:
+      p = cell.position
+      gradient[p.x, p.y] = cell.halite
+    return gradient
+
 
 class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   """Sends every ships to the nearest cell with halite.
@@ -660,6 +678,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     self.follower_detector.update(board)
     self.gradient_map.update(board)
+
+    self.top_cell_map = None
+    if self.initial_ship_position:
+      self.top_cell_map = self.gradient_map.get_top_cell_map(self.halite_cells,
+                                                             board[self.initial_ship_position],
+                                                             top_cell_num=self.num_ships+2)
 
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
@@ -802,7 +826,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return (self.num_ships - 20) // 5 + MIN_BOMB_ENEMY_SHIPYARD_DIST
 
       # Only attack nearby enemy yard when the player is weak.
-      if enemy_yard.player.halite <= 2 * self.c.spawn_cost:
+      if (enemy_yard.player.halite <= 2 * self.c.spawn_cost
+          or enemy_yard.cell.ship_id is None):
         return MIN_BOMB_ENEMY_SHIPYARD_DIST
       return 0
 
@@ -1418,8 +1443,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if opt_steps < min_mine:
       opt_steps = min_mine
 
-    total_halite = (carry + enemy_carry +
-                    (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite_left)
+    BOOST_TOP_HALITE_FACTOR = 1
+    if (self.step <= 80
+        and self.top_cell_map is not None
+        and self.top_cell_map[poi.position.x, poi.position.y] > 0):
+      BOOST_TOP_HALITE_FACTOR = 3
+
+    halite = (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite_left * BOOST_TOP_HALITE_FACTOR
+    total_halite = (carry + enemy_carry + halite)
     return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
 
   def get_trapped_enemy_ships(self, max_attack_num):
