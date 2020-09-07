@@ -6,6 +6,12 @@ v4_13_5 <- v4_13_4
 * BOOST_TOP_HALITE_FACTOR=2, step<=60, top_cell_num=num_ships+5
 * Drop harvest
 
+
+696
+{'agent_bee_v4_13_5.py': array([44.39655172, 20.97701149, 12.5       , 22.12643678]),
+ 'agent_bee_v4_1_1.py': array([36.06321839, 46.12068966, 12.35632184,  5.45977011]),
+ 'agent_bee_v4_2_1.py': array([18.82183908, 20.83333333, 23.56321839, 36.7816092 ]),
+ 'agent_tom_v1_0_0.py': array([ 0.7183908 , 12.06896552, 51.58045977, 35.63218391])}
 """
 
 import random
