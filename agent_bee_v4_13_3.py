@@ -3,7 +3,7 @@
 v4_13_3 <- v4_13_2
 
 * Optimize the second shipyard position.
-
+* Expand shipyard when step>=200 and ship>=24
 
 """
 
@@ -59,19 +59,6 @@ POSSIBLE_MOVES = [
     Point(1, 0),
     Point(-1, 0)
 ]
-
-# TURNS_OPTIMAL = np.array(
-# [[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8],
-# [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
-# [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7],
-# [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6],
-# [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6],
-# [0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5],
-# [0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4],
-# [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3],
-# [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2],
-# [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-# [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
 
 TURNS_OPTIMAL = np.array(
     [[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8],
@@ -877,7 +864,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     HALITE_CELL_PER_SHIP = 2.5
     if self.is_beginning_phrase:
       HALITE_CELL_PER_SHIP = 2.8
-    elif self.step >= 160 and self.num_ships >= 23:
+    elif self.step >= 200 and self.num_ships >= 24:
       HALITE_CELL_PER_SHIP = 3.2
 
     MIN_CONVERT_SHIP_NUM = 9
@@ -966,7 +953,21 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return False
       return True
 
+
+    def compute_convert_score_for_second(candidate_cell):
+      score = 0
+      for cell in self.board.cells.values():
+        dist = self.manhattan_dist(cell, candidate_cell)
+        # For cells not on the convert position but nearby
+        if dist > 0 and dist <= 4:
+          score += cell.halite
+      return score
+
     def compute_convert_score(candidate_cell):
+      # Special handle for the second shipyard.
+      if self.num_shipyards == 1:
+        return compute_convert_score_for_second(candidate_cell)
+
       MAX_COVER_HALITE = 2
 
       # Maximize the total value of halite when converting ship.
@@ -985,7 +986,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         ]
 
         if dist_yards:
-          score += 0.1
+          score += 0.5
 
         # Strongly covered cell
         if dist_yards and (len(dist_yards) >= MAX_COVER_HALITE or
@@ -999,19 +1000,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if cell.shipyard_id:
           continue
 
-        # Not convert too near enemy shipyard.
-        if has_enemy_shipyard_nearby(cell):
-          # print(f"c[{cell.position.x}, {cell.position.y}]: too near enemy")
-          continue
-
         if not within_predefined_range(cell):
-          # print(f"c[{cell.position.x}, {cell.position.y}]: not in defined range")
-          continue
-
-        # Have a nearby ship.
-        dist_to_yard, _ = self.find_nearest_enemy(cell, self.ships)
-        if dist_to_yard > MAX_SHIP_TO_SHIPYARD_DIST:
-          # print(f"c[{cell.position.x}, {cell.position.y}]: no near by ships")
           continue
 
         cell.convert_score = compute_convert_score(cell)
@@ -1058,11 +1047,21 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if not candidate_cells:
       return
 
+    # Only consider top2 positions.
     candidate_cells.sort(key=lambda c: c.convert_score, reverse=True)
-    for cell in candidate_cells:
+    for cell in candidate_cells[:2]:
+      # Not convert too near enemy shipyard.
+      if has_enemy_shipyard_nearby(cell):
+        continue
+
+      # Have a nearby ship.
+      dist_to_yard, _ = self.find_nearest_enemy(cell, self.ships)
+      if dist_to_yard > MAX_SHIP_TO_SHIPYARD_DIST:
+        continue
+
       if call_for_ship(cell):
         # One shipyard at a time.
-        return
+        break
 
   def compute_ship_moves(self):
     """Computes ship moves to its target.
