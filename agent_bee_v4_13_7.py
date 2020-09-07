@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-v4_13_6 <- v4_13_5
+v4_13_7 <- v4_13_6
 
-* Boost top halite cells by current halite value.
-* Test add carry back.
-
+* Use ship gradient to prevent ship crash (max_dist=4)
 
 """
 
@@ -598,24 +596,26 @@ class GradientMap(StrategyBase):
 
     return self.compute_gradient(nearby_enemy_cells(), max_dist, enemy_value)
 
-  def get_full_map_enemy_gradient(self, max_dist=4, min_halite=10):
+  def get_full_map_enemy_gradient(self, max_dist=4):
 
-    def all_enemy_cells():
+    def all_ship_cells():
       for enemy in self.enemy_ships:
         yield enemy.cell
 
+      for ship in self.board.current_player.ships:
+        yield ship.cell
+
     def enemy_value(enemy_cell, nb_cell):
-      enemy = enemy_cell.ship
+      ship = enemy_cell.ship
       dist = self.manhattan_dist(nb_cell, enemy_cell)
-
-      h = enemy.halite
-      if h <= min_halite:
-        h = 0
-      h = min(50, h)
+      h = min(ship.halite, 50)
       hurt_factor = 1 - (h / 50)
-      return hurt_factor * self.c.spawn_cost / (dist + 1)
+      value = hurt_factor * self.c.spawn_cost / (dist + 1)
+      if ship.player_id != self.me.id:
+        value = -value
+      return value
 
-    return self.compute_gradient(all_enemy_cells(), max_dist, enemy_value)
+    return self.compute_gradient(all_ship_cells(), max_dist, enemy_value)
 
   def get_top_cell_map(self, halite_cells, initial_yard, top_cell_num, max_dist=7):
     home_halite_cells = []
@@ -1541,16 +1541,15 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
-    CHECK_TRAP_DIST = 7
-    enemy_gradient = self.gradient_map.get_full_map_enemy_gradient(
-        min_halite=10)
+    CHECK_TRAP_DIST = 4
+    enemy_gradient = self.gradient_map.get_full_map_enemy_gradient()
     for poi_idx, cell in enumerate(halites):
       for ship_idx, ship in enumerate(ships):
         # Do not go to halite with too many enemy around.
         dist = self.manhattan_dist(ship, cell)
-        if dist <= CHECK_TRAP_DIST:
-          if enemy_gradient[cell.position.x, cell.position.y] >= 350:
-            continue
+        if (dist <= CHECK_TRAP_DIST
+            and enemy_gradient[cell.position.x, cell.position.y] < 0):
+          continue
 
         yield ship_idx, poi_idx
 
