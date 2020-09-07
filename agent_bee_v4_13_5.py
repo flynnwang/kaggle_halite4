@@ -1,15 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-v4_13_4 <- v4_13_3
+v4_13_5 <- v4_13_4
 
-* Adds more weight to tops cells in beginning stage
-* Bomb enemy if it's near and no ship protecting
+* Extend shipyard position candidates for later ones.
+* BOOST_TOP_HALITE_FACTOR=2
 
-386
-{'agent_bee_v4_2_1.py': array([20.7253886 , 27.72020725, 23.57512953, 27.97927461]),
- 'agent_bee_v4_13_4.py': array([41.4507772 , 19.68911917, 12.69430052, 26.16580311]),
- 'agent_bee_v4_1_1.py': array([35.49222798, 37.8238342 , 17.0984456 ,  9.58549223]),
- 'agent_tom_v1_0_0.py': array([ 2.33160622, 14.76683938, 46.63212435, 36.26943005])}
 """
 
 import random
