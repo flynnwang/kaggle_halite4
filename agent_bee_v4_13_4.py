@@ -1,16 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-v4_13_3 <- v4_13_2
+v4_13_3 <- v4_13_3
 
-* Optimize the second shipyard position.
-* Expand shipyard when step>=200 and ship>=24
-
-
-461
-{'agent_bee_v4_1_1.py': array([36.44251627, 44.90238612, 13.44902386,  5.20607375]),
- 'agent_bee_v4_13_3.py': array([43.1670282 , 17.35357918, 19.73969631, 19.73969631]),
-  'agent_bee_v4_2_1.py': array([18.00433839, 27.54880694, 19.52277657, 34.92407809]),
-   'agent_tom_v1_0_0.py': array([ 2.38611714, 10.19522777, 47.28850325, 40.13015184])}
+* Adds more weight to tops cells in beginning stage
 """
 
 import random
