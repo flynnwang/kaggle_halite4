@@ -2,8 +2,14 @@
 """
 v4_13_7 <- v4_13_6
 
-* Use ship gradient to prevent ship crash (max_dist=4)
+* Use ship gradient to prevent ship crash (max_dist=5, CHECK_TRAP_DIST=7)
 
+
+4-4: 26
+{'agent_bee_v4_13_7.py': array([19.23076923, 11.53846154, 23.07692308, 46.15384615]),
+ 'agent_tom_v1_0_0.py': array([ 0.        , 26.92307692, 57.69230769, 15.38461538]),
+  'agent_bee_v4_2_1.py': array([53.84615385, 19.23076923,  3.84615385, 23.07692308]),
+   'agent_bee_v4_1_1.py': array([26.92307692, 42.30769231, 15.38461538, 15.38461538])}
 """
 
 import random
@@ -596,7 +602,7 @@ class GradientMap(StrategyBase):
 
     return self.compute_gradient(nearby_enemy_cells(), max_dist, enemy_value)
 
-  def get_full_map_enemy_gradient(self, max_dist=4):
+  def get_full_map_enemy_gradient(self, max_dist=5):
 
     def all_ship_cells():
       for enemy in self.enemy_ships:
@@ -1541,7 +1547,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
-    CHECK_TRAP_DIST = 4
+    CHECK_TRAP_DIST = 7
     enemy_gradient = self.gradient_map.get_full_map_enemy_gradient()
     for poi_idx, cell in enumerate(halites):
       for ship_idx, ship in enumerate(ships):
