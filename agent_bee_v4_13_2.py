@@ -5,6 +5,12 @@ v4_13_2 <- v4_13_1
 * harvest step 180-210
 * Remove limit over 300-350
 * bomb: enemy_yard.cell.ship_id is None when s>=30
+
+231
+{'agent_bee_v4_13_2.py': array([48.48484848, 13.85281385, 16.01731602, 21.64502165]),
+ 'agent_bee_v4_1_1.py': array([30.3030303 , 44.58874459, 15.58441558,  9.52380952]),
+ 'agent_tom_v1_0_0.py': array([ 0.86580087, 15.15151515, 43.29004329, 40.69264069]),
+ 'agent_bee_v4_2_1.py': array([20.34632035, 26.40692641, 25.10822511, 28.13852814])}
 """
 
 import random
