@@ -7,6 +7,11 @@ v4_13_10 <- v4_13_9
 * Drop top_cell_map
 * revert attack enemy with single ship, revert home dist as dist+1
 
+408
+{'agent_bee_v4_11_3.py': array([ 7.59803922, 15.19607843, 34.80392157, 42.40196078]),
+ 'agent_bee_v4_1_1.py': array([38.48039216, 34.06862745, 15.93137255, 11.51960784]),
+ 'agent_bee_v4_13_10.py': array([43.38235294, 30.88235294, 16.42156863,  9.31372549]),
+ 'agent_bee_v4_9_6.py': array([10.53921569, 19.85294118, 32.84313725, 36.76470588])}
 """
 
 import random
