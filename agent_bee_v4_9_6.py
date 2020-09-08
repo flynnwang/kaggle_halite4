@@ -1258,8 +1258,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           next_position = make_move(ship.position, move, self.c.size)
           wt = compute_weight(ship, next_position)
           print('   to %s, wt=%.2f' % (next_position, wt))
-    assert len(rows) == len(ships), "match=%s, ships=%s" % (len(rows),
-                                                            len(ships))
+    # assert len(rows) == len(ships), "match=%s, ships=%s" % (len(rows),
+                                                            # len(ships))
 
   def spawn_ships(self):
     """Spawns farmer ships if we have enough money and no collision with my own

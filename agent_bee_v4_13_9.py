@@ -9,6 +9,11 @@ v4_13_9 <- v4_13_8
 * Use ship gradient to hint next move
 * Convert 3rd shipyard with minimum of 18 ships
 
+467
+{'agent_bee_v4_13_9.py': array([58.45824411, 19.05781585,  8.35117773, 14.13276231]),
+ 'agent_tom_v1_0_0.py': array([ 1.28479657, 14.34689507, 56.10278373, 28.26552463]),
+ 'agent_bee_v4_1_1.py': array([27.62312634, 54.38972163, 13.0620985 ,  4.92505353]),
+ 'agent_bee_v4_2_1.py': array([12.63383298, 12.20556745, 22.48394004, 52.67665953])}
 """
 
 import random
