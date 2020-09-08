@@ -7,6 +7,7 @@ v4_13_9 <- v4_13_8
 * Only attack enemy with single ship after step>=80
 * Always guard shipyard by dist=4
 * Use ship gradient to hint next move
+* Convert 3rd shipyard with minimum of 18 ships
 
 """
 
@@ -932,7 +933,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     def shipyard_num_by_ship_num():
       # Force build shipyard with 10 ships
       if self.num_ships >= MIN_CONVERT_SHIP_NUM:
-        return min(2 + max((self.num_ships - MIN_CONVERT_SHIP_NUM) // 6, 0),
+        return min(2 + max((self.num_ships - 12) // 6, 0),
                    MAX_SHIPYARD_NUM)
       return 1
 
