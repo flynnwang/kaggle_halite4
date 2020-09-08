@@ -2,7 +2,11 @@
 """
 v4_13_9 <- v4_13_8
 
-* Try ship gradient again.
+* Try ship gradient again (min_cost=-400)
+* Do not guard if nearer than enemy
+* Only attack enemy with single ship after step>=80
+* Always guard shipyard by dist=4
+* Use ship gradient to hint next move
 
 """
 
@@ -635,6 +639,27 @@ class GradientMap(StrategyBase):
       gradient[p.x, p.y] = cell.halite
     return gradient
 
+  def get_ship_gradient(self, max_dist=4):
+
+    def all_ship_cells():
+      for enemy in self.enemy_ships:
+        yield enemy.cell
+
+      for ship in self.board.current_player.ships:
+        yield ship.cell
+
+    def enemy_value(enemy_cell, nb_cell):
+      ship = enemy_cell.ship
+      dist = self.manhattan_dist(nb_cell, enemy_cell)
+      h = min(ship.halite, 50)
+      hurt_factor = 1 - (h / 50)
+      value = hurt_factor * self.c.spawn_cost / (dist + 1)
+      if ship.player_id != self.me.id:
+        value = -value
+      return value
+
+    return self.compute_gradient(all_ship_cells(), max_dist, enemy_value)
+
 
 class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   """Sends every ships to the nearest cell with halite.
@@ -681,6 +706,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     self.follower_detector.update(board)
     self.gradient_map.update(board)
+    self.ship_gradient = self.gradient_map.get_ship_gradient()
 
     self.top_cell_map = None
     if self.initial_ship_position:
@@ -1103,6 +1129,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     convert_cost = self.board.configuration.convert_cost
     collect_rate = self.board.configuration.collect_rate
 
+    g = self.ship_gradient / (np.max(np.abs(self.ship_gradient)) + 1)
+
     def compute_weight(ship, next_position):
       ignore_neighbour_cell_enemy = False
       target_cell = ship.target_cell
@@ -1169,7 +1197,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         wt += enemy.halite / (enemy_dist + 1)
 
       if ship.task_type == ShipTask.GUARD_SHIPYARD:
-        wt += 1 / (dist + 1)
+        wt += 5 / (dist + 1)
         # Only ignore enemy when the ship is on the yard.
         if next_position == target_cell.position:
           ignore_neighbour_cell_enemy = True
@@ -1208,6 +1236,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           if has_enemy_ship(nb_cell, self.me):
             if move_away_from_enemy(nb_cell.ship, ship, side_by_side=False):
               wt -= (spawn_cost + ship.halite)
+
+      wt += g[next_position.x, next_position.y] * 0.1
       return wt
 
     # Skip only convert ships.
@@ -1456,7 +1486,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     halite = (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite_left
     if BOOST_TOP_HALITE_FACTOR:
-      halite += poi.halite * BOOST_TOP_HALITE_FACTOR
+      halite *= BOOST_TOP_HALITE_FACTOR
 
     total_halite = (carry + enemy_carry + halite)
     return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
@@ -1524,38 +1554,37 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       dist_ships = get_attack_ships(enemy)
       dist_ships = list(annotate_by_quadrant(dist_ships, enemy))
+      if not dist_ships:
+        continue
+
       dist_ships.sort(key=lambda x: x[0])
       quadrant_num = len({
           get_quadrant(ship.position - enemy.position) for _, ship in dist_ships
       })
 
-      # Reduce quadrant_num for home boundary enemy.
-      min_attack_quadrant_num = MIN_ATTACK_QUADRANT_NUM
-      # if enemy.within_home_boundary:
-      # min_attack_quadrant_num -= 1
-
-      if quadrant_num >= min_attack_quadrant_num:
+      if quadrant_num >= MIN_ATTACK_QUADRANT_NUM:
         enemy.quadrant_num = quadrant_num
         enemy.attack_ships = [ship for _, ship in dist_ships][:max_attack_num]
         yield enemy
-      elif enemy.is_follower and len(dist_ships) > 0:
+        continue
+
+      if enemy.is_follower:
         enemy.attack_ships = [ship for _, ship in dist_ships][:2]
         yield enemy
-      elif enemy.within_home_boundary:
+        continue
+
+      if self.step >= 80 and enemy.within_home_boundary:
         enemy.attack_ships = [ship for _, ship in dist_ships][:1]
         yield enemy
+        continue
 
   def get_ship_halite_pairs(self, ships, halites):
-    CHECK_TRAP_DIST = 7
-    enemy_gradient = self.gradient_map.get_full_map_enemy_gradient(
-        min_halite=10)
     for poi_idx, cell in enumerate(halites):
       for ship_idx, ship in enumerate(ships):
         # Do not go to halite with too many enemy around.
-        dist = self.manhattan_dist(ship, cell)
-        if dist <= CHECK_TRAP_DIST:
-          if enemy_gradient[cell.position.x, cell.position.y] >= 350:
-            continue
+        if (self.step >= 80
+            and self.ship_gradient[cell.position.x, cell.position.y] < -400):
+          continue
 
         yield ship_idx, poi_idx
 
@@ -1696,8 +1725,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     """Guard shipyard."""
 
     def shipyard_defend_dist():
-      if len(self.me.shipyard_ids) > 1 or self.me_halite >= self.c.spawn_cost:
-        return 3
+      # if len(self.me.shipyard_ids) > 1 or self.me_halite >= self.c.spawn_cost:
+        # return 3
       return 4
 
     def offend_enemy_ships(yard):
@@ -1731,6 +1760,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # before collision)
       if yard.next_action == ShipyardAction.SPAWN and enemy.halite > 0:
         continue
+
+      defend_ships = list(get_defend_ships(yard, enemy, min_enemy_dist))
+      for ship in defend_ships:
+        dist_to_yard = self.manhattan_dist(ship, yard)
+        # If my move away is still more near than enemy, not in danger.
+        if dist_to_yard + 1 <= min_enemy_dist - 1:
+          continue
 
       yard.is_in_danger = True
       defend_ships = list(get_defend_ships(yard, enemy, min_enemy_dist))
