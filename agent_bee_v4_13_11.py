@@ -2,7 +2,8 @@
 """
 v4_13_10 <- v4_13_5
 
-* Add ship gradient map
+* Add ship gradient map: step>=80 (-300,h=0,d<=6/-250,h>0, max_dist=4), CHECK_TRAP_DIST=5
+* add more near for offended shipyard
 
 """
 
@@ -200,7 +201,8 @@ def direction_to_ship_action(position, next_position, board_size):
     return ShipAction.SOUTH
   if (position + Point(-1, 0)) % board_size == next_position:
     return ShipAction.WEST
-  assert False, '%s, %s' % (position, next_position)
+  # assert False, '%s, %s' % (position, next_position)
+  return None
 
 
 def make_move(position, move, board_size):
@@ -631,6 +633,27 @@ class GradientMap(StrategyBase):
       gradient[p.x, p.y] = cell.halite
     return gradient
 
+  def get_ship_gradient(self, max_dist=4):
+
+    def all_ship_cells():
+      for enemy in self.enemy_ships:
+        yield enemy.cell
+
+      for ship in self.board.current_player.ships:
+        yield ship.cell
+
+    def enemy_value(enemy_cell, nb_cell):
+      ship = enemy_cell.ship
+      dist = self.manhattan_dist(nb_cell, enemy_cell)
+      h = min(ship.halite, 50)
+      hurt_factor = 1 - (h / 50)
+      value = hurt_factor * self.c.spawn_cost / (dist or 1)
+      if ship.player_id != self.me.id:
+        value = -value
+      return value
+
+    return self.compute_gradient(all_ship_cells(), max_dist, enemy_value)
+
 
 class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   """Sends every ships to the nearest cell with halite.
@@ -677,6 +700,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     self.follower_detector.update(board)
     self.gradient_map.update(board)
+    self.ship_gradient = self.gradient_map.get_ship_gradient()
 
     self.top_cell_map = None
     if self.initial_ship_position:
@@ -1267,8 +1291,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           next_position = make_move(ship.position, move, self.c.size)
           wt = compute_weight(ship, next_position)
           print('   to %s, wt=%.2f' % (next_position, wt))
-    assert len(rows) == len(ships), "match=%s, ships=%s" % (len(rows),
-                                                            len(ships))
+    # assert len(rows) == len(ships), "match=%s, ships=%s" % (len(rows),
+                                                            # len(ships))
 
   def spawn_ships(self):
     """Spawns farmer ships if we have enough money and no collision with my own
@@ -1535,16 +1559,20 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
-    CHECK_TRAP_DIST = 7
-    enemy_gradient = self.gradient_map.get_full_map_enemy_gradient(
-        min_halite=10)
+    CHECK_TRAP_DIST = 5
+
     for poi_idx, cell in enumerate(halites):
       for ship_idx, ship in enumerate(ships):
+
         # Do not go to halite with too many enemy around.
         dist = self.manhattan_dist(ship, cell)
-        if dist <= CHECK_TRAP_DIST:
-          if enemy_gradient[cell.position.x, cell.position.y] >= 350:
-            continue
+        if (self.step >= 80 and ship.halite == 0 and dist <= CHECK_TRAP_DIST
+            and self.ship_gradient[cell.position.x, cell.position.y] <= -300):
+          continue
+
+        if (self.step >= 80 and ship.halite > 0
+            and self.ship_gradient[cell.position.x, cell.position.y] <= -250):
+          continue
 
         yield ship_idx, poi_idx
 
@@ -1709,6 +1737,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           # print('defend enemy(%s) by ship(%s, %s)' % (enemy.position, ship.id, ship.position))
           yield ship
 
+    def is_more_near(yard, defend_ships, min_enemy_dist):
+      for ship in defend_ships:
+        dist_to_yard = self.manhattan_dist(ship, yard)
+        if dist_to_yard + 1 < min_enemy_dist - 1:
+          continue
+
+
     for yard in self.shipyards:
       yard.is_in_danger = False
       min_enemy_dist, enemy = self.find_nearest_enemy(yard.cell,
@@ -1721,8 +1756,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if yard.next_action == ShipyardAction.SPAWN and enemy.halite > 0:
         continue
 
-      yard.is_in_danger = True
+      # If my move away is still more near than enemy, not in danger.
       defend_ships = list(get_defend_ships(yard, enemy, min_enemy_dist))
+      if is_more_near(yard, defend_ships, min_enemy_dist):
+        continue
+
+      yard.is_in_danger = True
       if defend_ships:
         yard.offend_enemy = enemy
         yield yard, defend_ships
