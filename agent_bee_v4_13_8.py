@@ -3,7 +3,7 @@
 v4_13_6 <- v4_13_5
 
 * Drop cargo
-* 
+* MIN_CONVERT_SHIP_NUM=9
 
 """
 
@@ -893,7 +893,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     elif self.num_ships >= 24:
       HALITE_CELL_PER_SHIP = 3.2
 
-    MIN_CONVERT_SHIP_NUM = 8
+    MIN_CONVERT_SHIP_NUM = 9
 
     self.halite_ratio = -1
     # No ship left.
