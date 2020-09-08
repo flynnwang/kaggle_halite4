@@ -2,28 +2,9 @@
 """
 v4_13_6 <- v4_13_5
 
-* Boost top halite cells by current halite value, step<=40
-* top_cell_map num_ships+3 and max_dist=5, BOOST_TOP_HALITE_FACTOR=2
-* Test add carry back.
+* Drop cargo
+* 
 
-127
-{'agent_bee_v4_2_1.py': array([21.25984252, 20.47244094, 15.7480315 , 42.51968504]),
- 'agent_tom_v1_0_0.py': array([ 0.78740157, 14.96062992, 58.26771654, 25.98425197]),
- 'agent_bee_v4_13_6.py': array([43.30708661, 22.04724409, 12.5984252 , 22.04724409]),
- 'agent_bee_v4_1_1.py': array([34.64566929, 42.51968504, 13.38582677,  9.4488189 ])}
-
-* discount_factor = (0.9 if self.step < 30 else 0.4)
-* MAX_STEP_FACTOR=2 (from 2.5)
-* MIN_CONVERT_SHIP_NUM = 8
-* convert_shipyard with 3.2 only when s>=24
-* Within distance use dist=3
-* Send ship to enemy when within_home_boundary
-* Revert shipyard compute score with 0.1
-
-{'agent_bee_v4_13_6.py': array([46.41350211, 18.56540084, 17.72151899, 17.29957806]),
- 'agent_bee_v4_2_1.py': array([18.56540084, 24.05063291, 25.3164557 , 32.06751055]),
-  'agent_bee_v4_1_1.py': array([35.02109705, 43.45991561, 13.08016878,  8.43881857]),
-  'agent_tom_v1_0_0.py': array([ 0.        , 13.92405063, 43.88185654, 42.19409283])}
 """
 
 import random
