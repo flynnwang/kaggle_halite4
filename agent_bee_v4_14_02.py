@@ -1,26 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-v4_14_01 <- v4_13_11
+v4_14_02 <- v4_14_01
 
-Expand when having enough ship.
+* keep_halite with 0.8 of global halite mean
+* MIN_SHIP_TO_START_EXPANSION = 20
+* no reset during grow cell.
 
-* Start to convert more shipyard when s>=25
-* Start grow cell when s>=25
-* halite_per_turn, poi_to_yard / 10
-* MAX_BOMB_NUM = 3 && ignore_neighbour_cell_enemy when attack shipyard.
-
-
-19, start_grow_step with reset if ship drop below 25
-{'agent_bee_v4_14_01.py': array([47.36842105, 26.31578947, 15.78947368, 10.52631579]),
- 'agent_bee_v4_1_1.py': array([52.63157895, 36.84210526, 10.52631579,  0.        ]),
- 'agent_bee_v4_11_3.py': array([ 0.        , 21.05263158, 47.36842105, 31.57894737]),
- 'agent_bee_v4_9_6.py': array([ 0.        , 15.78947368, 26.31578947, 57.89473684])}
-
-701, start_grow_step w/o reset if ship drop below 25
-{'agent_bee_v4_1_1.py': array([47.64621969, 27.2467903 , 16.83309558,  8.27389444]),
- 'agent_bee_v4_11_3.py': array([10.27104137, 21.82596291, 29.81455064, 38.08844508]),
- 'agent_bee_v4_9_6.py': array([12.69614836, 19.97146933, 30.09985735, 37.23252496]),
- 'agent_bee_v4_14_01.py': array([29.38659058, 30.95577746, 23.25249643, 16.40513552])}
 """
 
 import random
