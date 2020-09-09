@@ -2,11 +2,10 @@
 """
 v4_14_05 <- v4_14_04
 
-* Grow home halite cell 45 * (1.0095 ** (step - 85))
+* Grow home halite cell 45 * (1.011 ** (step - 84))
 * Bomb only when player halite < 1000
 * poi_to_yard / 7
 * Drop top halite boost
-* Convert shipyard when possible
 * Drop top2 position limit when convert shipyard
 """
 
@@ -718,7 +717,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     HAILTE_QUANTILE = 0.05
     halite_lower_bound = np.quantile(halites, HAILTE_QUANTILE)
-    home_halite_bound = 45 * (1.011 ** (self.step - 84))
+    home_halite_bound = 45 * (1.011**(self.step - 84))
 
     home_cell_count = 0
 
@@ -1451,8 +1450,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     BOOST_TOP_HALITE_FACTOR = 1
     # if (self.step <= 60 and self.top_cell_map is not None and
-        # self.top_cell_map[poi.position.x, poi.position.y] > 0):
-      # BOOST_TOP_HALITE_FACTOR = 3
+    # self.top_cell_map[poi.position.x, poi.position.y] > 0):
+    # BOOST_TOP_HALITE_FACTOR = 3
 
     halite = (1 - HALITE_RETENSION_BY_DIST[opt_steps]
              ) * halite_left * BOOST_TOP_HALITE_FACTOR
