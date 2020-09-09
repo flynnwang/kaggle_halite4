@@ -1,16 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-v4_14_04 <- v4_14_03
+v4_14_05 <- v4_14_04
 
-* Halite cell value discard 0.05 by quantile
-* Home grow use median halite as base.
-* Convert shipyard with maximum number of halite cells
+* Grow home halite cell 45 * (1.0095 ** (step - 85))
 
-352
-{'agent_bee_v4_11_3.py': array([17.61363636, 22.72727273, 26.98863636, 32.67045455]),
- 'agent_bee_v4_1_1.py': array([50.85227273, 25.28409091, 14.77272727,  9.09090909]),
- 'agent_bee_v4_14_04.py': array([21.875     , 31.81818182, 27.84090909, 18.46590909]),
- 'agent_bee_v4_9_6.py': array([ 9.65909091, 20.17045455, 30.39772727, 39.77272727])}
 """
 
 import random
