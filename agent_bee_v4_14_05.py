@@ -4,6 +4,10 @@ v4_14_05 <- v4_14_04
 
 * Grow home halite cell 45 * (1.0095 ** (step - 85))
 * Bomb only when player halite < 1000
+* poi_to_yard / 7
+* Drop top halite boost
+* Convert shipyard when possible
+* Drop top2 position limit when convert shipyard
 """
 
 import random
@@ -710,28 +714,25 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return (num_covered >= 2 or num_covered > 0 and
               cell.convering_shipyards[0][0] <= home_extend_dist())
 
-    STEP_GROW_HALITE = 0
-    if self.start_grow_step:
-      STEP_GROW_HALITE = 1.013**(
-          self.step - self.start_grow_step) * HOME_GROWN_CELL_MIN_HALITE
-      STEP_GROW_HALITE = min(500, STEP_GROW_HALITE)
-
-    ship_to_enemy_ratio = self.num_ships / (self.max_enemy_ship_num + 0.1)
-
     halites = [c.halite for c in self.board.cells.values() if c.halite > 0]
 
     HAILTE_QUANTILE = 0.05
     halite_lower_bound = np.quantile(halites, HAILTE_QUANTILE)
-    home_halite_bound = 45 * (1.0095 ** (self.step - 84))
+    home_halite_bound = 45 * (1.011 ** (self.step - 84))
+
+    home_cell_count = 0
 
     def keep_halite_value(cell):
+      nonlocal home_cell_count
+
       threshold = halite_lower_bound
 
       if self.is_final_phrase:
         return min(30, threshold)
 
       if is_home_grown_cell(cell) and self.step >= 84:
-        threshold = halite_lower_bound
+        home_cell_count += 1
+        threshold = home_halite_bound
         self.keep_halite_value = home_halite_bound
 
       return min(threshold, 320)
@@ -763,6 +764,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     for cell in self.halite_cells:
       cell.keep_halite_value = keep_halite_value(cell)
+
+    # logger.info(f'step={self.step}, home_halite_bound={home_halite_bound}, home_cell={home_cell_count}, yard={self.num_shipyards}')
 
   @property
   def me_halite(self):
@@ -982,7 +985,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       for cell in self.board.cells.values():
         dist = self.manhattan_dist(cell, candidate_cell)
         # For cells not on the convert position but nearby
-        if dist > 0 and dist <= 5:
+        if dist > 0 and dist <= 4:
           score += cell.halite
       return score
 
@@ -1070,10 +1073,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if not candidate_cells:
       return
 
-    # Only consider top2 positions.
     candidate_cells.sort(key=lambda c: c.convert_score, reverse=True)
-    TOP_SHIPYAD_CELLS = 2 if self.num_shipyards == 1 else None
-    for cell in candidate_cells[:TOP_SHIPYAD_CELLS]:
+    for cell in candidate_cells:
       # Not convert too near enemy shipyard.
       if has_enemy_shipyard_nearby(cell):
         continue
@@ -1449,14 +1450,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       opt_steps = min_mine
 
     BOOST_TOP_HALITE_FACTOR = 1
-    if (self.step <= 60 and self.top_cell_map is not None and
-        self.top_cell_map[poi.position.x, poi.position.y] > 0):
-      BOOST_TOP_HALITE_FACTOR = 3
+    # if (self.step <= 60 and self.top_cell_map is not None and
+        # self.top_cell_map[poi.position.x, poi.position.y] > 0):
+      # BOOST_TOP_HALITE_FACTOR = 3
 
     halite = (1 - HALITE_RETENSION_BY_DIST[opt_steps]
              ) * halite_left * BOOST_TOP_HALITE_FACTOR
     total_halite = (carry + enemy_carry + halite)
-    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 5)
+    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
