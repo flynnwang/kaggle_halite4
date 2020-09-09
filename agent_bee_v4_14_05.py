@@ -7,6 +7,12 @@ v4_14_05 <- v4_14_04
 * poi_to_yard / 7
 * Drop top halite boost
 * Drop top2 position limit when convert shipyard
+
+661
+{'agent_bee_v4_8_3.py': array([13.61573374, 17.54916793, 27.98789713, 40.84720121]),
+ 'agent_bee_v4_1_1.py': array([26.62632375, 35.85476551, 23.75189107, 13.76701967]),
+ 'agent_bee_v4_2_1.py': array([12.40544629, 21.48260212, 28.59304085, 37.51891074]),
+ 'agent_bee_v4_14_05.py': array([47.35249622, 25.11346445, 19.66717095,  7.86686838])}
 """
 
 import random
