@@ -1,25 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-v4_14_02 <- v4_14_01
+v4_14_03 <- v4_14_02
 
-* keep_halite with 0.8 of global halite mean
-* MIN_SHIP_TO_START_EXPANSION = 18
-* Tune halite_per_turn to poi_to_yard/5
-* Tune help system with ship=3, dist=5
-* MAX_GROW = 300
-* HALITE_CELL_PER_SHIP default 3.0, covert shipyard ASAP
+* Add ship_to_enemy_ratio for grow cell.
 
-11, before shipyard ratio change
-{'agent_bee_v4_14_02.py': array([36.36363636, 63.63636364,  0.        ,  0.        ]),
- 'agent_bee_v4_1_1.py': array([45.45454545, 36.36363636,  9.09090909,  9.09090909]),
- 'agent_bee_v4_11_3.py': array([18.18181818,  0.        , 63.63636364, 18.18181818]),
-  'agent_bee_v4_9_6.py': array([ 0.        ,  0.        , 27.27272727, 72.72727273])}
-
-163, with shipyard ratio
-{'agent_bee_v4_14_02.py': array([30.67484663, 27.60736196, 29.44785276, 12.26993865]),
- 'agent_bee_v4_11_3.py': array([14.11042945, 19.63190184, 25.76687117, 40.49079755]),
- 'agent_bee_v4_1_1.py': array([44.17177914, 30.06134969, 17.79141104,  7.97546012]),
- 'agent_bee_v4_9_6.py': array([11.04294479, 22.6993865 , 26.99386503, 39.26380368])}
 """
 
 import random
@@ -703,6 +687,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     super().update(board)
 
+    self.save_for_converting = 0
+
     if (self.num_ships >= MIN_SHIP_TO_START_EXPANSION):
       if self.start_grow_step is None:
         pass
@@ -717,7 +703,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.num_home_halite_cells = 0
     self.mean_home_halite = 100
 
+    self.collect_player_info()
     self.init_halite_cells()
+    self.update_halite_cell_info()
 
     # Default ship to stay on the same cell without assignment.
     for ship in self.ships:
@@ -756,6 +744,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           self.step - self.start_grow_step) * HOME_GROWN_CELL_MIN_HALITE
       STEP_GROW_HALITE = min(500, STEP_GROW_HALITE)
 
+    ship_to_enemy_ratio = self.num_ships / (self.max_enemy_ship_num + 0.1)
+
     def keep_halite_value(cell):
 
       # Collect larger ones first
@@ -780,19 +770,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
         keep_factor = ship_factor + cover_factor
         keep_halite = HOME_GROWN_CELL_MIN_HALITE * keep_factor + STEP_GROW_HALITE
-        self.keep_halite_value = keep_halite
         threshold = max(keep_halite, threshold)
 
-        if self.step <= 80 or self.start_grow_step is None:
+        if self.step <= 80:
           threshold = self.mean_halite_value * 0.8
-
-      # Do not go into enemy shipyard for halite.
-      # enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
-      # if (enemy_yard and enemy_yard_dist <= 5):
-      # ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
-      # if (alley_yard and enemy_yard_dist < ally_yard_dist):
-      # # if the cell is nearer to the enemy yard.
-      # return 1000
+        else:
+          threshold = self.mean_halite_value * ship_to_enemy_ratio
+        self.keep_halite_value = threshold
 
       return min(threshold, 300)
 
@@ -828,7 +812,22 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   def me_halite(self):
     return self.me.halite - self.cost_halite
 
-  def collect_game_info(self):
+  def collect_player_info(self):
+    # Player info
+    self.me.total_halite = self.me.halite + cargo(self.me)
+    self.max_enemy_halite = -1
+    self.max_enemy_ship_num = 0
+    self.max_enemy = None
+    self.total_enemy_ship_num = 0
+    for p in self.board.opponents:
+      p.total_halite = p.halite + cargo(p)
+      if p.total_halite >= self.max_enemy_halite:
+        self.max_enemy_halite = p.halite
+        self.max_enemy = p
+      self.max_enemy_ship_num = max(self.max_enemy_ship_num, len(p.ship_ids))
+      self.total_enemy_ship_num += len(p.ship_ids)
+
+  def update_halite_cell_info(self):
 
     # Computes neighbour cells mean halite values.
     # TODO: reuse
@@ -846,20 +845,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     if home_cell_halite:
       self.mean_home_halite = np.mean(home_cell_halite)
-
-    # Player info
-    self.me.total_halite = self.me.halite + cargo(self.me)
-
-    self.max_enemy_halite = -1
-    self.max_enemy = None
-    self.total_enemy_ship_num = 0
-    for p in self.board.opponents:
-      p.total_halite = p.halite + cargo(p)
-      if p.total_halite >= self.max_enemy_halite:
-        self.max_enemy_halite = p.halite
-        self.max_enemy = p
-
-      self.total_enemy_ship_num += len(p.ship_ids)
 
   def bomb_enemy_shipyard(self):
     """Having enough farmers, let's send ghost to enemy shipyard."""
@@ -1873,8 +1858,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
               (ship.id, ship.position, ship.halite))
 
   def execute(self):
-    self.save_for_converting = 0
-    self.collect_game_info()
 
     if self.first_shipyard_set:
       self.convert_shipyard()
