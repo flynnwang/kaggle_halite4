@@ -1451,6 +1451,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     halite = (1 - HALITE_RETENSION_BY_DIST[opt_steps]
              ) * halite_left * BOOST_TOP_HALITE_FACTOR
+
+    # TODO(wangfei): test
+    # if ship.halite > 0:
+      # enemy_carry = 0
+
     total_halite = (carry + enemy_carry + halite)
     return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
 
