@@ -3,7 +3,7 @@
 v4_14_05 <- v4_14_04
 
 * Grow home halite cell 45 * (1.0095 ** (step - 85))
-
+* Bomb only when player halite < 1000
 """
 
 import random
@@ -721,44 +721,20 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     halites = [c.halite for c in self.board.cells.values() if c.halite > 0]
 
     HAILTE_QUANTILE = 0.05
-    quantile_halite_threshold = np.quantile(halites, HAILTE_QUANTILE)
-    median_halite = np.quantile(halites, 0.5)
+    halite_lower_bound = np.quantile(halites, HAILTE_QUANTILE)
+    home_halite_bound = 45 * (1.0095 ** (self.step - 84))
 
     def keep_halite_value(cell):
-
-      # Collect larger ones first
-      # discount_factor = (0.7 if self.step < 30 else 0.4)
-      discount_factor = 0.7
-      # threshold = self.mean_halite_value * discount_factor
-      threshold = quantile_halite_threshold
+      threshold = halite_lower_bound
 
       if self.is_final_phrase:
         return min(30, threshold)
 
-      if is_home_grown_cell(cell):
-        # ship_factor = self.num_ships / 12
-        ship_factor = 0
+      if is_home_grown_cell(cell) and self.step >= 84:
+        threshold = halite_lower_bound
+        self.keep_halite_value = home_halite_bound
 
-        # step_factor = max(self.step - BEGINNING_PHRASE_END_STEP,
-        # 0) / 180 * MAX_STEP_FACTOR
-        # step_factor = min(MAX_STEP_FACTOR, step_factor)
-
-        cover_factor = 0
-        # if self.num_ships >= 30:
-        # num_covered = len(cell.convering_shipyards)
-        # cover_factor += num_covered / 2
-
-        keep_factor = ship_factor + cover_factor
-        keep_halite = HOME_GROWN_CELL_MIN_HALITE * keep_factor + STEP_GROW_HALITE
-        threshold = max(keep_halite, threshold)
-
-        # if self.step <= 80:
-        threshold = quantile_halite_threshold
-        if self.num_ships >= 23 and self.num_shipyards >= 3:
-          threshold = median_halite * max(ship_to_enemy_ratio, discount_factor)
-        self.keep_halite_value = threshold
-
-      return min(threshold, 300)
+      return min(threshold, 320)
 
     # Init halite cells
     self.halite_cells = []
@@ -845,12 +821,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return self.sz * 2
 
       boost = 0
-      if self.num_ships >= 25:
-        boost = (self.num_ships - 20) // 5
+      if self.num_ships >= 30:
+        boost = (self.num_ships - 20) // 10
 
       # Only attack nearby enemy yard when the player is weak.
-      if (enemy_yard.player.halite <= 2 * self.c.spawn_cost or
-          enemy_yard.cell.ship_id is None):
+      if (enemy_yard.player.halite < 2 * self.c.spawn_cost):
         return MIN_BOMB_ENEMY_SHIPYARD_DIST + boost
       return 0
 
@@ -1839,7 +1814,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
               (ship.id, ship.position, ship.halite))
 
   def execute(self):
-
     if self.first_shipyard_set:
       self.convert_shipyard()
       self.update_ship_follower()
