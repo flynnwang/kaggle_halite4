@@ -9,6 +9,11 @@ v4_14_03 <- v4_14_02
 * Drop enemy within homeyard test
 * build shipyard to maximize halite gain
 
+225
+{'agent_bee_v4_1_1.py': array([51.55555556, 27.55555556, 13.77777778,  7.11111111]),
+ 'agent_bee_v4_11_3.py': array([14.66666667, 16.44444444, 33.77777778, 35.11111111]),
+ 'agent_bee_v4_14_03.py': array([22.66666667, 36.44444444, 24.44444444, 16.44444444]),
+ 'agent_bee_v4_9_6.py': array([11.11111111, 19.55555556, 28.        , 41.33333333])}
 """
 
 import random
