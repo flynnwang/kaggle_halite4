@@ -3,8 +3,16 @@
 
 v4_14_08 <- v4_14_07
 
-* When ship num is leading, grow.
+* Grow cells by ship_to_enemy_ratio.
+* Max halite threshold 450
+* Protect shipyard with dist=5 when y<=3
+* revert home_extend_dist = s / 10
 
+40: before revert home_extend_dist.
+{'agent_bee_v4_1_1.py': array([42.5, 15. , 27.5, 15. ]),
+ 'agent_bee_v4_14_08.py': array([42.5, 32.5, 20. ,  5. ]),
+ 'agent_bee_v4_2_1.py': array([ 5. , 25. , 17.5, 52.5]),
+ 'agent_bee_v4_8_3.py': array([10. , 27.5, 35. , 27.5])}
 """
 
 import random
@@ -704,8 +712,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     MAX_STEP_FACTOR = 2.5
 
     def home_extend_dist():
-      # return max(self.num_ships // 10, 2)
-      return 5
+      return max(self.num_ships // 10, 2)
 
     def is_home_grown_cell(cell):
       num_covered = len(cell.convering_shipyards)
@@ -765,9 +772,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if self.is_final_phrase:
         return min(30, threshold)
 
-      if is_home_grown_cell(cell) and self.step >= 84:
-        threshold = min(home_halite_bound, self.mean_halite_value * HOME_DISCOUNT_FACTOR)
-        self.keep_halite_value = threshold
+      if is_home_grown_cell(cell):
+        if self.step >= 84:
+          # threshold = min(home_halite_bound, self.mean_halite_value * HOME_DISCOUNT_FACTOR)
+          threshold = home_halite_bound * ship_to_enemy_ratio
+          self.keep_halite_value = threshold
 
       # Do not go into enemy shipyard for halite.
       enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
@@ -777,7 +786,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           # if the cell is nearer to the enemy yard.
           return 1000
 
-      return min(threshold, 350)
+      return min(threshold, 450)
 
     for cell in self.halite_cells:
       cell.keep_halite_value = keep_halite_value(cell)
@@ -1722,8 +1731,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     """Guard shipyard."""
 
     def shipyard_defend_dist():
-      if len(self.me.shipyard_ids) > 1 or self.me_halite >= self.c.spawn_cost:
-        return 3
+      if self.num_shipyards <= 3:
+        return 5
+      # if len(self.me.shipyard_ids) > 1 or self.me_halite >= self.c.spawn_cost:
+        # return 3
       return 4
 
     def offend_enemy_ships(yard):
@@ -1770,6 +1781,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         continue
 
       yard.is_in_danger = True
+
       if defend_ships:
         yard.offend_enemy = enemy
         yield yard, defend_ships
