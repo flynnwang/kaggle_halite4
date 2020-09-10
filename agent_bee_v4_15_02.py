@@ -3,6 +3,7 @@
 v4_15_02 <- v4_15_01
 
 * Try avoid move onto halite cell
+* Do not stay on current cell when running away.
 """
 
 import random
@@ -1082,6 +1083,15 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if (ship.task_type in (ShipTask.ATTACK_SHIP, ShipTask.ATTACK_SHIPYARD) and
           ship.position == next_position and ship.cell.halite > 0):
         wt -= 2000
+
+      # Do not stay when followed
+      if (ship.task_type in (ShipTask.RETURN, ) and hasattr(ship, "follower")
+          and ship.position == next_position):
+        wt -= 2000
+
+      # Try not move onto home halite cells when possible
+      if next_cell.halite > 0 and next_position != target_cell.position:
+        wt -= 0.5
 
       # If collecting halite
       if ((ship.task_type == ShipTask.GOTO_HALITE or

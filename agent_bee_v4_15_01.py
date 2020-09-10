@@ -6,6 +6,11 @@ v4_15_01 <- v4_9_7
 * Fix MAX_SHIP_CARGO bug, and use 500
 * Do not spawn ship to protect shipyard step >= 300
 
+30
+{'agent_bee_v4_1_1.py': array([43.33333333, 33.33333333, 16.66666667,  6.66666667]),
+ 'agent_bee_v4_8_3.py': array([26.66666667, 30.        , 30.        , 13.33333333]),
+ 'agent_bee_v4_2_1.py': array([10.        , 16.66666667, 30.        , 43.33333333]),
+ 'agent_bee_v4_15_01.py': array([20.        , 20.        , 23.33333333, 36.66666667])}
 """
 
 import random
