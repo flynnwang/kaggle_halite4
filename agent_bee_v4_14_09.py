@@ -2,7 +2,11 @@
 """
 v4_14_09 <- v4_14_08
 
-* 
+* CLOSING_PHRASE_STEP=300, NEAR_ENDING_PHRASE_STEP=340
+* Revert convert_shipyard
+* home halite: G=1.012, S=60, discount_factor=0.9(s<30)/0.7
+* Enable enemy.within_home_boundary
+* ship_gradient -100 when ship.halite > 0
 """
 
 import random
@@ -27,8 +31,8 @@ def print(*args, **kwargs):
 MIN_WEIGHT = -99999
 
 BEGINNING_PHRASE_END_STEP = 60
-CLOSING_PHRASE_STEP = 320
-NEAR_ENDING_PHRASE_STEP = 300
+CLOSING_PHRASE_STEP = 300
+NEAR_ENDING_PHRASE_STEP = 340
 
 # If my halite is less than this, do not build ship or shipyard anymore.
 MIN_HALITE_TO_BUILD_SHIPYARD = 1000
@@ -37,7 +41,6 @@ MIN_HALITE_TO_BUILD_SHIP = 1000
 # Controls the number of ships.
 MAX_SHIP_NUM = 60
 MAX_SHIP_CARGO = 500
-MIN_SHIP_TO_START_EXPANSION = 19
 
 # Threshold for attack enemy nearby my shipyard
 TIGHT_ENEMY_SHIP_DEFEND_DIST = 5
@@ -649,7 +652,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.follower_detector = FollowerDetector()
     self.gradient_map = GradientMap()
     self.keep_halite_value = 0.0
-    self.start_grow_step = None
+    self.history_shipyard_positions = set()
 
   def update(self, board):
     """Updates board state at each step."""
@@ -657,16 +660,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       init_globals(board)
 
     super().update(board)
-
     self.save_for_converting = 0
-
-    if (self.num_ships >= MIN_SHIP_TO_START_EXPANSION):
-      if self.start_grow_step is None:
-        pass
-        # DO NOT GROW
-        # self.start_grow_step = self.step
-    else:
-      self.start_grow_step = None
 
     self.board = board
     self.cost_halite = 0
@@ -696,6 +690,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           self.halite_cells,
           board[self.initial_ship_position],
           top_cell_num=self.num_ships + 5)
+
+    # Save shipyard positions.
+    for yard in self.shipyards:
+      self.history_shipyard_positions.add(yard.position)
 
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
@@ -741,30 +739,23 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     # halite_lower_bound = np.quantile(halites, HAILTE_QUANTILE)
 
     DISCOUNT_FACTOR = 0.7
-    if self.step < 85:
-      DISCOUNT_FACTOR = 0.45
+    if self.step < 30:
+      DISCOUNT_FACTOR = 0.9
 
     board_halite_bound = self.mean_halite_value * DISCOUNT_FACTOR
-    home_halite_bound = 45 * (1.011**(self.step - 84))
-
-    HOME_DISCOUNT_FACTOR = DISCOUNT_FACTOR
-    if self.step >= 85:
-      HOME_DISCOUNT_FACTOR = max(DISCOUNT_FACTOR, ship_to_enemy_ratio)
-      # HOME_DISCOUNT_FACTOR = min(1.1, DISCOUNT_FACTOR)
-
-    home_cell_count = 0
+    home_halite_bound = 60 * (1.012**(self.step - 84))
 
     def keep_halite_value(cell):
-      nonlocal home_cell_count
 
       threshold = board_halite_bound
-
       if self.is_final_phrase:
-        return min(30, threshold)
+        return threshold
+
+      if 250 <= self.step <= 275:
+        return threshold
 
       if is_home_grown_cell(cell):
         if self.step >= 84:
-          # threshold = min(home_halite_bound, self.mean_halite_value * HOME_DISCOUNT_FACTOR)
           threshold = home_halite_bound * ship_to_enemy_ratio
           self.keep_halite_value = threshold
 
@@ -776,12 +767,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           # if the cell is nearer to the enemy yard.
           return 1000
 
+
+      if self.step <= 300:
+        return min(threshold, 320)
       return min(threshold, 450)
 
     for cell in self.halite_cells:
       cell.keep_halite_value = keep_halite_value(cell)
-
-    # logger.info(f'step={self.step}, home_halite_bound={home_halite_bound}, home_cell={home_cell_count}, yard={self.num_shipyards}')
 
   @property
   def me_halite(self):
@@ -844,7 +836,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         boost = (self.num_ships - 20) // 10
 
       # Only attack nearby enemy yard when the player is weak.
-      if (enemy_yard.player.halite < 2 * self.c.spawn_cost):
+      if (enemy_yard.player.halite < self.c.spawn_cost):
         return MIN_BOMB_ENEMY_SHIPYARD_DIST + boost
       return 0
 
@@ -906,12 +898,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     MANHATTAN_DIST_RANGE1 = range(7, 8 + 1)
     AXIS_DIST_RANGE1 = range(3, 5 + 1)
-    MANHATTAN_DIST_RANGE2 = range(6, 8 + 1)
+    MANHATTAN_DIST_RANGE2 = range(6, 7 + 1)
     AXIS_DIST_RANGE2 = range(1, 6 + 1)
     MAX_SHIP_TO_SHIPYARD_DIST = 8
 
-    HALITE_CELL_PER_SHIP = 3.0
-    if self.step >= 150 and self.num_ships >= 24:
+    HALITE_CELL_PER_SHIP = 2.5
+    if self.is_beginning_phrase:
+      HALITE_CELL_PER_SHIP = 2.8
+    elif self.step >= 180 and self.num_ships >= 23:
       HALITE_CELL_PER_SHIP = 3.2
 
     MIN_CONVERT_SHIP_NUM = 9
@@ -938,11 +932,15 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         print('more shipyard: halite cell / ship =', halite_ratio)
       return num_yards
 
+    def shipyard_num_by_ship_num():
+      # Force build shipyard with 10 ships
+      if self.num_ships >= MIN_CONVERT_SHIP_NUM:
+        return min(2 + max((self.num_ships - MIN_CONVERT_SHIP_NUM) // 6, 0),
+                   MAX_SHIPYARD_NUM)
+      return 1
+
     def max_shipyard_num():
-      num = shipyard_num_by_halite_ratio()
-      if self.num_ships < MIN_SHIP_TO_START_EXPANSION:
-        num = min(num, 2)
-      return num
+      return max(shipyard_num_by_ship_num(), shipyard_num_by_halite_ratio())
 
     # Reach max shipyard num.
     if self.num_shipyards >= max_shipyard_num():
@@ -1028,7 +1026,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         ]
 
         if dist_yards:
-          score += 0.5
+          score += 0.1
 
         # Strongly covered cell
         if dist_yards and (len(dist_yards) >= MAX_COVER_HALITE or
@@ -1040,6 +1038,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       for cell in self.board.cells.values():
         # Exclude existing shipyard position (including enemy ones).
         if cell.shipyard_id:
+          continue
+
+        # Exclude died shipyard positions
+        if cell.position in self.history_shipyard_positions:
           continue
 
         if not within_predefined_range(cell):
@@ -1459,7 +1461,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       enemy_carry = enemy.halite
 
-    CARRY_DISCOUNT = 0.5
+    CARRY_DISCOUNT = 1
     carry = ship and ship.halite or 0
 
     travel = ship_to_poi + poi_to_yard
@@ -1472,13 +1474,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     # self.top_cell_map[poi.position.x, poi.position.y] > 0):
     # BOOST_TOP_HALITE_FACTOR = 3
 
-    if ship.halite > 30:
+    if self.step >= 80 and ship.halite > 30:
       enemy_carry = 0
 
     halite = (1 - HALITE_RETENSION_BY_DIST[opt_steps]
              ) * halite_left * BOOST_TOP_HALITE_FACTOR
     total_halite = (carry + enemy_carry + halite)
-    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
+    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 5)
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
@@ -1492,8 +1494,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     MAX_ATTACK_DIST = 4 + adjust
 
     MIN_ATTACK_QUADRANT_NUM = 3
-    # if self.step >= 100:
-    # MIN_ATTACK_QUADRANT_NUM -= 1
+    if self.num_ships <= 85:
+      MIN_ATTACK_QUADRANT_NUM += 1
     if self.num_ships >= 35:
       MIN_ATTACK_QUADRANT_NUM -= 1
 
@@ -1541,8 +1543,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         enemy_follower_ids.add(follower.id)
 
     for enemy in self.enemy_ships:
-      # enemy.within_home_boundary = is_enemy_within_home_boundary(enemy)
-      enemy.within_home_boundary = False
+      enemy.within_home_boundary = is_enemy_within_home_boundary(enemy)
       enemy.is_follower = (enemy.id in enemy_follower_ids)
 
       dist_ships = get_attack_ships(enemy)
@@ -1554,9 +1555,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       # Reduce quadrant_num for home boundary enemy.
       min_attack_quadrant_num = MIN_ATTACK_QUADRANT_NUM
-      # if enemy.within_home_boundary:
-      # min_attack_quadrant_num -= 1
-
       if quadrant_num >= min_attack_quadrant_num:
         enemy.quadrant_num = quadrant_num
         enemy.attack_ships = [ship for _, ship in dist_ships][:max_attack_num]
@@ -1579,7 +1577,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           continue
 
         if (self.step >= 80 and ship.halite > 0 and
-            self.ship_gradient[cell.position.x, cell.position.y] <= -200):
+            self.ship_gradient[cell.position.x, cell.position.y] <= -100):
           continue
 
         yield ship_idx, poi_idx
@@ -1589,8 +1587,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     SHIPYARD_DUPLICATE_NUM = 5
 
     def shipyard_duplicate_num():
-      # if self.is_final_phrase:
-        # return 1
+      if self.is_final_phrase:
+        return 1
       return SHIPYARD_DUPLICATE_NUM
 
     ships = list(self.my_idle_ships)
