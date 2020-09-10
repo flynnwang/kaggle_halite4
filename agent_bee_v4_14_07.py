@@ -2,8 +2,28 @@
 """
 v4_14_07 <- v4_14_05
 
-* Add carry back.
-* Reset enemy_carry = 0 if ship has halite > 10.
+* Limit home cell by home discount factor and growth curve.
+* Reset enemy_carry = 0 if ship has halite > 30.
+* Set CLOSING_PHRASE_STEP=320 and NEAR_ENDING_PHRASE_STEP=300
+* check ship gradient with haltie to -200
+* CARRY_DISCOUNT = 0.5
+* Do not goto enemy yard dist =1
+* No max ship_to_enemy_ratio for home cell, home dist = 5.
+* Ignore neighbour cell when bombing ships.
+
+
+23: max ship_to_enemy_ratio 1.1
+{'agent_bee_v4_1_1.py': array([26.08695652, 47.82608696, 21.73913043,  4.34782609]),
+ 'agent_bee_v4_14_07.py': array([47.82608696, 26.08695652, 21.73913043,  4.34782609]),
+ 'agent_bee_v4_8_3.py': array([13.04347826, 13.04347826, 30.43478261, 43.47826087]),
+ 'agent_bee_v4_2_1.py': array([13.04347826, 13.04347826, 26.08695652, 47.82608696])}
+
+
+76: before turn off ignore neighbor  when bomb shipyard
+{'agent_bee_v4_14_07.py': array([40.78947368, 22.36842105, 27.63157895,  9.21052632]),
+'agent_bee_v4_8_3.py': array([ 9.21052632, 15.78947368, 34.21052632, 40.78947368]),
+'agent_bee_v4_1_1.py': array([39.47368421, 38.15789474, 14.47368421,  7.89473684]),
+'agent_bee_v4_2_1.py': array([10.52631579, 23.68421053, 23.68421053, 42.10526316])}
 """
 
 import random
@@ -28,8 +48,8 @@ def print(*args, **kwargs):
 MIN_WEIGHT = -99999
 
 BEGINNING_PHRASE_END_STEP = 60
-CLOSING_PHRASE_STEP = 300
-NEAR_ENDING_PHRASE_STEP = 350
+CLOSING_PHRASE_STEP = 320
+NEAR_ENDING_PHRASE_STEP = 300
 
 # If my halite is less than this, do not build ship or shipyard anymore.
 MIN_HALITE_TO_BUILD_SHIPYARD = 1000
@@ -703,35 +723,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     MAX_STEP_FACTOR = 2.5
 
     def home_extend_dist():
-      return max(self.num_ships // 10, 2)
+      # return max(self.num_ships // 10, 2)
+      return 5
 
     def is_home_grown_cell(cell):
       num_covered = len(cell.convering_shipyards)
       return (num_covered >= 2 or num_covered > 0 and
               cell.convering_shipyards[0][0] <= home_extend_dist())
-
-    halites = [c.halite for c in self.board.cells.values() if c.halite > 0]
-
-    HAILTE_QUANTILE = 0.05
-    halite_lower_bound = np.quantile(halites, HAILTE_QUANTILE)
-    home_halite_bound = 45 * (1.011**(self.step - 84))
-
-    home_cell_count = 0
-
-    def keep_halite_value(cell):
-      nonlocal home_cell_count
-
-      threshold = halite_lower_bound
-
-      if self.is_final_phrase:
-        return min(30, threshold)
-
-      if is_home_grown_cell(cell) and self.step >= 84:
-        home_cell_count += 1
-        threshold = home_halite_bound
-        self.keep_halite_value = home_halite_bound
-
-      return min(threshold, 320)
 
     # Init halite cells
     self.halite_cells = []
@@ -757,6 +755,48 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       halite_values = [c.halite for c in self.halite_cells]
       self.mean_halite_value = np.mean(halite_values)
       self.std_halite_value = np.std(halite_values)
+
+    ship_to_enemy_ratio = self.num_ships / (self.max_enemy_ship_num + 0.1)
+
+    # halites = [c.halite for c in self.board.cells.values() if c.halite > 0]
+    # HAILTE_QUANTILE = 0.05
+    # halite_lower_bound = np.quantile(halites, HAILTE_QUANTILE)
+
+    DISCOUNT_FACTOR = 0.7
+    if self.step < 85:
+      DISCOUNT_FACTOR = 0.45
+
+    board_halite_bound = self.mean_halite_value * DISCOUNT_FACTOR
+    home_halite_bound = 45 * (1.011**(self.step - 84))
+
+    HOME_DISCOUNT_FACTOR = DISCOUNT_FACTOR
+    if self.step >= 85:
+      HOME_DISCOUNT_FACTOR = max(DISCOUNT_FACTOR, ship_to_enemy_ratio)
+      # HOME_DISCOUNT_FACTOR = min(1.1, DISCOUNT_FACTOR)
+
+    home_cell_count = 0
+
+    def keep_halite_value(cell):
+      nonlocal home_cell_count
+
+      threshold = board_halite_bound
+
+      if self.is_final_phrase:
+        return min(30, threshold)
+
+      if is_home_grown_cell(cell) and self.step >= 84:
+        threshold = min(home_halite_bound, self.mean_halite_value * HOME_DISCOUNT_FACTOR)
+        self.keep_halite_value = threshold
+
+      # Do not go into enemy shipyard for halite.
+      enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
+      if (enemy_yard and enemy_yard_dist <= 1):
+        ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
+        if (alley_yard and enemy_yard_dist < ally_yard_dist):
+          # if the cell is nearer to the enemy yard.
+          return 1000
+
+      return min(threshold, 350)
 
     for cell in self.halite_cells:
       cell.keep_halite_value = keep_halite_value(cell)
@@ -1148,7 +1188,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if ship.task_type == ShipTask.ATTACK_SHIPYARD:
         # TODO: use what value as weight for destory enemy yard?
         wt += convert_cost / (dist + 1)
-        ignore_neighbour_cell_enemy = True
+        # Flag to ignore neightbour cell whe attacking shipyard.
+        if self.num_ships >= 30:
+          ignore_neighbour_cell_enemy = True
 
       # Do not step on shipyard
       if (ship.task_type != ShipTask.ATTACK_SHIPYARD and
@@ -1437,7 +1479,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       enemy_carry = enemy.halite
 
-    CARRY_DISCOUNT = 0
+    CARRY_DISCOUNT = 0.5
     carry = ship and ship.halite or 0
 
     travel = ship_to_poi + poi_to_yard
@@ -1450,7 +1492,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     # self.top_cell_map[poi.position.x, poi.position.y] > 0):
     # BOOST_TOP_HALITE_FACTOR = 3
 
-    if ship.halite > 10:
+    if ship.halite > 30:
       enemy_carry = 0
 
     halite = (1 - HALITE_RETENSION_BY_DIST[opt_steps]
@@ -1461,7 +1503,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
     # Do not attack enemy during ending.
-    if self.is_final_phrase:
+    if self.step >= 360:
       return
 
     adjust = 0
@@ -1557,7 +1599,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           continue
 
         if (self.step >= 80 and ship.halite > 0 and
-            self.ship_gradient[cell.position.x, cell.position.y] <= -250):
+            self.ship_gradient[cell.position.x, cell.position.y] <= -200):
           continue
 
         yield ship_idx, poi_idx
@@ -1567,8 +1609,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     SHIPYARD_DUPLICATE_NUM = 5
 
     def shipyard_duplicate_num():
-      if self.is_final_phrase:
-        return 1
+      # if self.is_final_phrase:
+        # return 1
       return SHIPYARD_DUPLICATE_NUM
 
     ships = list(self.my_idle_ships)
