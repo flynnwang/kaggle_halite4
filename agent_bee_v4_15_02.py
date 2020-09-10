@@ -4,6 +4,12 @@ v4_15_02 <- v4_15_01
 
 * Try avoid move onto halite cell
 * Do not stay on current cell when running away.
+
+717
+{'agent_bee_v4_1_1.py': array([41.14365411, 34.0306834 , 15.62064156,  9.20502092]),
+ 'agent_bee_v4_15_02.py': array([29.42817294, 27.19665272, 25.52301255, 17.85216179]),
+  'agent_bee_v4_2_1.py': array([ 4.46304045, 12.9707113 , 31.79916318, 50.76708508]),
+   'agent_bee_v4_8_3.py': array([24.9651325 , 25.80195258, 27.05718271, 22.17573222])}
 """
 
 import random
