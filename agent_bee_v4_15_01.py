@@ -2,7 +2,9 @@
 """
 v4_15_01 <- v4_9_7
 
-* Fix MAX_SHIP_CARGO = 500
+* Protect ship being followed
+* Fix MAX_SHIP_CARGO bug, and use 500
+* Do not spawn ship to protect shipyard step >= 300
 
 """
 
@@ -38,7 +40,7 @@ MIN_HALITE_TO_BUILD_SHIP = 1000
 
 # Controls the number of ships.
 MAX_SHIP_NUM = 60
-MAX_SHIP_CARGO = 350
+MAX_SHIP_CARGO = 500
 
 # Threshold for attack enemy nearby my shipyard
 TIGHT_ENEMY_SHIP_DEFEND_DIST = 5
@@ -1299,7 +1301,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   def spawn_if_shipyard_in_danger(self):
     """Spawn ship if enemy nearby my shipyard and no ship's next_cell on this
     shipyard."""
-    if self.is_final_phrase:
+    if self.is_closing_phrase:
       return
 
     ship_next_positions = {
@@ -1454,8 +1456,17 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         quadrants.add(q)
         yield (q_exist, dist), ship
 
+    # Collect follower enemy ships.
+    enemy_follower_ids = set()
+    for ship in self.me.ships:
+      follower = getattr(ship, 'follower', None)
+      if follower:
+        enemy_follower_ids.add(follower.id)
+
     for enemy in self.enemy_ships:
       enemy.within_home_boundary = is_enemy_within_home_boundary(enemy)
+      enemy.is_follower = (enemy.id in enemy_follower_ids)
+
       dist_ships = get_attack_ships(enemy)
       dist_ships = list(annotate_by_quadrant(dist_ships, enemy))
       dist_ships.sort(key=lambda x: x[0])
@@ -1471,6 +1482,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if quadrant_num >= min_attack_quadrant_num:
         enemy.quadrant_num = quadrant_num
         enemy.attack_ships = [ship for _, ship in dist_ships][:max_attack_num]
+        yield enemy
+      elif enemy.is_follower and len(dist_ships) > 0:
+        enemy.attack_ships = [ship for _, ship in dist_ships][:2]
         yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
@@ -1562,7 +1576,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             v += self.c.spawn_cost
 
           # Force send ship home.
-          if ship.halite >= MAX_SHIP_CARGO and self.is_closing_phrase:
+          if ship.halite >= MAX_SHIP_CARGO and not self.is_closing_phrase:
             v += ship.halite
         elif is_enemy_column(j):
           # If attack enemy
