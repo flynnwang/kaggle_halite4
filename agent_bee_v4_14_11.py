@@ -4,6 +4,11 @@ v4_14_11 <- v4_14_10
 
 * Add buddy system.
 
+309
+{'agent_bee_v4_14_11.py': array([55.02, 22.01, 15.53,  7.44]),
+ 'agent_bee_v4_1_1.py': array([25.89, 45.95, 21.04,  7.12]),
+ 'agent_bee_v4_2_1.py': array([ 8.41, 15.86, 33.66, 42.07]),
+ 'agent_bee_v4_8_3.py': array([10.68, 16.18, 29.77, 43.37])}
 """
 
 import random
