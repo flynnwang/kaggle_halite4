@@ -4,7 +4,7 @@ v4_14_13 <- v4_14_11
 
 * Planning ahead for converting shipyard
 * add bound for ship_to_enemy_ratio
-* Ignone ship gradient in initial stage, CHECK_TRAP_DIST=7
+* CHECK_TRAP_DIST=7, min_step=60
 * Raise home halite upper bound as 420
 
 """
@@ -1020,6 +1020,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
         if d1 == 1 or d2 == 1 or d3 == 1:
           score += 0.3
+
+      # logger.info("tri score = %s" % score)
       return score
 
     def compute_convert_score_for_second(first_yard_cell, candidate_cell):
@@ -1049,8 +1051,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     def compute_convert_score(candidate_cell):
       # Special handle for the second shipyard.
       if self.num_shipyards == 1:
-        return compute_convert_score_for_second(self.shipyards[0].cell,
+        # with Timer("compute_convert_score_for_second"):
+        s = compute_convert_score_for_second(self.shipyards[0].cell,
                                                 candidate_cell)
+        return s
 
       # Find nearest 2 shipyards
       self.get_nearest_home_yard(candidate_cell)
@@ -1575,9 +1579,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
-    if self.step <= 60:
-      return
-
     CHECK_TRAP_DIST = 7
 
     for poi_idx, cell in enumerate(halites):
@@ -1585,11 +1586,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
         # Do not go to halite with too many enemy around.
         dist = self.manhattan_dist(ship, cell)
-        if (self.step >= 80 and ship.halite == 0 and dist <= CHECK_TRAP_DIST and
+        if (self.step >= 60 and ship.halite == 0 and dist <= CHECK_TRAP_DIST and
             self.ship_gradient[cell.position.x, cell.position.y] <= -300):
           continue
 
-        if (self.step >= 80 and ship.halite > 0 and
+        if (self.step >= 60 and ship.halite > 0 and
             self.ship_gradient[cell.position.x, cell.position.y] <= -100):
           continue
 
