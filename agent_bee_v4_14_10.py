@@ -751,7 +751,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if self.is_final_phrase:
         return threshold
 
-      if 230 <= self.step <= 255:
+      if 240 <= self.step <= 265:
         return threshold
 
       if is_home_grown_cell(cell):
