@@ -4,6 +4,8 @@ v4_14_10 <- v4_14_09
 
 [Cell based growth curve]
 
+* Add cell based grow curve, G=1.013
+
 """
 
 import random
@@ -648,8 +650,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.simulation = simulation
     self.follower_detector = FollowerDetector()
     self.gradient_map = GradientMap()
-    self.keep_halite_value = 0.0
     self.history_shipyard_positions = set()
+    self.active_cell_steps = {}
 
   def update(self, board):
     """Updates board state at each step."""
@@ -739,8 +741,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if self.step < 30:
       DISCOUNT_FACTOR = 0.9
 
+    G = 1.013
     board_halite_bound = self.mean_halite_value * DISCOUNT_FACTOR
-    home_halite_bound = 60 * (1.012**(self.step - 84))
+    home_halite_bound = 60 * (G ** (self.step - 84))
 
     def keep_halite_value(cell):
 
@@ -748,13 +751,25 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if self.is_final_phrase:
         return threshold
 
-      if 250 <= self.step <= 275:
+      if 230 <= self.step <= 255:
         return threshold
 
       if is_home_grown_cell(cell):
+        if cell.position not in self.active_cell_steps:
+          self.active_cell_steps[cell.position] = self.step
+
         if self.step >= 84:
+          cell_start_step = self.active_cell_steps[cell.position]
+          cell_halite_bound = 60 * (G ** (self.step - cell_start_step))
+          threshold = cell_halite_bound * ship_to_enemy_ratio
+
+        if CLOSING_PHRASE_STEP <= self.step <= NEAR_ENDING_PHRASE_STEP:
           threshold = home_halite_bound * ship_to_enemy_ratio
-          self.keep_halite_value = threshold
+      else:
+        # Cleanup non home cells in case a shipyard crashed.
+        if cell.position in self.active_cell_steps:
+          del self.active_cell_steps[cell.position]
+
 
       # Do not go into enemy shipyard for halite.
       enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
@@ -1420,10 +1435,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         '#%s' % self.step, 'halite(n=%s, mean=%s, std=%s)' %
         (len(self.halite_cells), int(
             self.mean_halite_value), int(self.std_halite_value)),
-        'home_halite=(d=%s, cover=%.0f%%, n=%s, m=%s, n/s=%.1f KF=%.1f)' %
+        'home_halite=(d=%s, cover=%.0f%%, n=%s, m=%s, n/s=%.1f)' %
         (self.home_grown_cell_dist, self.num_home_halite_cells /
          len(self.halite_cells) * 100, self.num_home_halite_cells,
-         int(self.mean_home_halite), self.halite_ratio, self.keep_halite_value))
+         int(self.mean_home_halite), self.halite_ratio))
     print_player(self.me, end=' ')
 
     enemy = sorted(self.board.opponents, key=lambda x: -(len(x.ship_ids)))[0]
