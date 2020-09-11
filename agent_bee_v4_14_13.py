@@ -3,9 +3,8 @@
 v4_14_13 <- v4_14_11
 
 * Planning ahead for converting shipyard
-* add lower bound home halite: 0.7 * mean_halite_value
 * add bound for ship_to_enemy_ratio
-* Ignone ship gradient in initial stage.
+* Ignone ship gradient in initial stage, CHECK_TRAP_DIST=7
 
 """
 
@@ -1575,7 +1574,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
-    CHECK_TRAP_DIST = 5
+    if self.step <= 60:
+      return
+
+    CHECK_TRAP_DIST = 7
 
     for poi_idx, cell in enumerate(halites):
       for ship_idx, ship in enumerate(ships):
