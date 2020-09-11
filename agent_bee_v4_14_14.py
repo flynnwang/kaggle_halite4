@@ -2,7 +2,7 @@
 """
 v4_14_13 <- v4_14_11
 
-* Planning ahead for converting shipyard
+* Use triple cover for converting shipyard
 * add bound for ship_to_enemy_ratio
 * CHECK_TRAP_DIST=7, min_step=60
 * Raise home halite upper bound as 420
@@ -1005,66 +1005,55 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return False
       return True
 
-    def compute_triangle_score(c1, c2, c3):
-      score = 0
-      for cell in self.halite_cells:
-        d1 = self.manhattan_dist(cell, c1)
-        d2 = self.manhattan_dist(cell, c2)
-        d3 = self.manhattan_dist(cell, c3)
-        if d1 == 0 or d2 == 0 or d3 == 0:
-          continue
-
-        if is_inside_triangle(cell.position, c1.position, c2.position, c3.position):
-          score += 1
-          continue
-
-        if d1 == 1 or d2 == 1 or d3 == 1:
-          score += 0.3
-
-      # logger.info("tri score = %s" % score)
-      return score
-
     def compute_convert_score_for_second(first_yard_cell, candidate_cell):
       score = 0
-
-      c = 0
-      # Test the a third cell for look ahead.
       for cell in self.board.cells.values():
-        is_valid = True
-        for yard_cell in [first_yard_cell, candidate_cell]:
-          dist = self.manhattan_dist(cell, yard_cell)
-          if dist not in MANHATTAN_DIST_RANGE2:
-            is_valid = False
-            break
+        dist = self.manhattan_dist(cell, candidate_cell)
+        # For cells not on the convert position but nearby
+        if dist > 0 and dist <= 4:
+          score += cell.halite
 
-          dist_x, dist_y = axis_manhattan_dists(cell.position,
-                                                yard_cell.position,
-                                                self.c.size)
-          if dist_x not in AXIS_DIST_RANGE2 or dist_y not in AXIS_DIST_RANGE2:
-            is_valid = False
-            break
-
-        if is_valid:
-          ahead_score = compute_triangle_score(first_yard_cell, candidate_cell, cell)
-          c += 1
-          score = max(score, ahead_score)
-
-
-      logger.info("compute_triangle_score=%s" % c)
+        # Encourage covert
+        dist2 = self.manhattan_dist(cell, first_yard_cell)
+        if dist <= SHIPYARD_LOOSE_COVER_DIST and dist2 <= SHIPYARD_LOOSE_COVER_DIST:
+          score += cell.halite
       return score
 
     def compute_convert_score(candidate_cell):
       # Special handle for the second shipyard.
       if self.num_shipyards == 1:
-        # with Timer("compute_convert_score_for_second"):
         s = compute_convert_score_for_second(self.shipyards[0].cell,
                                                 candidate_cell)
         return s
 
-      # Find nearest 2 shipyards
-      self.get_nearest_home_yard(candidate_cell)
-      (_1, y1), (_2, y2) = candidate_cell.nearest_home_yards[:2]
-      return compute_triangle_score(candidate_cell, y1.cell, y2.cell)
+      MAX_COVER_HALITE = 3
+
+      # Maximize the total value of halite when converting ship.
+      score = 0
+      shipyards = self.shipyards + [candidate_cell
+                                   ]  # Fake the cell as shipyard.
+      for cell in self.halite_cells:
+        if cell.position == candidate_cell.position:
+          continue
+
+        covered = 0
+        dist_yards = [(self.manhattan_dist(y, cell), y) for y in shipyards]
+        dist_yards = sorted(dist_yards, key=lambda x: x[0])
+        dist_yards = [
+            (d, y) for (d, y) in dist_yards if d <= SHIPYARD_LOOSE_COVER_DIST
+        ]
+
+        if dist_yards:
+          score += 0.1
+
+        # Strongly covered cell
+        if len(dist_yards) >= 3:
+          score += 2
+        elif len(dist_yards) >= 2:
+          score += 0.5
+        if dist_yards and dist_yards[0][0] <= SHIPYARD_TIGHT_COVER_DIST:
+          score += 0.5
+      return score
 
     def nominate_shipyard_positions():
       for cell in self.board.cells.values():
