@@ -5,7 +5,6 @@ v4_15_03 <- v4_15_02
 [Add buddy system 2.0]
 
 * Send ship to support escaping
-* Use CHECK_TRAP_DIST when ship.halite == 0
 * ship_factor = ship_num / 20
 
 94
@@ -475,12 +474,11 @@ class FollowerDetector(StrategyBase):
 
     self.enemy_ship_index = {s.id: s for s in self.enemy_ships}
 
-
   def is_followed(self, ship: Ship):
     """Returns true if the ship of mine is traced by enemy."""
     follower_count = self.followers.get(ship.id)
     # if len(follower_count) >= 2:
-      # return True
+    # return True
     for fc in follower_count.values():
       if fc >= self.FOLLOW_COUNT:
         return True
@@ -709,7 +707,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if is_home_grown_cell(cell):
         ship_factor = self.num_ships / 20
 
-        step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 180 * MAX_STEP_FACTOR
+        step_factor = max(self.step - BEGINNING_PHRASE_END_STEP,
+                          0) / 180 * MAX_STEP_FACTOR
         step_factor = min(MAX_STEP_FACTOR, step_factor)
 
         cover_factor = 0
@@ -733,7 +732,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # if (alley_yard and enemy_yard_dist < ally_yard_dist):
       # # if the cell is nearer to the enemy yard.
       # return 1000
-
 
       return min(threshold, 499)
 
@@ -915,7 +913,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if self.num_shipyards >= max_shipyard_num():
       return
 
-
     def convert_threshold():
       threshold = MIN_HALITE_TO_BUILD_SHIPYARD
 
@@ -978,15 +975,16 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         covered = 0
         dist_yards = [(self.manhattan_dist(y, cell), y) for y in shipyards]
         dist_yards = sorted(dist_yards, key=lambda x: x[0])
-        dist_yards = [(d, y) for (d, y) in dist_yards
-                      if d <= SHIPYARD_LOOSE_COVER_DIST]
+        dist_yards = [
+            (d, y) for (d, y) in dist_yards if d <= SHIPYARD_LOOSE_COVER_DIST
+        ]
 
         if dist_yards:
           score += 0.1
 
         # Strongly covered cell
-        if dist_yards and (len(dist_yards) >= MAX_COVER_HALITE
-                           or dist_yards[0][0] <= SHIPYARD_TIGHT_COVER_DIST):
+        if dist_yards and (len(dist_yards) >= MAX_COVER_HALITE or
+                           dist_yards[0][0] <= SHIPYARD_TIGHT_COVER_DIST):
           score += 1
       return score
 
@@ -1095,8 +1093,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         wt -= 2000
 
       # Do not stay when followed
-      if (ship.task_type in (ShipTask.RETURN, ) and hasattr(ship, "followers")
-          and ship.position == next_position):
+      if (ship.task_type in (ShipTask.RETURN,) and
+          hasattr(ship, "followers") and ship.position == next_position):
         wt -= 2000
 
       # Try not move onto home halite cells when possible
@@ -1190,6 +1188,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     # Duplicate position at final stage for more halite.
     if self.step + 7 >= self.c.episode_steps:
+
       def duplicate_positions(positions):
         for p in positions:
           cell = self.board[p]
@@ -1243,7 +1242,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           wt = compute_weight(ship, next_position)
           print('   to %s, wt=%.2f' % (next_position, wt))
     # assert len(rows) == len(ships), "match=%s, ships=%s" % (len(rows),
-                                                            # len(ships))
+    # len(ships))
 
   def spawn_ships(self):
     """Spawns farmer ships if we have enough money and no collision with my own
@@ -1436,7 +1435,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     MIN_ATTACK_QUADRANT_NUM = 3
     # if self.step >= 100:
-      # MIN_ATTACK_QUADRANT_NUM -= 1
+    # MIN_ATTACK_QUADRANT_NUM -= 1
     if self.num_ships >= 35:
       MIN_ATTACK_QUADRANT_NUM -= 1
 
@@ -1476,10 +1475,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     # Collect follower enemy ships.
     # enemy_follower_ids = set()
     # for ship in self.me.ships:
-      # followers = getattr(ship, 'followers', None)
-      # if followers:
-        # for f in followers:
-          # enemy_follower_ids.add(f.id)
+    # followers = getattr(ship, 'followers', None)
+    # if followers:
+    # for f in followers:
+    # enemy_follower_ids.add(f.id)
 
     for enemy in self.enemy_ships:
       enemy.within_home_boundary = is_enemy_within_home_boundary(enemy)
@@ -1502,8 +1501,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         enemy.attack_ships = [ship for _, ship in dist_ships][:max_attack_num]
         yield enemy
       # elif enemy.is_follower and len(dist_ships) > 0:
-        # enemy.attack_ships = [ship for _, ship in dist_ships][:2]
-        # yield enemy
+      # enemy.attack_ships = [ship for _, ship in dist_ships][:2]
+      # yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
     CHECK_TRAP_DIST = 7
@@ -1513,21 +1512,22 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       for ship_idx, ship in enumerate(ships):
         # Do not go to halite with too many enemy around.
         dist = self.manhattan_dist(ship, cell)
-        if (dist <= CHECK_TRAP_DIST
-            and enemy_gradient[cell.position.x, cell.position.y] >= 350):
+        if (dist <= CHECK_TRAP_DIST and
+            enemy_gradient[cell.position.x, cell.position.y] >= 350):
           continue
 
         # if (ship.halite == 0 and dist <= CHECK_TRAP_DIST
-            # and enemy_gradient[cell.position.x, cell.position.y] >= 350):
-            # continue
+        # and enemy_gradient[cell.position.x, cell.position.y] >= 350):
+        # continue
 
         # if (ship.halite > 0
-            # and enemy_gradient[cell.position.x, cell.position.y] >= 350):
-            # continue
+        # and enemy_gradient[cell.position.x, cell.position.y] >= 350):
+        # continue
 
         yield ship_idx, poi_idx
 
   def get_rescue_escape_ship_pairs(self, ships):
+
     def is_supporter(sup, followers):
       if sup.is_followed:
         return False
@@ -1593,16 +1593,20 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     # Support alley ship escape
     ship_supporters = list(self.get_rescue_escape_ship_pairs(ships))
 
-    ship_supporter_pairs = {(s.id, sup.id)
-                         for s, sups in ship_supporters for sup in sups}
-    support_attack_pairs = {(s.id, e.id)
-                            for s, e in self.get_rescue_attack_ship_pairs(ship_supporters)}
+    ship_supporter_pairs = {
+        (s.id, sup.id) for s, sups in ship_supporters for sup in sups
+    }
+    support_attack_pairs = {
+        (s.id, e.id)
+        for s, e in self.get_rescue_attack_ship_pairs(ship_supporters)
+    }
 
     # Dedup supporters
-    supporter_ids = {sup.id for _, sups in ship_supporters
-                     for sup in sups}
-    supporters = [sup for _, sups in ship_supporters
-                  for sup in sups if sup.id in supporter_ids]
+    supporter_ids = {sup.id for _, sups in ship_supporters for sup in sups}
+    supporters = [
+        sup for _, sups in ship_supporters for sup in sups
+        if sup.id in supporter_ids
+    ]
 
     pois = halites + shipyards + enemy_cells + supporters + offended_cells
 
@@ -1668,7 +1672,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
               bonus += self.c.spawn_cost
             v = (self.c.spawn_cost + enemy.halite + bonus) / ship_to_poi
         elif is_supporter_column(j):
-            # Ship being followerd goes to alley ship.
+          # Ship being followerd goes to alley ship.
           if (ship.id, poi.id) in ship_supporter_pairs:
             v = (ship.halite + self.c.spawn_cost) / ship_to_poi
         else:
@@ -1776,7 +1780,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       # _, yard = self.get_nearest_home_yard(ship.cell)
       # if not yard:
-        # continue
+      # continue
 
       ship.followers = self.follower_detector.get_followers(ship)
       # self.assign_task(ship, yard.cell, ShipTask.RETURN)
