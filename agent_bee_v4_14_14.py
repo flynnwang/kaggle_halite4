@@ -4,9 +4,8 @@ v4_14_13 <- v4_14_11
 
 * Use triple cover for converting shipyard
 * add bound for ship_to_enemy_ratio
-* CHECK_TRAP_DIST=7, min_step=60
-* Raise home halite upper bound as 420
 * Delay third shipyard.
+* Raise home halite upper bound as 420
 
 """
 
@@ -745,7 +744,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     ship_to_enemy_ratio = self.num_ships / (self.max_enemy_ship_num + 0.1)
     ship_to_enemy_ratio = max(ship_to_enemy_ratio, 0.8)
-    ship_to_enemy_ratio = min(ship_to_enemy_ratio, 1.2)
 
     # halites = [c.halite for c in self.board.cells.values() if c.halite > 0]
     # HAILTE_QUANTILE = 0.05
@@ -1574,18 +1572,18 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
-    CHECK_TRAP_DIST = 7
+    CHECK_TRAP_DIST = 5
 
     for poi_idx, cell in enumerate(halites):
       for ship_idx, ship in enumerate(ships):
 
         # Do not go to halite with too many enemy around.
         dist = self.manhattan_dist(ship, cell)
-        if (self.step >= 60 and ship.halite == 0 and dist <= CHECK_TRAP_DIST and
+        if (self.step >= 80 and ship.halite == 0 and dist <= CHECK_TRAP_DIST and
             self.ship_gradient[cell.position.x, cell.position.y] <= -300):
           continue
 
-        if (self.step >= 60 and ship.halite > 0 and
+        if (self.step >= 80 and ship.halite > 0 and
             self.ship_gradient[cell.position.x, cell.position.y] <= -100):
           continue
 
