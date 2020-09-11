@@ -713,6 +713,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if NEAR_ENDING_PHRASE_STEP <= self.step <= CLOSING_PHRASE_STEP:
           threshold = 480
 
+        if 240 <= self.step <= 265:
+          threshold = self.mean_halite_value * discount_factor
+
       # Do not go into enemy shipyard for halite.
       # enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
       # if (enemy_yard and enemy_yard_dist <= 5):
