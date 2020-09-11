@@ -18,7 +18,6 @@ import logging
 from collections import Counter, defaultdict
 from enum import Enum, auto
 
-import networkx as nx
 import numpy as np
 import scipy.optimize
 from kaggle_environments.envs.halite.helpers import *
