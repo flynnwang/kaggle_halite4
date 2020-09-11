@@ -2,7 +2,7 @@
 """
 v4_15_05 <- v4_15_03
 
-* Ignore enemy gradient step <= 80
+* Ignore enemy gradient step <= 85, and by halite
 * Use triple covert score to converting shipyard.
 
 """
@@ -951,8 +951,28 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return False
       return True
 
+    def compute_convert_score_for_second(first_yard_cell, candidate_cell):
+      score = 0
+      for cell in self.board.cells.values():
+        dist = self.manhattan_dist(cell, candidate_cell)
+        # For cells not on the convert position but nearby
+        if dist > 0 and dist <= 4:
+          score += cell.halite
+
+        # Encourage covert
+        dist2 = self.manhattan_dist(cell, first_yard_cell)
+        if dist <= SHIPYARD_LOOSE_COVER_DIST and dist2 <= SHIPYARD_LOOSE_COVER_DIST:
+          score += cell.halite
+      return score
+
     def compute_convert_score(candidate_cell):
-      MAX_COVER_HALITE = 2
+      # Special handle for the second shipyard.
+      if self.num_shipyards == 1:
+        s = compute_convert_score_for_second(self.shipyards[0].cell,
+                                                candidate_cell)
+        return s
+
+      MAX_COVER_HALITE = 3
 
       # Maximize the total value of halite when converting ship.
       score = 0
@@ -973,9 +993,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           score += 0.1
 
         # Strongly covered cell
-        if dist_yards and (len(dist_yards) >= MAX_COVER_HALITE or
-                           dist_yards[0][0] <= SHIPYARD_TIGHT_COVER_DIST):
-          score += 1
+        if len(dist_yards) >= 3:
+          score += 2
+        elif len(dist_yards) >= 2:
+          score += 0.5
+        if dist_yards and dist_yards[0][0] <= SHIPYARD_TIGHT_COVER_DIST:
+          score += 0.5
       return score
 
     def nominate_shipyard_positions():
@@ -1502,17 +1525,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       for ship_idx, ship in enumerate(ships):
         # Do not go to halite with too many enemy around.
         dist = self.manhattan_dist(ship, cell)
-        if (dist <= CHECK_TRAP_DIST and
-            enemy_gradient[cell.position.x, cell.position.y] >= 350):
+        if (self.step >= 85 and ship.halite == 0 and dist <= CHECK_TRAP_DIST
+            and enemy_gradient[cell.position.x, cell.position.y] >= 350):
           continue
 
-        # if (ship.halite == 0 and dist <= CHECK_TRAP_DIST
-        # and enemy_gradient[cell.position.x, cell.position.y] >= 350):
-        # continue
-
-        # if (ship.halite > 0
-        # and enemy_gradient[cell.position.x, cell.position.y] >= 350):
-        # continue
+        if (self.step >= 85 and ship.halite > 0
+            and enemy_gradient[cell.position.x, cell.position.y] >= 350):
+          continue
 
         yield ship_idx, poi_idx
 
