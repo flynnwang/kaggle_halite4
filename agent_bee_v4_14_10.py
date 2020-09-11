@@ -1,18 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-v4_14_09 <- v4_14_08
+v4_14_10 <- v4_14_09
 
-* CLOSING_PHRASE_STEP=300, NEAR_ENDING_PHRASE_STEP=340
-* Revert convert_shipyard
-* home halite: G=1.012, S=60, discount_factor=0.9(s<30)/0.7
-* Enable enemy.within_home_boundary
-* ship_gradient -100 when ship.halite > 0
+[Cell based growth curve]
 
-400
-{'agent_bee_v4_8_3.py': array([ 8.5 , 18.25, 31.75, 41.5 ]),
- 'agent_bee_v4_2_1.py': array([ 9. , 17.5, 31. , 42.5]),
- 'agent_bee_v4_1_1.py': array([27.25, 42.75, 20.75,  9.25]),
- 'agent_bee_v4_14_09.py': array([55.25, 21.5 , 16.5 ,  6.75])}
 """
 
 import random
