@@ -175,7 +175,7 @@ def axis_manhattan_dists(a: Point, b: Point, size):
   return dist(a.x, b.x), dist(a.y, b.y)
 
 
-def manhattan_dist(a: Point, b: Point, size):
+def manhattan_dist(a: Point, b: Point, size=21):
   if MANHATTAN_DISTS:
     return MANHATTAN_DISTS[a.x * size + a.y][b.x * size + b.y]
 
@@ -214,6 +214,29 @@ def get_neighbor_cells(cell, include_self=False):
   neighbor_cells = [cell] if include_self else []
   neighbor_cells.extend([cell.north, cell.south, cell.east, cell.west])
   return neighbor_cells
+
+
+def get_nearby_cells_by_dist(center: Cell, max_dist, include_self=True):
+  visited = set()
+  nearby_cells = []
+
+  def dfs(cell: Cell):
+    if cell.position in visited:
+      return
+    visited.add(cell.position)
+
+    dist = manhattan_dist(cell.position, center.position)
+    if dist > max_dist:
+      return
+
+    if dist > 0 or (dist == 0 and include_self):
+      nearby_cells.append(cell)
+
+    for next_cell in get_neighbor_cells(cell):
+      dfs(next_cell)
+
+  dfs(center)
+  return nearby_cells
 
 
 def init_globals(board):
@@ -431,7 +454,9 @@ class FollowerDetector(StrategyBase):
 
     for ship in self.ships:
       enemies = []
-      for nb_cell in get_neighbor_cells(ship.cell):
+      # for nb_cell in get_neighbor_cells(ship.cell):
+      for nb_cell in get_nearby_cells_by_dist(ship.cell, max_dist=2,
+                                              include_self=False):
         # If no ship there
         if nb_cell.ship_id is None:
           continue
@@ -504,6 +529,7 @@ class InitializeFirstShipyard(StrategyBase):
     if ship.position == self.initial_yard_position:
       ship.next_action = ShipAction.CONVERT
       self.first_shipyard_set = True
+
 
 
 class GradientMap(StrategyBase):
@@ -761,7 +787,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return 1000
 
       if self.step <= 300:
-        return min(threshold, 320)
+        return min(threshold, 420)
       return min(threshold, 450)
 
     for cell in self.halite_cells:
