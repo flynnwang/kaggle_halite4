@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-v4_14_13 <- v4_14_11
+v4_14_14 <- v4_14_11
 
 * Use triple cover for converting shipyard
 * add bound for ship_to_enemy_ratio
 * Delay third shipyard.
 * Raise home halite upper bound as 420
 
+{'agent_bee_v4_1_1.py': array([28.29, 42.05, 21.9 ,  7.75]),
+ 'agent_bee_v4_2_1.py': array([ 8.14, 17.44, 31.2 , 43.22]),
+  'agent_bee_v4_14_14.py': array([53.29, 24.22, 15.7 ,  6.78]),
+   'agent_bee_v4_8_3.py': array([10.27, 16.28, 31.2 , 42.25])}
 """
 
 import random
