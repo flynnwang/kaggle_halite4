@@ -5,6 +5,7 @@ v4_14_13 <- v4_14_11
 * Planning ahead for converting shipyard
 * add bound for ship_to_enemy_ratio
 * Ignone ship gradient in initial stage, CHECK_TRAP_DIST=7
+* Raise home halite upper bound as 420
 
 """
 
@@ -779,7 +780,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return 1000
 
       if self.step <= 300:
-        return min(threshold, 320)
+        return min(threshold, 420)
       return min(threshold, 450)
 
     for cell in self.halite_cells:
