@@ -6,6 +6,7 @@ v4_14_13 <- v4_14_11
 * add bound for ship_to_enemy_ratio
 * CHECK_TRAP_DIST=7, min_step=60
 * Raise home halite upper bound as 420
+* Delay third shipyard.
 
 """
 
@@ -946,7 +947,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     def shipyard_num_by_ship_num():
       # Force build shipyard with 10 ships
       if self.num_ships >= MIN_CONVERT_SHIP_NUM:
-        return min(2 + max((self.num_ships - MIN_CONVERT_SHIP_NUM) // 6, 0),
+        return min(2 + max((self.num_ships - 11) // 6, 0),
                    MAX_SHIPYARD_NUM)
       return 1
 
