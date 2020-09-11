@@ -421,63 +421,62 @@ class FollowerDetector(StrategyBase):
 
   def __init__(self):
     self.board = None
-    self.ship_index = {}  # Ship id => ship
-    self.follower = {}  # ship_id => follower
-    self.follow_count = Counter()
+    self.followers = defaultdict(Counter)  # ship_id => {follower_id: count}
 
-  def clear(self, ship_id):
-    if ship_id not in self.follower:
-      return
-    del self.follower[ship_id]
-    del self.follow_count[ship_id]
-
-  def add(self, ship_id, follower: Ship):
+  def add(self, ship_id, followers):
     """Note: follower.halite < ship.halite"""
-    prev_follower = self.follower.get(ship_id)
-    if prev_follower is None or prev_follower.id != follower.id:
-      # New follower.
-      self.follow_count[ship_id] = 1
-    else:
-      # Existing follower.
-      self.follow_count[ship_id] += 1
+    latest_follower_ids = {f.id for f in followers}
 
-    self.follower[ship_id] = follower
+    # Cleanup non-followers
+    follow_count = self.followers[ship_id]
+    for f in list(follow_count.keys()):
+      if f not in latest_follower_ids:
+        del follow_count[f]
+
+    for f in latest_follower_ids:
+      follow_count[f] += 1
 
   def update(self, board):
     """Updates follow info with the latest board state."""
     super().update(board)
-    latest_ship_index = {s.id: s for s in self.ships}
 
-    # Check last ship positions for follower.
-    for ship_id, prev_ship in self.ship_index.items():
-      ship = latest_ship_index.get(ship_id)
-      if ship is None:
-        # The ship has gone.
-        self.clear(ship_id)
-        continue
+    for ship in self.ships:
+      enemies = []
+      for nb_cell in get_neighbor_cells(ship.cell):
+        # If no ship there
+        if nb_cell.ship_id is None:
+          continue
 
-      follower = board[prev_ship.position].ship
-      if follower is None or follower.halite >= ship.halite:
-        # Not a follower.
-        self.clear(ship_id)
-        continue
+        # Not enemy ship
+        enemy = nb_cell.ship
+        if enemy.player_id == self.me.id:
+          continue
 
-      assert follower and follower.halite < ship.halite
-      self.add(ship_id, follower)
+        # Not a threat
+        if enemy.halite >= ship.halite:
+          continue
+        enemies.append(enemy)
 
-    # Update with latest ship position.
-    self.ship_index = latest_ship_index
+      if enemies:
+        self.add(ship.id, enemies)
+
+    self.enemy_ship_index = {s.id: s for s in self.enemy_ships}
+
 
   def is_followed(self, ship: Ship):
     """Returns true if the ship of mine is traced by enemy."""
-    follower = self.follower.get(ship.id)
-    assert not follower or follower.halite < ship.halite
+    follower_count = self.followers.get(ship.id)
+    if len(follow_count) >= 2:
+      return True
 
-    follow_count = self.follow_count.get(ship.id, 0)
-    return follow_count >= self.FOLLOW_COUNT
+    for fc in follower_count.values():
+      if fc >= self.FOLLOW_COUNT:
+        return True
+    return False
 
-  def get_follower(self, ship: Ship):
-    return self.follower.get(ship.id)
+  def get_followers(self, ship: Ship):
+    follow_count = self.followers[ship.id]
+    return [self.enemy_ship_index[sid] for sid in follow_count]
 
 
 class InitializeFirstShipyard(StrategyBase):
@@ -1070,7 +1069,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       yard = next_cell.shipyard
       if (yard and yard.player_id == self.me.id and
           yard.next_action == ShipyardAction.SPAWN and
-          not hasattr(ship, "follower")):
+          not hasattr(ship, "followers")):
         return MIN_WEIGHT
 
       # If stay at current location, prefer not stay...
@@ -1084,7 +1083,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         wt -= 2000
 
       # Do not stay when followed
-      if (ship.task_type in (ShipTask.RETURN, ) and hasattr(ship, "follower")
+      if (ship.task_type in (ShipTask.RETURN, ) and hasattr(ship, "followers")
           and ship.position == next_position):
         wt -= 2000
 
@@ -1108,7 +1107,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # If go back home
       if ship.task_type == ShipTask.RETURN:
         wt += ship.halite / (dist + 1)
-        if hasattr(ship, 'follower'):
+        if hasattr(ship, 'followers'):
           wt += self.c.spawn_cost
 
       # If goto enemy yard.
@@ -1465,9 +1464,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     # Collect follower enemy ships.
     enemy_follower_ids = set()
     for ship in self.me.ships:
-      follower = getattr(ship, 'follower', None)
-      if follower:
-        enemy_follower_ids.add(follower.id)
+      followers = getattr(ship, 'followers', None)
+      if followers:
+        for f in followers:
+          enemy_follower_ids.add(f.id)
 
     for enemy in self.enemy_ships:
       enemy.within_home_boundary = is_enemy_within_home_boundary(enemy)
@@ -1578,7 +1578,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             v = 0
 
           # If have follower, let the followed ship back.
-          if hasattr(ship, 'follower'):
+          if hasattr(ship, 'followers'):
             v += self.c.spawn_cost
 
           # Force send ship home.
@@ -1602,7 +1602,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
                  ship.halite) / (ship_to_poi or 1)
 
             # If selected as guard ship, the followed ship has priority.
-            if hasattr(ship, 'follower'):
+            if hasattr(ship, 'followers'):
               v += self.c.spawn_cost
 
         C[i, j] = v
@@ -1693,7 +1693,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if not yard:
         continue
 
-      ship.follower = self.follower_detector.get_follower(ship)
+      ship.followers = self.follower_detector.get_followers(ship)
       # self.assign_task(ship, yard.cell, ShipTask.RETURN)
       # print('ship(%s) at %s is followed by enemy(%s) at %s by %s times' %
       # (ship.id, ship.position, ship.follower.id, ship.follower.position,
