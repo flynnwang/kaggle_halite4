@@ -1592,7 +1592,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     # Support alley ship escape
     ship_supporters = list(self.get_rescue_escape_ship_pairs(ships))
-
     ship_supporter_pairs = {
         (s.id, sup.id) for s, sups in ship_supporters for sup in sups
     }
