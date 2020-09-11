@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-v4_14_10 <- v4_14_09
+v4_14_11 <- v4_14_10
 
-* Add buday system.
+* Add buddy system.
 
 """
 
@@ -759,7 +759,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if (alley_yard and enemy_yard_dist < ally_yard_dist):
           # if the cell is nearer to the enemy yard.
           return 1000
-
 
       if self.step <= 300:
         return min(threshold, 320)
@@ -1762,7 +1761,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if self.num_shipyards <= 3:
         return 5
       # if len(self.me.shipyard_ids) > 1 or self.me_halite >= self.c.spawn_cost:
-        # return 3
+      # return 3
       return 4
 
     def offend_enemy_ships(yard):
