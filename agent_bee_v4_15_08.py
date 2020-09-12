@@ -2,6 +2,12 @@
 """
 v4_15_08 <- v4_15_06
 
+* Super bomb.
+* Enemy within_home_boundary, triple cover.
+* add enemy_carry
+* ATTACK_PER_ENEMY = 7
+* Revert harvest
+* Revert buddy system (but keep follower2.0)
 
 """
 
@@ -47,7 +53,7 @@ SHIPYARD_TIGHT_COVER_DIST = 2
 SHIPYARD_LOOSE_COVER_DIST = 6
 MIN_BOMB_ENEMY_SHIPYARD_DIST = 4
 
-ALLEY_SUPPORT_DIST = 7
+ALLEY_SUPPORT_DIST = 5
 MAX_SUPPORT_NUM = 2
 
 # Threshod used to send bomb to enemy shipyard
@@ -710,8 +716,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         home_halite_value = HOME_GROWN_CELL_MIN_HALITE * keep_factor
 
         # Harvest for more ships.
-        if 240 <= self.step <= 265:
-          home_halite_value = board_halite_value
+        # if 240 <= self.step <= 265:
+          # home_halite_value = board_halite_value
+
+        # if self.step <= 84:
+          # home_halite_value = board_halite_value
+
 
         self.keep_halite_value = home_halite_value
         threshold = max(home_halite_value, threshold)
@@ -790,28 +800,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   def bomb_enemy_shipyard(self):
     """Having enough farmers, let's send ghost to enemy shipyard."""
 
-    def estimate_halite(player):
-      h = player.halite
-      s = len(player.ship_ids) * self.c.spawn_cost
-      return h + s
-
     def max_bomb_dist(enemy_yard):
       # Don't use bomb if ship group is small.
       if self.num_ships <= 16:
         return 0
 
-      # Elimination program.
-      if (self.num_ships >= 50 and
-          self.num_ships >= self.total_enemy_ship_num + 10):
-        return self.sz * 2
-
-      if self.num_ships >= 30:
-        return (self.num_ships - 20) // 5 + MIN_BOMB_ENEMY_SHIPYARD_DIST
-
-      # Only attack nearby enemy yard when the player is weak.
-      if enemy_yard.player.halite <= self.c.spawn_cost:
-        return MIN_BOMB_ENEMY_SHIPYARD_DIST
-      return 0
+      if self.num_ships >= 20:
+        return (self.num_ships - 15) // 6 + MIN_BOMB_ENEMY_SHIPYARD_DIST
+      return MIN_BOMB_ENEMY_SHIPYARD_DIST
 
     def is_near_my_shipyard(enemy_yard):
       for yard in self.shipyards:
@@ -820,37 +816,79 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return True
       return False
 
-    def non_targeted_enemy_shipyards():
-      for y in self.enemy_shipyards:
-        if y.cell.is_targetd:
+    def select_enemy_shipyard_target():
+      for enemy_yard in self.enemy_shipyards:
+        if enemy_yard.cell.is_targetd:
           continue
-        if not is_near_my_shipyard(y):
-          continue
-        yield y
 
-    def select_bomb_ship(enemy_yard):
-      min_dist = 99999
-      bomb_ship = None
-      for ship in self.my_idle_ships:
-        # Don't send halite to enemy.
-        if ship.halite > 0:
+        if not is_near_my_shipyard(enemy_yard):
           continue
-        dist = self.manhattan_dist(enemy_yard, ship)
-        if dist < min_dist:
-          min_dist = dist
-          bomb_ship = ship
-      return min_dist, bomb_ship, enemy_yard
+
+        # Only attack nearby enemy yard when the player is weak.
+        if enemy_yard.player.halite < self.c.spawn_cost * 2:
+          yield enemy_yard
+
+    def can_win_bomb_war(enemy_halite, enemy_ships, bomb_ships):
+      enemy_spawns = [0] * (enemy_halite // self.c.spawn_cost)
+      enemy_ships = sorted(enemy_spawns + [x.halite for x in enemy_ships])
+      bomb_ships = sorted([x.halite for x in bomb_ships])
+      i, j = 0, 0
+      while i < len(enemy_ships) and j < len(bomb_ships):
+        if enemy_ships[i] < bomb_ships[j]:
+          j += 1
+        elif enemy_ships[i] > bomb_ships[j]:
+          i += 1
+        else:
+          # Ship crash.
+          i, j = i + 1, j + 1
+      return j, j < len(bomb_ships)
+
+    def select_bomb_ships(enemy_yard):
+      MAX_BOMB_SHIP_NUM = 6
+      MAX_BOMB_SHIP_HALITE = 30
+      MIN_EMPTY_SHIP_NUM = 4
+
+      ships = list(self.my_idle_ships)
+      ships.sort(key=lambda s: self.manhattan_dist(enemy_yard, s))
+      bomb_ships = []
+      for ship in ships:
+        # First X ships must be empty to strike the attack.
+        if len(bomb_ships) < MIN_EMPTY_SHIP_NUM and ship.halite > 0:
+          continue
+
+        # Following ships. Don't send ship with too much halite.
+        if ship.halite >= MAX_BOMB_SHIP_HALITE:
+          continue
+
+        bomb_ships.append(ship)
+
+      bomb_ships = bomb_ships[:MAX_BOMB_SHIP_NUM]
+      num_empty = sum(1 for b in bomb_ships if b.halite == 0)
+      enemy_player_id = enemy_yard.player_id
+      enemy_ships = [c.ship for c in get_neighbor_cells(enemy_yard.cell,
+                                                        include_self=True)
+                     if c.ship_id and c.ship.player_id == enemy_player_id]
+      crash_num, can_win = can_win_bomb_war(enemy_yard.player.halite,
+                                            enemy_ships, bomb_ships)
+      # logger.info(f"  enemy_yard({enemy_yard.position}), crash_num={crash_num}, can_win={can_win}, enemy_num={len(enemy_ships)}, bomb_ships={len(bomb_ships)}, num_empty={num_empty}")
+      if not can_win:
+        return crash_num, [], enemy_yard
+      return crash_num, bomb_ships, enemy_yard
 
     # Do not send bomb at beginning stage.
     if self.is_beginning_phrase:
       return
 
+    # logger.info("bomb_enemy_shipyard at step = %s" % self.step)
     enemy_shipyards = (
-        select_bomb_ship(y) for y in non_targeted_enemy_shipyards())
-    enemy_shipyards = [x for x in enemy_shipyards if x[1]]
-    enemy_shipyards.sort(key=lambda x: x[0])
-    for _, bomb_ship, enemy_yard in enemy_shipyards:
-      self.assign_task(bomb_ship, enemy_yard.cell, ShipTask.ATTACK_SHIPYARD)
+        select_bomb_ships(y) for y in select_enemy_shipyard_target())
+    enemy_shipyards = [x for x in enemy_shipyards if x[1]]  # If bomb ships exists
+    enemy_shipyards.sort(key=lambda x: x[0])  # select shipyard with less crash first.
+
+    # logger.info("--enemy_shipyards=%s" % len(enemy_shipyards))
+    for _, bomb_ships, enemy_yard in enemy_shipyards:
+      for bomb_ship in bomb_ships:
+        self.assign_task(bomb_ship, enemy_yard.cell, ShipTask.ATTACK_SHIPYARD)
 
       # One bomb at a time
       break
@@ -866,7 +904,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     AXIS_DIST_RANGE2 = range(1, 6 + 1)
     MAX_SHIP_TO_SHIPYARD_DIST = 8
 
-    HALITE_CELL_PER_SHIP = 2.5 if self.is_beginning_phrase else 2.8
+    HALITE_CELL_PER_SHIP = 2.5
+    if self.is_beginning_phrase:
+      HALITE_CELL_PER_SHIP = 2.8
+    elif self.step >= 180 and self.num_ships >= 23:
+      HALITE_CELL_PER_SHIP = 3.2
+
     MIN_CONVERT_SHIP_NUM = 9
 
     self.halite_ratio = -1
@@ -1183,7 +1226,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if has_enemy_ship(next_cell, self.me):
         # If there is an enemy sitting on its shipyard, collide with him.
         if (ship.task_type == ShipTask.ATTACK_SHIPYARD and
-            next_cell.position == target_cell.position):
+            ship.halite == 0 and dist == 0):
           pass
         elif move_away_from_enemy(next_cell.ship, ship, side_by_side=True):
           wt -= (spawn_cost + ship.halite)
@@ -1191,7 +1234,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # If there is an enemy in neighbor next_position with lower halite
       if not ignore_neighbour_cell_enemy:
         for nb_cell in get_neighbor_cells(next_cell):
-          if has_enemy_ship(nb_cell, self.me):
+          # If there is an enemy sitting on its shipyard, ignore it
+          if (ship.task_type == ShipTask.ATTACK_SHIPYARD and
+              ship.halite == 0 and dist == 1
+              and nb_cell.position == target_cell.position):
+            pass
+          elif has_enemy_ship(nb_cell, self.me):
             if move_away_from_enemy(nb_cell.ship, ship, side_by_side=False):
               wt -= (spawn_cost + ship.halite)
       return wt
@@ -1435,10 +1483,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if opt_steps < min_mine:
       opt_steps = min_mine
 
-    if 80 <= self.step <= NEAR_ENDING_PHRASE_STEP and ship.halite > 50:
+    if not (self.step < 85 or ship.halite < 30):
       enemy_carry = 0
 
-    total_halite = (carry +
+    total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite_left)
     # return total_halite / (ship_to_poi + opt_steps + max(poi_to_yard, 7) / 7)
     return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 2)
@@ -1463,7 +1511,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     def is_enemy_within_home_boundary(enemy):
       """1. Within distance of 2 of any shipyard
-         2. double covered by multiple shipyards.
+         2. triple covered by multiple shipyards.
       """
       covered = 0
       self.get_nearest_home_yard(enemy.cell)  # populate cache.
@@ -1472,7 +1520,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           return True
         if dist <= SHIPYARD_LOOSE_COVER_DIST:
           covered += 1
-      return covered >= 2
+      return covered >= 3
 
     def get_attack_ships(enemy):
       # Extra attack distance for enemy within home boundary.
@@ -1578,7 +1626,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           yield sup, follower
 
   def optimal_assignment(self):
-    ATTACK_PER_ENEMY = 6
+    ATTACK_PER_ENEMY = 7
     SHIPYARD_DUPLICATE_NUM = 5
 
     def shipyard_duplicate_num():
@@ -1609,7 +1657,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     }
 
     # Support alley ship escape
-    ship_supporters = list(self.get_rescue_escape_ship_pairs(ships))
+    # ship_supporters = list(self.get_rescue_escape_ship_pairs(ships))
+    ship_supporters = []
     ship_supporter_pairs = {
         (s.id, sup.id) for s, sups in ship_supporters for sup in sups
     }
