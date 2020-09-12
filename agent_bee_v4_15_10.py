@@ -4,6 +4,7 @@ v4_15_10 <- v4_15_09
 
 * drop quadrant_num+1 when s>=35
 * MIN_BOMB_ENEMY_SHIPYARD_DIST = 5
+* ATTACK_PER_ENEMY = 8
 
 """
 
@@ -1661,7 +1662,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           yield sup, follower
 
   def optimal_assignment(self):
-    ATTACK_PER_ENEMY = 7
+    ATTACK_PER_ENEMY = 8
     SHIPYARD_DUPLICATE_NUM = 5
 
     def shipyard_duplicate_num():
