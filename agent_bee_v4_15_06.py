@@ -5,7 +5,6 @@ v4_15_06 <- v4_15_05
 * Add harvest.
 * Double call for shipyard convertion.
 * Add enemy carry to drive away halite enemy
-* Attack enemy during ending to conver more halite (max_attack_num=1)
 * max halite 450
 
 """
@@ -1450,6 +1449,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
+    if self.is_final_phrase:
+      return
+
     # Do not attack enemy during ending.
     adjust = 0
     if self.num_ships >= 25:
@@ -1462,8 +1464,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if self.num_ships >= 35:
       MIN_ATTACK_QUADRANT_NUM -= 1
 
-    if self.is_final_phrase:
-      max_attack_num = 1
 
     def is_enemy_within_home_boundary(enemy):
       """1. Within distance of 2 of any shipyard
