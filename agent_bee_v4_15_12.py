@@ -2,7 +2,11 @@
 """
 v4_15_12 <- v4_15_09
 
-* Reset buddy system: without going to suppoter.
+Retry buddy system
+* do not goto supporter.
+* supporter must be more near to the shipyard.
+* supporters must having low halite <= 10
+
 """
 
 import random
@@ -47,7 +51,7 @@ SHIPYARD_TIGHT_COVER_DIST = 2
 SHIPYARD_LOOSE_COVER_DIST = 6
 MIN_BOMB_ENEMY_SHIPYARD_DIST = 4
 
-ALLEY_SUPPORT_DIST = 5
+ALLEY_SUPPORT_DIST = 6
 MAX_SUPPORT_NUM = 2
 
 # Threshod used to send bomb to enemy shipyard
@@ -1627,8 +1631,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
   def get_rescue_escape_ship_pairs(self, ships):
 
-    def is_supporter(sup, followers):
-      if sup.is_followed:
+    def is_supporter(sup, followers, followed_ship):
+      if sup.is_followed and sup.halite <= 10:
+        return False
+
+      min_dist1, _ = self.get_nearest_home_yard(followed_ship.cell)
+      min_dist2, _ = self.get_nearest_home_yard(sup.cell)
+      if min_dist2 >= min_dist1:
         return False
 
       for follower in followers:
@@ -1646,7 +1655,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if dist > ALLEY_SUPPORT_DIST:
           continue
 
-        if is_supporter(sup, ship.followers):
+        if is_supporter(sup, ship.followers, ship):
           supporters.append(sup)
 
       supporters.sort(key=lambda sup: self.manhattan_dist(ship, sup))
@@ -1690,8 +1699,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     }
 
     # Support alley ship escape
-    # ship_supporters = list(self.get_rescue_escape_ship_pairs(ships))
-    ship_supporters = []
+    ship_supporters = list(self.get_rescue_escape_ship_pairs(ships))
     ship_supporter_pairs = {
         (s.id, sup.id) for s, sups in ship_supporters for sup in sups
     }
@@ -1706,6 +1714,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         sup for _, sups in ship_supporters for sup in sups
         if sup.id in supporter_ids
     ]
+    # Note: do not goto supporters.
+    # supporters = []
 
     pois = halites + shipyards + enemy_cells + supporters + offended_cells
 
