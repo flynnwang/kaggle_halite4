@@ -5,6 +5,8 @@ v4_15_07 <- v4_15_06
 * Use discount_factor = 0.5 after step >= 100
 * min_attack_quadrant_num = 2 after s >= 23
 * ship_gradient, dist=5, -100/-200
+* halite_per_turn poi_to_yard / 5
+* Add enemy carry to drive away halite enemy
 """
 
 import random
@@ -686,13 +688,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return (num_covered >= 2 or num_covered > 0 and
               cell.convering_shipyards[0][0] <= home_extend_dist())
 
-    ship_to_enemy_ratio = self.num_ships / (self.max_enemy_ship_num + 0.1)
+    max_enemy_ship_num = max(len(p.ship_ids) for p in self.board.opponents)
+    ship_to_enemy_ratio = self.num_ships / (max_enemy_ship_num + 0.1)
     ship_to_enemy_ratio = max(ship_to_enemy_ratio, 0.8)
 
     def keep_halite_value(cell):
-      discount_factor = (0.9 if self.is_beginning_phrase else 0.7)
+      discount_factor = (0.9 if self.step <= 30 else 0.7)
       if self.step >= 100:
-        discount_factor = 0.5
+        discount_factor = 0.6
       board_halite_value = self.mean_halite_value * discount_factor
 
       # Collect larger ones first
@@ -702,7 +705,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        threshold = board_halite_value * ship_to_enemy_ratio
+        if ship_to_enemy_ratio > 1:
+          threshold = self.mean_home_halite * ship_to_enemy_ratio
+        else:
+          threshold = board_halite_value
 
       # Do not go into enemy shipyard for halite.
       # enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
@@ -1426,10 +1432,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if 80 <= self.step <= NEAR_ENDING_PHRASE_STEP and ship.halite > 50:
       enemy_carry = 0
 
-    total_halite = (carry +
+    total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite_left)
     # return total_halite / (ship_to_poi + opt_steps + max(poi_to_yard, 7) / 7)
-    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 2)
+    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 5)
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
@@ -1445,7 +1451,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     MIN_ATTACK_QUADRANT_NUM = 3
     # if self.step >= 100:
     # MIN_ATTACK_QUADRANT_NUM -= 1
-    if self.num_ships >= 35:
+    if self.num_ships >= 25:
       MIN_ATTACK_QUADRANT_NUM -= 1
 
 
@@ -1523,11 +1529,11 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         # Do not go to halite with too many enemy around.
         dist = self.manhattan_dist(ship, cell)
         if (self.step >= 85 and ship.halite == 0 and dist <= CHECK_TRAP_DIST
-            and enemy_gradient[cell.position.x, cell.position.y] >= 350):
+            and enemy_gradient[cell.position.x, cell.position.y] >= 250):
           continue
 
         if (self.step >= 85 and ship.halite > 0
-            and enemy_gradient[cell.position.x, cell.position.y] >= 350):
+            and enemy_gradient[cell.position.x, cell.position.y] >= 250):
           continue
 
         yield ship_idx, poi_idx
