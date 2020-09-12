@@ -7,6 +7,11 @@ v4_15_06 <- v4_15_05
 * Add enemy carry to drive away halite enemy
 * max halite 450
 
+76
+{'agent_bee_v4_2_1.py': array([ 3.95, 14.47, 27.63, 53.95]),
+ 'agent_bee_v4_8_3.py': array([22.37, 26.32, 32.89, 18.42]),
+ 'agent_bee_v4_1_1.py': array([47.37, 22.37, 22.37,  7.89]),
+ 'agent_bee_v4_15_06.py': array([26.32, 36.84, 17.11, 19.74])}
 """
 
 import random

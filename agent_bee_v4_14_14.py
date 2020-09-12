@@ -624,7 +624,7 @@ class GradientMap(StrategyBase):
       gradient[p.x, p.y] = cell.halite
     return gradient
 
-  def get_ship_gradient(self, max_dist=4):
+  def get_ship_gradient(self, max_dist=5):
 
     def all_ship_cells():
       for enemy in self.enemy_ships:
@@ -1519,7 +1519,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     MIN_ATTACK_QUADRANT_NUM = 3
     if self.num_ships <= 85:
       MIN_ATTACK_QUADRANT_NUM += 1
-    if self.num_ships >= 35:
+    if self.num_ships >= 23:
       MIN_ATTACK_QUADRANT_NUM -= 1
 
     HELP_SYSTEM_ATTACK_DIST = 5
@@ -1576,7 +1576,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
-    CHECK_TRAP_DIST = 5
+    CHECK_TRAP_DIST = 7
 
     for poi_idx, cell in enumerate(halites):
       for ship_idx, ship in enumerate(ships):
@@ -1584,7 +1584,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         # Do not go to halite with too many enemy around.
         dist = self.manhattan_dist(ship, cell)
         if (self.step >= 80 and ship.halite == 0 and dist <= CHECK_TRAP_DIST and
-            self.ship_gradient[cell.position.x, cell.position.y] <= -300):
+            self.ship_gradient[cell.position.x, cell.position.y] <= -200):
           continue
 
         if (self.step >= 80 and ship.halite > 0 and

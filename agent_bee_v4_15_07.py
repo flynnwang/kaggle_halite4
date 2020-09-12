@@ -2,7 +2,9 @@
 """
 v4_15_07 <- v4_15_06
 
-* Try limited home halite
+* Use discount_factor = 0.5 after step >= 100
+* min_attack_quadrant_num = 2 after s >= 23
+* ship_gradient, dist=5, -100/-200
 """
 
 import random
@@ -684,8 +686,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return (num_covered >= 2 or num_covered > 0 and
               cell.convering_shipyards[0][0] <= home_extend_dist())
 
+    ship_to_enemy_ratio = self.num_ships / (self.max_enemy_ship_num + 0.1)
+    ship_to_enemy_ratio = max(ship_to_enemy_ratio, 0.8)
+
     def keep_halite_value(cell):
       discount_factor = (0.9 if self.is_beginning_phrase else 0.7)
+      if self.step >= 100:
+        discount_factor = 0.5
       board_halite_value = self.mean_halite_value * discount_factor
 
       # Collect larger ones first
@@ -695,26 +702,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return min(30, threshold)
 
       if is_home_grown_cell(cell):
-        ship_factor = self.num_ships / 20
-
-        step_factor = max(self.step - BEGINNING_PHRASE_END_STEP,
-                          0) / 180 * MAX_STEP_FACTOR
-        step_factor = min(MAX_STEP_FACTOR, step_factor)
-
-        cover_factor = 0
-        if self.num_ships >= 28:
-          num_covered = len(cell.convering_shipyards)
-          cover_factor += num_covered / 3
-
-        keep_factor = ship_factor + cover_factor + step_factor + 1
-        home_halite_value = HOME_GROWN_CELL_MIN_HALITE * keep_factor
-
-        # Harvest for more ships.
-        if 240 <= self.step <= 265:
-          home_halite_value = board_halite_value
-
-        self.keep_halite_value = home_halite_value
-        threshold = max(home_halite_value, threshold)
+        threshold = board_halite_value * ship_to_enemy_ratio
 
       # Do not go into enemy shipyard for halite.
       # enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
