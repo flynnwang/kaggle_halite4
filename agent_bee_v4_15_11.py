@@ -1,17 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-v4_15_10 <- v4_15_09
+v4_15_11 <- v4_15_09
 
-* drop quadrant_num+1 when s>=35
-* MIN_BOMB_ENEMY_SHIPYARD_DIST = 5
-* ATTACK_PER_ENEMY = 8
+[Predator Mode]
 
-
-651
-{'agent_bee_v4_1_1.py': array([39.48, 29.34, 19.05, 12.14]),
- 'agent_bee_v4_2_1.py': array([ 9.83, 19.51, 30.26, 40.4 ]),
- 'agent_bee_v4_8_3.py': array([23.96, 20.12, 25.96, 29.95]),
- 'agent_bee_v4_15_10.py': array([26.73, 31.03, 24.73, 17.51])}
 """
 
 import random
@@ -54,7 +46,7 @@ AVOID_COLLIDE_RATIO = 0.95
 
 SHIPYARD_TIGHT_COVER_DIST = 2
 SHIPYARD_LOOSE_COVER_DIST = 6
-MIN_BOMB_ENEMY_SHIPYARD_DIST = 5
+MIN_BOMB_ENEMY_SHIPYARD_DIST = 4
 
 ALLEY_SUPPORT_DIST = 5
 MAX_SUPPORT_NUM = 2
@@ -1547,8 +1539,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     MIN_ATTACK_QUADRANT_NUM = 3
     # if self.step >= 100:
     # MIN_ATTACK_QUADRANT_NUM -= 1
-    # if self.num_ships >= 35:
-      # MIN_ATTACK_QUADRANT_NUM -= 1
+    if self.num_ships >= 35:
+      MIN_ATTACK_QUADRANT_NUM -= 1
 
 
     def is_enemy_within_home_boundary(enemy):
@@ -1668,7 +1660,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           yield sup, follower
 
   def optimal_assignment(self):
-    ATTACK_PER_ENEMY = 8
+    ATTACK_PER_ENEMY = 7
     SHIPYARD_DUPLICATE_NUM = 5
 
     def shipyard_duplicate_num():
