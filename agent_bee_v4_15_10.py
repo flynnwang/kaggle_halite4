@@ -2,6 +2,8 @@
 """
 v4_15_10 <- v4_15_09
 
+* drop quadrant_num+1 when s>=35
+* MIN_BOMB_ENEMY_SHIPYARD_DIST = 5
 
 """
 
@@ -45,7 +47,7 @@ AVOID_COLLIDE_RATIO = 0.95
 
 SHIPYARD_TIGHT_COVER_DIST = 2
 SHIPYARD_LOOSE_COVER_DIST = 6
-MIN_BOMB_ENEMY_SHIPYARD_DIST = 4
+MIN_BOMB_ENEMY_SHIPYARD_DIST = 5
 
 ALLEY_SUPPORT_DIST = 5
 MAX_SUPPORT_NUM = 2
@@ -1538,8 +1540,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     MIN_ATTACK_QUADRANT_NUM = 3
     # if self.step >= 100:
     # MIN_ATTACK_QUADRANT_NUM -= 1
-    if self.num_ships >= 35:
-      MIN_ATTACK_QUADRANT_NUM -= 1
+    # if self.num_ships >= 35:
+      # MIN_ATTACK_QUADRANT_NUM -= 1
 
 
     def is_enemy_within_home_boundary(enemy):

@@ -8,6 +8,11 @@ v4_15_09 <- v4_15_08
 * Add harvest step <85 and 260-285, by board_halite_value
 * Add history_shipyard_positions
 
+59
+{'agent_bee_v4_15_09.py': array([30.51, 33.9 , 23.73, 11.86]),
+ 'agent_bee_v4_8_3.py': array([20.34, 16.95, 30.51, 32.2 ]),
+ 'agent_bee_v4_2_1.py': array([ 8.47, 23.73, 30.51, 37.29]),
+ 'agent_bee_v4_1_1.py': array([40.68, 25.42, 15.25, 18.64])}
 """
 
 import random
