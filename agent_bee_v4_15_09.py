@@ -1,19 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-v4_15_08 <- v4_15_06
+v4_15_09 <- v4_15_08
 
-* Super bomb.
-* Enemy within_home_boundary, triple cover.
-* add enemy_carry
-* ATTACK_PER_ENEMY = 7
-* Revert harvest
-* Revert buddy system (but keep follower2.0)
 
-261
-{'agent_bee_v4_1_1.py': array([38.31, 29.5 , 20.69, 11.49]),
- 'agent_bee_v4_2_1.py': array([ 9.2 , 13.03, 36.02, 41.76]),
- 'agent_bee_v4_8_3.py': array([28.74, 22.22, 23.75, 25.29]),
- 'agent_bee_v4_15_08.py': array([23.75, 35.25, 19.54, 21.46])}
 """
 
 import random
