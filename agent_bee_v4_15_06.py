@@ -1,15 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-v4_15_05 <- v4_15_03
+v4_15_06 <- v4_15_05
 
-* Ignore enemy gradient step <= 85, and by halite
-* Use triple covert score to converting shipyard.
+* Add harvest.
+* Attack enemy during ending to conver more halite
 
-349
-{'agent_bee_v4_1_1.py': array([49.  , 31.81, 14.61,  4.58]),
- 'agent_bee_v4_15_05.py': array([27.79, 29.8 , 26.36, 16.05]),
- 'agent_bee_v4_8_3.py': array([20.63, 24.93, 30.66, 23.78]),
- 'agent_bee_v4_2_1.py': array([ 2.58, 13.47, 28.37, 55.59])}
 """
 
 import random
