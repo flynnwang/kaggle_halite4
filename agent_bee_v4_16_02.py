@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-v4_16_01 <- v4_15_11
+v4_16_02 <- v4_16_01
 
-[Predator Mode]: runtime performance opt.
+[Be more aggressive]
 
-* min discount_factor = 0.6
-* Use mean_halite_value for home halite lower bound
+* discount_factor=0.6 at minimum
+* home halite tracking with discount_factor of 0.6 (same as board halite)
+* Super bomb threshold 21
+* HALITE_CELL_PER_SHIP = 3.0
+* Remove stop super bomb with MIN_COVER_RATIO
+* Final stage remove min 30 (use discount_factor)
+* Increase strike attack dist 7 + (s-21)/6
 
-475
-{'agent_bee_v4_16_01.py': array([65.26, 21.05, 11.79,  1.89]),
- 'agent_bee_v4_1_1.py': array([18.11, 53.05, 24.42,  4.42]),
- 'agent_bee_v4_2_1.py': array([ 9.68, 11.37, 30.32, 48.63]),
- 'agent_bee_v4_8_3.py': array([ 6.95, 14.53, 33.47, 45.05])}
 """
 
 import random
@@ -37,7 +37,7 @@ MIN_WEIGHT = -99999
 
 BEGINNING_PHRASE_END_STEP = 60
 CLOSING_PHRASE_STEP = 300
-NEAR_ENDING_PHRASE_STEP = 360
+NEAR_ENDING_PHRASE_STEP = 350
 
 # If my halite is less than this, do not build ship or shipyard anymore.
 MIN_HALITE_TO_BUILD_SHIPYARD = 1000
@@ -686,6 +686,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.strike_success_step = 0
     self.num_covered_halite_cells = 0
     self.strike_ship_num = 0
+    self.MAX_SHIP_NUM = 60
 
   def update(self, board):
     """Updates board state at each step."""
@@ -732,7 +733,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     MAX_STEP_FACTOR = 2
 
     max_enemy_ship_num = max(len(p.ship_ids) for p in self.board.opponents)
-    ship_to_enemy_ratio = self.num_ships / (max_enemy_ship_num + 0.1)
+    self.ship_to_enemy_ratio = self.num_ships / (max_enemy_ship_num + 0.1)
 
     def home_extend_dist():
       return max(self.num_ships // 10, 2)
@@ -755,7 +756,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       threshold = board_halite_value
 
       if self.is_final_phrase:
-        return min(30, threshold)
+        return threshold
 
       if is_home_grown_cell(cell):
         ship_factor = self.num_ships / 20
@@ -776,19 +777,16 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         # if 260 <= self.step <= 285:
           # home_halite_value = min(80, board_halite_value)
 
-        if self.step <= 84:
-          home_halite_value = min(80, board_halite_value)
-        else:
-          # All time harvest
-          home_halite_value = self.mean_halite_value
-
+        home_halite_value = board_halite_value
         if (self.halite_cover_ratio > MIN_COVER_RATIO
-            or ship_to_enemy_ratio >= 1.2
+            or self.ship_to_enemy_ratio >= 1.2
             or self.step >= CLOSING_PHRASE_STEP):
           home_halite_value = max(120,
-                                  self.mean_halite_value * ship_to_enemy_ratio)
+                                  self.mean_halite_value * self.ship_to_enemy_ratio)
           F = self.num_ships // 10 + 1
           home_halite_value = max(home_halite_value, F * HOME_GROWN_CELL_MIN_HALITE)
+          # if self.is_closing_phrase:
+            # home_halite_value = 450
 
         self.keep_halite_value = home_halite_value
         threshold = max(home_halite_value, threshold)
@@ -911,9 +909,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         halite += cell.halite
       return halite
 
-    def select_enemy_shipyard_target():
-      HALITE_YARD_ATTACK_DIST = 7
+    MIN_STRIKE_SHIP_NUM = 21
+    STRIKE_ATTACK_MIN_DIST = 7
+    def strike_attack_dist():
+      base = STRIKE_ATTACK_MIN_DIST
+      boost = max(0, self.num_ships - MIN_STRIKE_SHIP_NUM) // 6
+      return base + boost
 
+    def select_enemy_shipyard_target():
       max_halite = -9999
       nearest_enemy_yard = None
       for enemy_yard in self.enemy_shipyards:
@@ -922,7 +925,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         dist, home_yard = self.get_nearest_home_yard(enemy_yard.cell)
         enemy_yard.home_yard_dist = dist
 
-        if dist <= HALITE_YARD_ATTACK_DIST and enemy_yard.halite > max_halite:
+        if dist <= strike_attack_dist() and enemy_yard.halite > max_halite:
           max_halite = enemy_yard.halite
           nearest_enemy_yard = enemy_yard
 
@@ -930,10 +933,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if enemy_yard.cell.is_targetd:
           continue
 
-        # Strike enemy shipyard
+        # Strike attack enemy shipyard
         if (self.step - self.strike_success_step > 20 and
-            self.strike_ship_num >= 23 and
-            self.halite_cover_ratio  < MIN_COVER_RATIO and
+            self.strike_ship_num >= MIN_STRIKE_SHIP_NUM and
             nearest_enemy_yard and
             enemy_yard.position == nearest_enemy_yard.position):
           yield enemy_yard
@@ -993,6 +995,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if self.is_beginning_phrase:
       return
 
+    # Stop bomb at closing phrase
     if self.is_closing_phrase:
       return
 
@@ -1025,7 +1028,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     AXIS_DIST_RANGE2 = range(1, 6 + 1)
     MAX_SHIP_TO_SHIPYARD_DIST = 8
 
-    HALITE_CELL_PER_SHIP = 2.5
+    HALITE_CELL_PER_SHIP = 3.0
     if self.is_beginning_phrase:
       HALITE_CELL_PER_SHIP = 2.8
     elif self.step >= 150 and self.num_ships >= 23:
@@ -1073,8 +1076,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       # Use as much as I can.
       if (self.num_shipyards == 0 or
-          self.board.step <= BEGINNING_PHRASE_END_STEP or
-          self.num_ships <= MAX_SHIP_NUM):
+          self.board.step <= BEGINNING_PHRASE_END_STEP):
         threshold = self.c.convert_cost
       return max(self.c.convert_cost, threshold)
 
@@ -1426,9 +1428,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     ships."""
     SHIP_NUM_HARD_LIMIT = 100
 
+    # If I'm leanding, continue spawn ship during closing phrase.
+    # if self.step == CLOSING_PHRASE_STEP and self.ship_to_enemy_ratio > 1:
+      # self.MAX_SHIP_NUM = self.num_ships
+
     # When leading, convert as much as possible.
     def max_ship_num():
-      by_cash = max(0, (self.me_halite - 3000) // 1000) + MAX_SHIP_NUM
+      by_cash = max(0, (self.me_halite - 3000) // 1000) + self.MAX_SHIP_NUM
 
       by_enemy_halite = 0
       if self.me.total_halite > self.max_enemy_halite + 6 * self.c.spawn_cost:
@@ -1442,14 +1448,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     def spawn_threshold():
       threshold = self.save_for_converting
-      if self.num_ships <= MAX_SHIP_NUM:
+      if self.num_ships <= self.MAX_SHIP_NUM:
         threshold += self.c.spawn_cost
       else:
         threshold += MIN_HALITE_TO_BUILD_SHIP
       return threshold
 
     # Too many ships.
-    mx = max_ship_num()
     if self.num_ships >= max_ship_num():
       return
 
