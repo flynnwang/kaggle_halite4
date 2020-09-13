@@ -6,6 +6,12 @@ v4_16_01 <- v4_15_11
 
 * min discount_factor = 0.6
 * Use mean_halite_value for home halite lower bound
+
+475
+{'agent_bee_v4_16_01.py': array([65.26, 21.05, 11.79,  1.89]),
+ 'agent_bee_v4_1_1.py': array([18.11, 53.05, 24.42,  4.42]),
+ 'agent_bee_v4_2_1.py': array([ 9.68, 11.37, 30.32, 48.63]),
+ 'agent_bee_v4_8_3.py': array([ 6.95, 14.53, 33.47, 45.05])}
 """
 
 import random
