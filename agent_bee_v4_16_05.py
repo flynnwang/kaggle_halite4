@@ -2,6 +2,11 @@
 """
 v4_16_05 <- v4_16_04
 
+* boost enemy_carry s<85 and s.h < 100
+* strike attack collison avoid rate = 0.9
+* poi_to_yard / 2
+* double call for first shipyard
+* call_for_shipyard step buffer = 30
 
 """
 
@@ -723,7 +728,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     # Note: call for ship will spawn shipyard, may not at the expeted position
     # Effect: bonus shipyard every time we make a success strike!
-    if self.step - self.strike_success_step > 10:
+    if self.step - self.strike_success_step > 30:
       self.call_for_shipyard = False
 
     # if self.strike_shipyard:
@@ -788,8 +793,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           home_halite_value += 10 * max(0, self.num_shipyards - 3)
 
         # Harvest for more ships.
-        # if 240 <= self.step <= 265:
-        # home_halite_value = min(80, board_halite_value)
+        # if 240 <= self.step <= 265 and self.num_ships >= 23:
+          # home_halite_value = self.mean_halite_value
 
         threshold = max(home_halite_value, threshold)
 
@@ -1235,8 +1240,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     for cell in candidate_cells:
       if call_for_ship(cell):
         # Send one more ship for backup and protect.
-        if self.num_shipyards >= 2:
-          call_for_ship(cell, halite_check=False)
+        call_for_ship(cell, halite_check=False)
 
         # One shipyard at a time.
         return
@@ -1341,7 +1345,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           avoid_rate = 0.8 if self.num_ships >= 28 else AVOID_COLLIDE_RATIO
         else:
           if getattr(ship, 'is_strike_attack', False):
-            avoid_rate = AVOID_COLLIDE_RATIO
+            avoid_rate = 0.95
           else:
             avoid_rate = 1.0
 
@@ -1612,13 +1616,16 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if opt_steps < min_mine:
       opt_steps = min_mine
 
-    if not (ship and ship.halite < 10):
+    boost_enemy_carry = False
+    if ship and (ship.halite < 10 or (self.step <= 85 and ship.halite < 100)):
+      boost_enemy_carry = True
+
+    if not boost_enemy_carry:
       enemy_carry = 0
 
     total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite_left)
-    # return total_halite / (ship_to_poi + opt_steps + max(poi_to_yard, 7) / 7)
-    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 5)
+    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 2)
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
