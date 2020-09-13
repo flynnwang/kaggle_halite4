@@ -1,22 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-v4_16_02 <- v4_16_01
+v4_16_03 <- v4_16_02
 
-[Be more aggressive]
+* Fix strike attack enemy shipyard (ignore ship next to shipyard)
 
-* discount_factor=0.6 at minimum
-* home halite tracking with discount_factor of 0.6 (same as board halite)
-* Super bomb threshold 21
-* HALITE_CELL_PER_SHIP = 3.0
-* Remove stop super bomb with MIN_COVER_RATIO
-* Final stage remove min 30 (use discount_factor)
-* Increase strike attack dist 7 + (s-21)/6
 
-147
-{'agent_bee_v4_16_02.py': array([65.31, 21.09, 12.24,  1.36]),
- 'agent_bee_v4_1_1.py': array([23.13, 48.98, 23.13,  4.76]),
- 'agent_bee_v4_8_3.py': array([ 8.16, 12.24, 38.78, 40.82]),
- 'agent_bee_v4_2_1.py': array([ 3.4 , 17.69, 25.85, 53.06])}
 """
 
 import random
