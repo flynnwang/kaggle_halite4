@@ -3,6 +3,9 @@
 v4_16_01 <- v4_15_11
 
 [Predator Mode]: runtime performance opt.
+
+* min discount_factor = 0.6
+* Use mean_halite_value for home halite lower bound
 """
 
 import random
@@ -734,7 +737,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
               cell.covering_shipyards[0][0] <= home_extend_dist())
 
     def keep_halite_value(cell):
-      discount_factor = 0.55
+      discount_factor = 0.6
       if self.step < 50:
         discount_factor = 0.9
       elif self.step < 85:
@@ -769,12 +772,15 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
         if self.step <= 84:
           home_halite_value = min(80, board_halite_value)
+        else:
+          # All time harvest
+          home_halite_value = self.mean_halite_value
 
-        # All time harvest
-        home_halite_value = board_halite_value
-
-        if (self.num_ships > 23 and self.halite_cover_ratio > MIN_COVER_RATIO):
-          home_halite_value = max(120, board_halite_value * ship_to_enemy_ratio)
+        if (self.halite_cover_ratio > MIN_COVER_RATIO
+            or ship_to_enemy_ratio >= 1.2
+            or self.step >= CLOSING_PHRASE_STEP):
+          home_halite_value = max(120,
+                                  self.mean_halite_value * ship_to_enemy_ratio)
           F = self.num_ships // 10 + 1
           home_halite_value = max(home_halite_value, F * HOME_GROWN_CELL_MIN_HALITE)
 
@@ -1101,15 +1107,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     def compute_convert_score_for_second(first_yard_cell, candidate_cell):
       score = 0
-      for cell in self.board.cells.values():
-        dist = self.manhattan_dist(cell, candidate_cell)
-        # For cells not on the convert position but nearby
-        if dist > 0 and dist <= 4:
+      cells = self.gradient_map.get_nearby_cells(candidate_cell, max_dist=4)
+      for cell in cells:
+        if cell.position != candidate_cell.position:
           score += cell.halite
 
         # Encourage covert
         dist2 = self.manhattan_dist(cell, first_yard_cell)
-        if dist <= SHIPYARD_LOOSE_COVER_DIST and dist2 <= SHIPYARD_LOOSE_COVER_DIST:
+        if dist2 <= SHIPYARD_LOOSE_COVER_DIST:
           score += cell.halite
       return score
 
@@ -1122,10 +1127,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       # Maximize the total value of halite when converting ship.
       score = 0
-      for cell in self.board.cells.values():
-        # Convert for cell not on the convert position but nearby
-        dist = self.manhattan_dist(cell, candidate_cell)
-        if dist > 0 and dist <= self.home_grown_cell_dist:
+      cells = self.gradient_map.get_nearby_cells(candidate_cell, max_dist=4)
+      for cell in cells:
+        if cell.position != candidate_cell.position:
           score += cell.halite
       return score
 
