@@ -7,6 +7,11 @@ v4_16_03 <- v4_16_02
 * Revert MANHATTAN_DIST_RANGE2
 * Grow halite by shipyard and triple cover halite
 
+85
+{'agent_bee_v4_16_03.py': array([64.71, 27.06,  5.88,  2.35]),
+ 'agent_bee_v4_2_1.py': array([ 4.71, 17.65, 37.65, 40.  ]),
+ 'agent_bee_v4_8_3.py': array([ 7.06, 15.29, 27.06, 50.59]),
+ 'agent_bee_v4_1_1.py': array([23.53, 40.  , 29.41,  7.06])}
 
 """
 
