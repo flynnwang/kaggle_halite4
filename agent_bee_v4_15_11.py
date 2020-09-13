@@ -762,7 +762,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       threshold = board_halite_value
 
       if self.is_final_phrase:
-        return min(40, threshold)
+        return min(30, threshold)
 
       if is_home_grown_cell(cell):
         ship_factor = self.num_ships / 20
@@ -789,8 +789,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         # All time harvest
         home_halite_value = board_halite_value
 
-        if (self.halite_cover_ratio > MIN_COVER_RATIO):
-          home_halite_value = max(120, self.mean_halite_value * ship_to_enemy_ratio)
+        if (self.num_ships > 23 and self.halite_cover_ratio > MIN_COVER_RATIO):
+          home_halite_value = max(120, board_halite_value * ship_to_enemy_ratio)
           F = self.num_ships // 10 + 1
           home_halite_value = max(home_halite_value, F * HOME_GROWN_CELL_MIN_HALITE)
 
