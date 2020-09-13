@@ -7,6 +7,11 @@ Retry buddy system
 * supporter must be more near to the shipyard.
 * supporters must having low halite <= 10
 
+18
+{'agent_bee_v4_15_12.py': array([22.22, 33.33, 22.22, 22.22]),
+ 'agent_bee_v4_1_1.py': array([33.33, 50.  , 11.11,  5.56]),
+ 'agent_bee_v4_8_3.py': array([33.33, 16.67, 33.33, 16.67]),
+ 'agent_bee_v4_2_1.py': array([11.11,  0.  , 33.33, 55.56])}
 """
 
 import random
