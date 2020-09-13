@@ -12,6 +12,11 @@ v4_16_04 <- v4_16_02
 * Grow halite by shipyard and triple cover halite
 * add call for shipyard
 
+473
+{'agent_bee_v4_8_3.py': array([ 8.46, 17.55, 32.56, 41.44]),
+ 'agent_bee_v4_1_1.py': array([26.85, 39.96, 24.31,  8.88]),
+  'agent_bee_v4_2_1.py': array([ 7.19, 15.64, 30.02, 47.15]),
+   'agent_bee_v4_16_04.py': array([57.51, 26.85, 13.11,  2.54])}
 """
 
 import random
