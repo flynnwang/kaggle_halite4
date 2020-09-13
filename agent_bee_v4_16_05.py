@@ -135,7 +135,7 @@ def get_quadrant(p: Point):
     return 3
   if p.x >= 0 and p.y < 0:
     return 4
-  assert p == Point(0, 0), "not exist quadrant: %s %s" % (p.x, p.y)
+  # assert p == Point(0, 0), "not exist quadrant: %s %s" % (p.x, p.y)
   return 0
 
 
@@ -220,7 +220,9 @@ def direction_to_ship_action(position, next_position, board_size):
     return ShipAction.SOUTH
   if (position + Point(-1, 0)) % board_size == next_position:
     return ShipAction.WEST
-  assert False, '%s, %s' % (position, next_position)
+
+  # assert False, '%s, %s' % (position, next_position)
+  return None
 
 
 def make_move(position, move, board_size):
