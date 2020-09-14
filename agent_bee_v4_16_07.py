@@ -2,7 +2,9 @@
 """
 v4_16_07 <- v4_16_06
 
+* Spawn multiple ships
 * build ship to maximize halite return after step 300.
+* discount_factor use 0.8 when step <= 40
 """
 
 import random
@@ -35,7 +37,6 @@ MIN_HALITE_TO_BUILD_SHIPYARD = 1000
 MIN_HALITE_TO_BUILD_SHIP = 1000
 
 # Controls the number of ships.
-MAX_SHIP_NUM = 60
 MAX_SHIP_CARGO = 500
 
 # Threshold for attack enemy nearby my shipyard
@@ -105,6 +106,7 @@ TURNS_OPTIMAL = np.array(
 # cached values
 HALITE_RETENSION_BY_DIST = []
 HALITE_GROWTH_BY_DIST = []
+HALITE_COLLECT_STEPS = []
 MANHATTAN_DISTS = None
 
 
@@ -217,6 +219,15 @@ def get_neighbor_cells(cell, include_self=False):
   return neighbor_cells
 
 
+def collect_times(h, stop_h=50, collect_rate=0.25):
+  if stop_h < 30:
+    return 0
+  t = 0
+  while h >= stop_h and h > 0:
+    h = h - int(h * collect_rate)
+    t += 1
+  return t
+
 def init_globals(board):
   growth_factor = board.configuration.regen_rate + 1.0
   retension_rate_rate = 1.0 - board.configuration.collect_rate
@@ -242,6 +253,14 @@ def init_globals(board):
         d = manhattan_dist(a, b, size)
         dists[a.x * size + a.y][b.x * size + b.y] = d
   MANHATTAN_DISTS = dists.tolist()
+
+  global HALITE_COLLECT_STEPS
+  HALITE_COLLECT_STEPS = {}
+
+  with Timer("Init HALITE_COLLECT_STEPS"):
+    for h in range(0, 501):
+      for stop in range(0, 501):
+        HALITE_COLLECT_STEPS[(h, stop)] = collect_times(h, stop)
 
 
 class ShipTask(Enum):
@@ -668,7 +687,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.strike_success_step = 0
     self.num_covered_halite_cells = 0
     self.strike_ship_num = 0
-    self.MAX_SHIP_NUM = 60
     self.call_for_shipyard = False
 
   def update(self, board):
@@ -742,8 +760,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     def keep_halite_value(cell):
       discount_factor = 0.6
-      if self.step < 50:
-        discount_factor = 0.9
+      if self.step < 40:
+        discount_factor = 0.8
       elif self.step < 85:
         discount_factor = 0.7
 
@@ -804,8 +822,16 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       self.mean_halite_value = np.mean(halite_values)
       self.std_halite_value = np.std(halite_values)
 
+    self.total_collect_steps = 0
+    self.total_collectable_halite = 0
     for cell in self.halite_cells:
       cell.keep_halite_value = keep_halite_value(cell)
+      if len(cell.covering_shipyards) > 0:
+        lower_bound = 50
+        self.total_collectable_halite += max(cell.halite - lower_bound, 0)
+
+        h = min(500, max(0, int(cell.halite)))
+        self.total_collect_steps += HALITE_COLLECT_STEPS[(h, lower_bound)]
 
   @property
   def me_halite(self):
@@ -1457,49 +1483,73 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     ships."""
     SHIP_NUM_HARD_LIMIT = 100
 
-    # If I'm leanding, continue spawn ship during closing phrase.
-    # if self.step == CLOSING_PHRASE_STEP and self.ship_to_enemy_ratio > 1:
-    # self.MAX_SHIP_NUM = self.num_ships
-
     # When leading, convert as much as possible.
     def max_ship_num():
-      by_cash = max(0, (self.me_halite - 3000) // 1000) + self.MAX_SHIP_NUM
-
-      by_enemy_halite = 0
-      if self.me.total_halite > self.max_enemy_halite + 6 * self.c.spawn_cost:
-        by_enemy_halite = SHIP_NUM_HARD_LIMIT
-
-      return min(SHIP_NUM_HARD_LIMIT, max(by_cash, by_enemy_halite))
+      return SHIP_NUM_HARD_LIMIT
 
     def spawn(yard):
       self.cost_halite += self.c.spawn_cost
       yard.next_action = ShipyardAction.SPAWN
 
     def spawn_threshold():
-      threshold = self.save_for_converting
-      if self.num_ships <= self.MAX_SHIP_NUM:
-        threshold += self.c.spawn_cost
-      else:
-        threshold += MIN_HALITE_TO_BUILD_SHIP
-      return threshold
+      return self.save_for_converting + self.c.spawn_cost
 
-    # Too many ships.
+    # TODO(wangfei): Test collect ratio
+    def ship_collect_steps(t, margin=5, collect_step_ratio=0.3):
+      return int(max(t - margin, 0) * collect_step_ratio)
+
+    def expect_spawn_ship_num():
+      total_halite = int(self.total_collectable_halite)
+      total_required_time = self.total_collect_steps
+
+      remain_steps = self.c.episode_steps - self.step
+      ship_steps = ship_collect_steps(remain_steps)
+      total_ship_time = self.num_ships * ship_steps
+
+      avg_step_gain = int(total_halite / total_required_time)
+
+      expect_ship_num = 0
+      ship_contibue_steps = 0
+      target_steps = total_required_time - total_ship_time
+      for i in range(1, self.num_shipyards+1):
+        left_steps = target_steps - ship_contibue_steps
+        ship_gain = min(ship_steps, left_steps) * avg_step_gain - self.c.spawn_cost
+        if ship_gain < 0:
+          break
+
+        expect_ship_num += 1
+        ship_contibue_steps += ship_steps
+
+      logger.info(f"step={self.step} total_halite={total_halite}, total_required_time={total_required_time}"
+                  f" total_ship_time={total_ship_time}"
+                  f" avg_step_gain={avg_step_gain}, target_steps={target_steps},"
+                  f" expect_ship_num={expect_ship_num}")
+
+      # Enough number of ships
+      if total_ship_time >= total_required_time:
+        return 0
+
+      return expect_ship_num
+
+    # Too many ships. (hard limit)
     if self.num_ships >= max_ship_num():
       return
 
-    # No more ships after ending.
-    if self.num_ships >= 3 and self.is_closing_phrase:
+    # No more ships after X
+    if self.num_ships >= 3 and self.step >= 320:
       return
 
+    max_spawn_num = None
+    if self.step >= CLOSING_PHRASE_STEP:
+      max_spawn_num = expect_spawn_ship_num()
+
     random.shuffle(self.shipyards)
-    for shipyard in self.shipyards:
-      # Only skip for the case where I have any ship.
+    for shipyard in self.shipyards[:max_spawn_num]:
+      # Stop when not enough halite left.
       if self.num_ships and self.me_halite < spawn_threshold():
-        continue
+        break
 
       spawn(shipyard)
-      # One ship at a time
-      break
 
   def final_stage_back_to_shipyard(self):
     MARGIN_STEPS = 7
