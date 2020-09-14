@@ -10,6 +10,11 @@ v4_16_06 <- v4_16_05
 * default home_halite_value = board_halite_value * max(0.75, self.ship_to_enemy_ratio)
 * start grow when ship_to_enemy_ratio > 1.1
 
+210
+{'agent_bee_v4_1_1.py': array([28.1 , 40.95, 21.43,  9.52]),
+ 'agent_bee_v4_16_06.py': array([51.43, 28.1 , 13.33,  7.14]),
+  'agent_bee_v4_8_3.py': array([14.76, 13.33, 28.1 , 43.81]),
+   'agent_bee_v4_2_1.py': array([ 5.71, 17.62, 37.14, 39.52])}
 """
 
 import random
