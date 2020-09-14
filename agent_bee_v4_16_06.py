@@ -2,8 +2,13 @@
 """
 v4_16_06 <- v4_16_05
 
-* poi_to_yard / 7
-* Add strike with cool-down of 30
+* Convert ship when halite_check==True (bugfix)
+* Add super strike with cooldown of 35
+* Optimize triple convert for shipyard
+* poi_to_yard / 5
+* Delay 3rd shipyard to 18
+* default home_halite_value = board_halite_value * max(0.75, self.ship_to_enemy_ratio)
+* start grow when ship_to_enemy_ratio > 1.1
 
 """
 
@@ -771,25 +776,22 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return threshold
 
       if is_home_grown_cell(cell):
+        home_halite_value = board_halite_value * max(0.75, self.ship_to_enemy_ratio)
 
-        home_halite_value = board_halite_value
         if (self.halite_cover_ratio > MIN_COVER_RATIO or
-            self.ship_to_enemy_ratio >= 1.2 or
+            self.ship_to_enemy_ratio > 1.1 or
             self.step >= CLOSING_PHRASE_STEP):
-          home_halite_value = max(
-              120, self.mean_halite_value * self.ship_to_enemy_ratio)
+          home_halite_value = self.mean_halite_value * self.ship_to_enemy_ratio
           F = self.num_ships // 10 + 1
           home_halite_value = max(home_halite_value,
                                   F * HOME_GROWN_CELL_MIN_HALITE)
-          # if self.is_closing_phrase:
-          # home_halite_value = 450
 
         # Grow by shipyard
         grow_by_shipyard = max(0, self.num_shipyards - 3) * 30
         home_halite_value += grow_by_shipyard
 
         if self.num_shipyards >= 4 and len(cell.covering_shipyards) >= 3:
-          home_halite_value += 10 * max(0, self.num_shipyards - 3)
+          home_halite_value += 20 * max(0, self.num_shipyards - 3)
 
         # Harvest for more ships.
         # if 240 <= self.step <= 265 and self.num_ships >= 23:
@@ -908,14 +910,15 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         halite += cell.halite
       return halite
 
-    MIN_STRIKE_SHIP_NUM = 22
-    STRIKE_ATTACK_MIN_DIST = 7
     STRIKE_COOLDOWN_STEPS = 10
-    SUPER_STRIKE_COOLDOWN_STEPS = 35
+
+    SUPER_STRIKE_ATTACK_MIN_DIST = 7
+    SUPER_MIN_STRIKE_SHIP_NUM = 25
+    SUPER_STRIKE_COOLDOWN = 35
 
     def super_strike_attack_dist():
-      base = STRIKE_ATTACK_MIN_DIST
-      boost = max(0, self.num_ships - MIN_STRIKE_SHIP_NUM) // 6
+      base = SUPER_STRIKE_ATTACK_MIN_DIST
+      boost = max(0, self.num_ships - SUPER_MIN_STRIKE_SHIP_NUM) // 6
       return base + boost
 
     def select_enemy_shipyard_target():
@@ -923,30 +926,31 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       nearest_enemy_yard = None
       for enemy_yard in self.enemy_shipyards:
         enemy_yard.halite = shipyard_halite(enemy_yard)
-
         dist, home_yard = self.get_nearest_home_yard(enemy_yard.cell)
         enemy_yard.home_yard_dist = dist
-
         if dist <= super_strike_attack_dist() and enemy_yard.halite > max_halite:
           max_halite = enemy_yard.halite
           nearest_enemy_yard = enemy_yard
 
+      has_candidate = False
       for enemy_yard in self.enemy_shipyards:
         if enemy_yard.cell.is_targetd:
-          continue
-
-        # Strike attack enemy shipyard
-        if (self.step - self.strike_success_step > SUPER_STRIKE_COOLDOWN_STEPS and
-            self.strike_ship_num >= MIN_STRIKE_SHIP_NUM and
-            nearest_enemy_yard and
-            enemy_yard.position == nearest_enemy_yard.position):
-          yield enemy_yard
           continue
 
         # Nearby trigger condition.
         if (should_attack_enemy_shipyard(enemy_yard) and
             self.step - self.strike_success_step > STRIKE_COOLDOWN_STEPS):
+          has_candidate = True
           yield enemy_yard
+
+      if has_candidate:
+        return
+
+      # Super strike attack enemy shipyard
+      if (nearest_enemy_yard and
+          self.step - self.strike_success_step > SUPER_STRIKE_COOLDOWN and
+          self.strike_ship_num >= SUPER_MIN_STRIKE_SHIP_NUM):
+        yield nearest_enemy_yard
 
     def can_win_bomb_war(enemy_halite, enemy_ships, bomb_ships):
       enemy_spawns = [0] * (enemy_halite // self.c.spawn_cost)
@@ -1022,6 +1026,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         bomb_ship.is_strike_attack = True
 
       self.strike_shipyard = enemy_yard
+      self.strike_shipyard.step = self.step
       # logger.info(f"  strike shipyard {enemy_yard.id} at {enemy_yard.position}")
 
       # One bomb at a time
@@ -1053,10 +1058,15 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return
 
     def shipyard_num_by_ship_num():
+      if self.num_shipyards == 1 and self.num_ships >= MIN_CONVERT_SHIP_NUM:
+        return 2
+
+      if self.num_shipyards == 2 and self.num_ships >= 18:
+        return 3
+
       # Force build shipyard with 10 ships
-      if self.num_ships >= MIN_CONVERT_SHIP_NUM:
-        return min(2 + max((self.num_ships - MIN_CONVERT_SHIP_NUM) // 6, 0),
-                   MAX_SHIPYARD_NUM)
+      if self.num_ships >= 18:
+        return min(3 + max((self.num_ships - 18) // 6, 0), MAX_SHIPYARD_NUM)
       return 1
 
     def shipyard_num_by_halite_ratio():
@@ -1147,11 +1157,41 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return s
 
       # Maximize the total value of halite when converting ship.
+      # score = 0
+      # cells = self.gradient_map.get_nearby_cells(candidate_cell, max_dist=4)
+      # for cell in cells:
+        # if cell.position != candidate_cell.position:
+          # score += cell.halite
+      # return score
+
+      MAX_COVER_HALITE = 3
+
+      # Maximize the halite conver by shipyard.
       score = 0
-      cells = self.gradient_map.get_nearby_cells(candidate_cell, max_dist=4)
-      for cell in cells:
-        if cell.position != candidate_cell.position:
-          score += cell.halite
+
+      # Fake the cell as shipyard.
+      shipyards = self.shipyards + [candidate_cell]
+      for cell in self.halite_cells:
+        if cell.position == candidate_cell.position:
+          continue
+
+        covered = 0
+        dist_yards = [(self.manhattan_dist(y, cell), y) for y in shipyards]
+        dist_yards = sorted(dist_yards, key=lambda x: x[0])
+        dist_yards = [
+            (d, y) for (d, y) in dist_yards if d <= SHIPYARD_LOOSE_COVER_DIST
+        ]
+
+        if dist_yards:
+          score += 0.1
+
+        # Strongly covered cell
+        if len(dist_yards) >= 3:
+          score += 2
+        elif len(dist_yards) >= 2:
+          score += 0.5
+        if dist_yards and dist_yards[0][0] <= SHIPYARD_TIGHT_COVER_DIST:
+          score += 0.5
       return score
 
     def nominate_shipyard_positions():
@@ -1214,7 +1254,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             min_enemy.halite < ship.halite):
           continue
 
-        if (ship.position == cell.position and
+        if (halite_check == True and ship.position == cell.position and
             not self.has_enemy_nearby(ship.cell)):
           convert_ship(ship)
           self.call_for_shipyard = False
@@ -1233,7 +1273,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.save_for_converting = self.c.convert_cost
 
     candidate_cells = list(nominate_shipyard_positions())
-    print("Convert shipyard: nominate cells count =", len(candidate_cells))
+    # logger.info("Convert shipyard: nominate cells count = %s" %len(candidate_cells))
     if not candidate_cells:
       return
 
@@ -1626,7 +1666,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite_left)
-    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 7)
+    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 5)
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""

@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 # Mute print.
-def print(*args, **kwargs):
-  pass
+# def print(*args, **kwargs):
+  # pass
 
 
 MIN_WEIGHT = -99999
@@ -1215,7 +1215,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             min_enemy.halite < ship.halite):
           continue
 
-        if (ship.position == cell.position and
+        if (halite_check == True and ship.position == cell.position and
             not self.has_enemy_nearby(ship.cell)):
           convert_ship(ship)
           self.call_for_shipyard = False
@@ -1426,15 +1426,17 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
                                                   self.c.size)
       # print(ship.id, 'at', ship.position, 'goto', next_position)
 
-    if len(rows) != len(ships):
+    # if len(rows) != len(ships):
+    if True:
       matched_ship_ids = set()
       for ship_idx in rows:
         matched_ship_ids.add(ships[ship_idx].id)
 
-      for ship in ships:
-        print('ship %s (matchd=%s), at %s, has_assignment=%s, task=%s' %
-              (ship.id, ship.id in matched_ship_ids, ship.position,
-               ship.has_assignment, ship.task_type))
+      print("first_shipyard_set= ", self.first_shipyard_set)
+      for ship in self.ships:
+        print('ship %s, h=%s (matchd=%s), at %s, has_assignment=%s, task=%s, next_move=%s' %
+              (ship.id, ship.halite, ship.id in matched_ship_ids, ship.position,
+               ship.has_assignment, ship.task_type, ship.next_action))
         for move in POSSIBLE_MOVES:
           next_position = make_move(ship.position, move, self.c.size)
           wt = compute_weight(ship, next_position)
