@@ -3,7 +3,7 @@
 v4_16_07 <- v4_16_06
 
 * Spawn multiple ships
-* build ship to maximize halite return after step 300.
+* build ship to maximize halite return from step 280 to step 320.
 * discount_factor use 0.8 when step <= 40
 """
 
@@ -1540,7 +1540,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return
 
     max_spawn_num = None
-    if self.step >= CLOSING_PHRASE_STEP:
+    if self.step >= 280:
       max_spawn_num = expect_spawn_ship_num()
 
     random.shuffle(self.shipyards)
