@@ -1617,7 +1617,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       ship_steps = ship_collect_steps(remain_steps)
       total_ship_time = self.num_ships * ship_steps
 
-      avg_step_gain = int(total_halite / total_required_time)
+      avg_step_gain = int(total_halite / (total_required_time + 0.1))
 
       expect_ship_num = 0
       ship_contibue_steps = 0
