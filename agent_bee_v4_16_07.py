@@ -5,6 +5,13 @@ v4_16_07 <- v4_16_06
 * Spawn multiple ships
 * build ship to maximize halite return from step 280 to step 320.
 * discount_factor use 0.8 when step <= 40
+
+
+132
+{'agent_bee_v4_1_1.py': array([32.58, 32.58, 22.73, 12.12]),
+ 'agent_bee_v4_16_07.py': array([50.  , 34.85, 11.36,  3.79]),
+ 'agent_bee_v4_8_3.py': array([12.12, 21.97, 34.09, 31.82]),
+ 'agent_bee_v4_2_1.py': array([ 5.3 , 10.61, 31.82, 52.27])}
 """
 
 import random
@@ -820,7 +827,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if self.halite_cells:
       halite_values = [c.halite for c in self.halite_cells]
       self.mean_halite_value = np.mean(halite_values)
-      self.std_halite_value = np.std(halite_values)
 
     self.total_collect_steps = 0
     self.total_collectable_halite = 0
@@ -1175,7 +1181,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # Maximize the halite conver by shipyard.
       score = 0
 
-      cells = self.gradient_map.get_nearby_cells(candidate_cell, max_dist=SHIPYARD_LOOSE_COVER_DIST)
+      cells = self.gradient_map.get_nearby_cells(candidate_cell,
+                                                 max_dist=SHIPYARD_LOOSE_COVER_DIST)
       for cell in cells:
         if cell.position == candidate_cell.position:
           continue
@@ -1631,9 +1638,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
                       for k, v in items))
 
     print(
-        '#%s' % self.step, 'halite(n=%s, mean=%s, std=%s)' %
+        '#%s' % self.step, 'halite(n=%s, mean=%s)' %
         (len(self.halite_cells), int(
-            self.mean_halite_value), int(self.std_halite_value)),
+            self.mean_halite_value)),
         'home_halite=(d=%s, cover=%.0f%%, n=%s, m=%s, n/s=%.1f)' %
         (self.home_grown_cell_dist, self.num_home_halite_cells /
          len(self.halite_cells) * 100, self.num_home_halite_cells,
