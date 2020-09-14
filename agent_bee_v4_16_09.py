@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-v4_16_08 <- v4_16_07
+v4_16_09 <- v4_16_08
 
-More shipyard.
-
-* 
+* Build more shipyard, and skip center zone
+* has_enemy_shipyard_nearby dist = 4
+* grow less by shipyard
+* SUPER_MIN_STRIKE_SHIP_NUM=23
+* boost enemy carry when poi.halite > 100
+* maximize number of nearby cells
 
 """
 
@@ -53,13 +56,13 @@ MIN_BOMB_ENEMY_SHIPYARD_DIST = 4
 ALLEY_SUPPORT_DIST = 5
 MAX_SUPPORT_NUM = 2
 
-STRIKE_COOLDOWN_STEPS = 25
+STRIKE_COOLDOWN_STEPS = 15
 
 SUPER_STRIKE_COOLDOWN = 50
-SUPER_STRIKE_ATTACK_MIN_DIST = 8 # use large value...
-SUPER_MIN_STRIKE_SHIP_NUM = 21
-SUPER_STRIKE_MIN_NO_WORK_SHIP_NUM = 8
-SUPER_STRIKE_HALITE_GAIN = 500
+SUPER_STRIKE_ATTACK_MIN_DIST = 6 # use large value...
+SUPER_MIN_STRIKE_SHIP_NUM = 24
+SUPER_STRIKE_MIN_NO_WORK_SHIP_NUM = 10
+SUPER_STRIKE_HALITE_GAIN = 700
 
 # For building shipyard after a successful strike
 STRIKE_CALL_FOR_SHIPYARD_STEPS = 25
@@ -797,22 +800,28 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return threshold
 
       if is_home_grown_cell(cell):
-        home_halite_value = board_halite_value * max(0.75, self.ship_to_enemy_ratio)
+        # home_halite_value = board_halite_value * max(0.9, self.ship_to_enemy_ratio)
+        home_halite_value = board_halite_value * max(1.0, self.ship_to_enemy_ratio)
 
         if (self.halite_cover_ratio > MIN_COVER_RATIO or
-            self.ship_to_enemy_ratio > 1.1 or
+            self.ship_to_enemy_ratio > 1.15 or
             self.step >= CLOSING_PHRASE_STEP):
           home_halite_value = self.mean_halite_value * self.ship_to_enemy_ratio
           F = self.num_ships // 10 + 1
           home_halite_value = max(home_halite_value,
                                   F * HOME_GROWN_CELL_MIN_HALITE)
 
+        START_GROW_YARD_NUM = 3
         # Grow by shipyard
-        grow_by_shipyard = max(0, self.num_shipyards - 3) * 30
+        grow_by_shipyard = max(0, self.num_shipyards - START_GROW_YARD_NUM) * 25
         home_halite_value += grow_by_shipyard
 
-        if self.num_shipyards >= 4 and len(cell.covering_shipyards) >= 3:
-          home_halite_value += 20 * max(0, self.num_shipyards - 3)
+        if self.num_shipyards > START_GROW_YARD_NUM:
+          if len(cell.covering_shipyards) == 2:
+            home_halite_value += 5 * max(0, self.num_shipyards - START_GROW_YARD_NUM)
+          if len(cell.covering_shipyards) == 3:
+            home_halite_value += 15 * max(0, self.num_shipyards - START_GROW_YARD_NUM)
+
 
         # Harvest for more ships.
         # if 240 <= self.step <= 265 and self.num_ships >= 23:
@@ -820,7 +829,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
         threshold = max(home_halite_value, threshold)
 
-      return min(threshold, 450)
+      return min(threshold, 480)
 
     # Init halite cells
     self.halite_cells = []
@@ -941,9 +950,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return True
 
       # TODO(wangfei): use dynamic factor.
-      # 18-4, 23-5, 31-6
+      # 18-4, 24-5, 32-6
       bomb_dist = (self.strike_ship_num -
-                   15) // 8 + MIN_BOMB_ENEMY_SHIPYARD_DIST
+                   16) // 8 + MIN_BOMB_ENEMY_SHIPYARD_DIST
       return (bomb_dist >= enemy_yard_dist
               and is_enemy_weak(enemy_yard, factor=2)
               and self.step - self.strike_success_step > STRIKE_COOLDOWN_STEPS)
@@ -972,14 +981,15 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # Note: per-condition is not in normal strike.
       cooldown = self.step - self.strike_success_step
 
-      has_enough_ship = False
-      if self.step < 150:
-        # lower min strike ship num for the first super strike
-        has_enough_ship = (self.strike_ship_num >= 17)
-      if self.step < 230:
-        has_enough_ship = (self.strike_ship_num >= 22)
-      else:
-        has_enough_ship = (self.strike_ship_num >= 25)
+      has_enough_ship = self.num_ships > SUPER_MIN_STRIKE_SHIP_NUM
+      # has_enough_ship = False
+      # if self.step < 150:
+        # # lower min strike ship num for the first super strike
+        # has_enough_ship = (self.strike_ship_num >= 17)
+      # if self.step < 230:
+        # has_enough_ship = (self.strike_ship_num >= 22)
+      # else:
+        # has_enough_ship = (self.strike_ship_num >= 25)
 
       return (self.step >= 85 and
               cooldown > SUPER_STRIKE_COOLDOWN and
@@ -1132,15 +1142,16 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     MANHATTAN_DIST_RANGE2 = range(6, 7 + 1)
     AXIS_DIST_RANGE2 = range(1, 6 + 1)
     MAX_SHIP_TO_SHIPYARD_DIST = 8
+    SKIP_CENTER_AXIS_DIST = 3
 
-    HALITE_CELL_PER_SHIP = 3.0
+    HALITE_CELL_PER_SHIP = 3.1
     if self.is_beginning_phrase:
       HALITE_CELL_PER_SHIP = 2.8
     # TODO(wangfei): use higher value
-    elif self.step >= 150 and self.num_ships >= 23:
-      HALITE_CELL_PER_SHIP = 3.2
+    elif self.step >= 120 and self.num_ships >= 22:
+      HALITE_CELL_PER_SHIP = 3.3
 
-    MIN_CONVERT_SHIP_NUM = 9
+    MIN_CONVERT_SHIP_NUM = 10
 
     self.halite_ratio = -1
     # No ship left.
@@ -1154,10 +1165,15 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if self.num_shipyards == 2 and self.num_ships >= 17:
         return 3
 
-      # Force build shipyard with 10 ships
-      if self.num_ships >= 18:
-        return min(3 + max((self.num_ships - 18) // 6, 0), MAX_SHIPYARD_NUM)
-      return 1
+      if self.num_shipyards == 3 and self.num_ships >= 23:
+        return 4
+
+      if self.num_shipyards == 4 and self.num_ships >= 28:
+        return 5
+
+      if self.num_ships > 27:
+        return min(5 + max((self.num_ships - 27) // 5, 0), MAX_SHIPYARD_NUM)
+      return self.num_shipyards
 
     def shipyard_num_by_halite_ratio():
       # TODO: use existing value
@@ -1272,10 +1288,15 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         score += 0.1
         covered = len(cell.covering_shipyards) + 1
         if covered >= 3:
-          score += 2
+          score += 0.1
         elif covered:
-          score += 0.5
+          score += 0.1
       return score
+
+    def is_center_zone(cell):
+      center = Point(10, 10)
+      dist_x, dist_y = axis_manhattan_dists(cell.position, center, self.c.size)
+      return dist_x < SKIP_CENTER_AXIS_DIST and dist_y < SKIP_CENTER_AXIS_DIST
 
     def nominate_shipyard_positions():
       for cell in self.board.cells.values():
@@ -1290,6 +1311,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         # Not convert too near enemy shipyard.
         if has_enemy_shipyard_nearby(cell):
           # print(f"c[{cell.position.x}, {cell.position.y}]: too near enemy")
+          continue
+
+        # Skip center zone
+        if is_center_zone(cell):
           continue
 
         if (self.strike_success_position and
@@ -1765,7 +1790,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       opt_steps = min_mine
 
     boost_enemy_carry = False
-    if ship and (ship.halite < 10 or (self.step <= 85 and ship.halite < 100)):
+    if (ship and (ship.halite < 10 or (self.step <= 85 and ship.halite < 50))
+        and poi.halite > 100):
       boost_enemy_carry = True
 
     if not boost_enemy_carry:
