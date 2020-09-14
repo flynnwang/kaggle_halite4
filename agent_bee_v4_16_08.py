@@ -1,30 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-v4_16_07 <- v4_16_06
+v4_16_08 <- v4_16_07
 
-* Spawn multiple ships
-* build ship to maximize halite return from step 280 to step 320.
-* discount_factor use 0.8 when step <= 40
+* Super strike at target without distance limit.
+* build ship to maximize halite return from step 300 to step 320.
 
-
-132
-{'agent_bee_v4_1_1.py': array([32.58, 32.58, 22.73, 12.12]),
- 'agent_bee_v4_16_07.py': array([50.  , 34.85, 11.36,  3.79]),
- 'agent_bee_v4_8_3.py': array([12.12, 21.97, 34.09, 31.82]),
- 'agent_bee_v4_2_1.py': array([ 5.3 , 10.61, 31.82, 52.27])}
-
-
- 36 (280-320)
- {'agent_bee_v4_8_3.py': array([11.11, 25.  , 30.56, 33.33]),
-  'agent_bee_v4_16_07.py': array([41.67, 30.56, 16.67, 11.11]),
-  'agent_bee_v4_1_1.py': array([36.11, 36.11, 19.44,  8.33]),
-  'agent_bee_v4_2_1.py': array([11.11,  8.33, 33.33, 47.22])}
-
-890 (300-320)
-{'agent_bee_v4_1_1.py': array([31.24, 35.51, 23.82,  9.44]),
- 'agent_bee_v4_16_07.py': array([47.87, 27.42, 18.31,  6.4 ]),
- 'agent_bee_v4_8_3.py': array([11.12, 19.33, 26.63, 42.92]),
- 'agent_bee_v4_2_1.py': array([ 9.78, 17.75, 31.24, 41.24])}
 """
 
 import random
