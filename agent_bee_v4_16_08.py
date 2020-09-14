@@ -2,8 +2,9 @@
 """
 v4_16_08 <- v4_16_07
 
-* Super strike at target without distance limit.
 * build ship to maximize halite return from step 300 to step 320.
+* Super strike at target without distance limit.
+* Convert 3rd shipyard when s >= 17
 
 """
 
@@ -50,6 +51,17 @@ MIN_BOMB_ENEMY_SHIPYARD_DIST = 4
 
 ALLEY_SUPPORT_DIST = 5
 MAX_SUPPORT_NUM = 2
+
+STRIKE_COOLDOWN_STEPS = 25
+
+SUPER_STRIKE_COOLDOWN = 50
+SUPER_STRIKE_ATTACK_MIN_DIST = 8 # use large value...
+SUPER_MIN_STRIKE_SHIP_NUM = 21
+SUPER_STRIKE_MIN_NO_WORK_SHIP_NUM = 8
+SUPER_STRIKE_HALITE_GAIN = 500
+
+# For building shipyard after a successful strike
+STRIKE_CALL_FOR_SHIPYARD_STEPS = 25
 
 MIN_COVER_RATIO = 0.6
 # Threshod used to send bomb to enemy shipyard
@@ -740,7 +752,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     # Note: call for ship will spawn shipyard, may not at the expeted position
     # Effect: bonus shipyard every time we make a success strike!
-    if self.step - self.strike_success_step > 30:
+    if self.step - self.strike_success_step > STRIKE_CALL_FOR_SHIPYARD_STEPS:
       self.call_for_shipyard = False
 
     # if self.strike_shipyard:
@@ -833,6 +845,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     self.total_collect_steps = 0
     self.total_collectable_halite = 0
+
+    self.home_halite_cell_num = 0
+    self.below_keep_halite_cell_num = 0
     for cell in self.halite_cells:
       cell.keep_halite_value = keep_halite_value(cell)
       if len(cell.covering_shipyards) > 0:
@@ -841,6 +856,18 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
         h = min(500, max(0, int(cell.halite)))
         self.total_collect_steps += HALITE_COLLECT_STEPS[(h, lower_bound)]
+
+      if is_home_grown_cell(cell):
+        self.home_halite_cell_num += 1
+        if cell.halite < cell.keep_halite_value:
+          self.below_keep_halite_cell_num += 1
+
+    self.home_empty_halite_cell_ratio = self.below_keep_halite_cell_num / (self.home_halite_cell_num + 0.1)
+
+    # path = '/home/wangfei/data/20200801_halite/output/home_empty_halite_cell_ratio.csv'
+    # with open(path, 'a') as f:
+      # f.write(f'{self.num_ships},{self.home_halite_cell_num},{self.below_keep_halite_cell_num}\n')
+
 
   @property
   def me_halite(self):
@@ -912,29 +939,64 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           is_enemy_weak(enemy_yard, factor=3)):
         return True
 
+      # TODO(wangfei): use dynamic factor.
       # 18-4, 23-5, 31-6
       bomb_dist = (self.strike_ship_num -
                    15) // 8 + MIN_BOMB_ENEMY_SHIPYARD_DIST
-      return bomb_dist >= enemy_yard_dist and is_enemy_weak(enemy_yard,
-                                                            factor=2)
+      return (bomb_dist >= enemy_yard_dist
+              and is_enemy_weak(enemy_yard, factor=2)
+              and self.step - self.strike_success_step > STRIKE_COOLDOWN_STEPS)
 
-    def shipyard_halite(yard):
-      cells = self.gradient_map.get_nearby_cells(yard.cell, max_dist=4)
+    def shipyard_halite(yard, max_dist=4):
+      cells = self.gradient_map.get_nearby_cells(yard.cell, max_dist=max_dist)
       halite = 0
       for cell in cells:
         halite += cell.halite
       return halite
 
-    STRIKE_COOLDOWN_STEPS = 10
-
-    SUPER_STRIKE_ATTACK_MIN_DIST = 7
-    SUPER_MIN_STRIKE_SHIP_NUM = 25
-    SUPER_STRIKE_COOLDOWN = 35
-
     def super_strike_attack_dist():
-      base = SUPER_STRIKE_ATTACK_MIN_DIST
-      boost = max(0, self.num_ships - SUPER_MIN_STRIKE_SHIP_NUM) // 6
-      return base + boost
+      return SUPER_STRIKE_ATTACK_MIN_DIST
+      # base = SUPER_STRIKE_ATTACK_MIN_DIST
+      # boost = max(0, self.num_ships - SUPER_MIN_STRIKE_SHIP_NUM) // 6
+      # return base + boost
+
+    def no_work_ship_num():
+      available_home_halite_cell = (self.home_halite_cell_num
+                                    - self.below_keep_halite_cell_num)
+      return self.strike_ship_num - available_home_halite_cell
+
+    # logger.info(f"step = {self.step}, num_ships = {self.num_ships} no_work_ship_num = {no_work_ship_num()}")
+
+    def should_trigger_super_strike():
+      # Note: per-condition is not in normal strike.
+      cooldown = self.step - self.strike_success_step
+
+      has_enough_ship = False
+      if self.step < 150:
+        # lower min strike ship num for the first super strike
+        has_enough_ship = (self.strike_ship_num >= 17)
+      if self.step < 230:
+        has_enough_ship = (self.strike_ship_num >= 22)
+      else:
+        has_enough_ship = (self.strike_ship_num >= 25)
+
+      return (self.step >= 85 and
+              cooldown > SUPER_STRIKE_COOLDOWN and
+              has_enough_ship and
+              self.num_shipyards >= 2 and
+              no_work_ship_num() >= SUPER_STRIKE_MIN_NO_WORK_SHIP_NUM)
+
+    def select_super_strike_shipyards(nearest_enemy_yard, margin=2):
+      strike_halite_gain = SUPER_STRIKE_HALITE_GAIN
+      if self.num_shipyards:
+        strike_halite_gain = max(shipyard_halite(y) for y in self.shipyards)
+
+      min_home_yard_dist = nearest_enemy_yard.home_yard_dist
+      for enemy_yard in self.enemy_shipyards:
+        if (enemy_yard.home_yard_dist <= min_home_yard_dist + margin
+            and enemy_yard.halite >= strike_halite_gain):
+          enemy_yard.is_super_strike = True
+          yield enemy_yard
 
     def select_enemy_shipyard_target():
       max_halite = -9999
@@ -953,19 +1015,22 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           continue
 
         # Nearby trigger condition.
-        if (should_attack_enemy_shipyard(enemy_yard) and
-            self.step - self.strike_success_step > STRIKE_COOLDOWN_STEPS):
+        if should_attack_enemy_shipyard(enemy_yard):
           has_candidate = True
+          enemy_yard.is_super_strike = False
           yield enemy_yard
 
       if has_candidate:
         return
 
+      if max_halite < SUPER_STRIKE_HALITE_GAIN:
+        return
+
+      # TODO(wangfei): move out of this function
       # Super strike attack enemy shipyard
-      if (nearest_enemy_yard and
-          self.step - self.strike_success_step > SUPER_STRIKE_COOLDOWN and
-          self.strike_ship_num >= SUPER_MIN_STRIKE_SHIP_NUM):
-        yield nearest_enemy_yard
+      if nearest_enemy_yard and should_trigger_super_strike():
+        for enemy_yard in select_super_strike_shipyards(nearest_enemy_yard):
+          yield enemy_yard
 
     def can_win_bomb_war(enemy_halite, enemy_ships, bomb_ships):
       enemy_spawns = [0] * (enemy_halite // self.c.spawn_cost)
@@ -980,12 +1045,18 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         else:
           # Ship crash.
           i, j = i + 1, j + 1
-      return j, j < len(bomb_ships)
+
+      # Add 1 to account for bombing the shipyard.
+      return j, j + 1 < len(bomb_ships)
 
     def select_bomb_ships(enemy_yard):
-      MAX_BOMB_SHIP_NUM = 8
       MAX_BOMB_SHIP_HALITE = 30
-      MIN_EMPTY_SHIP_NUM = 4
+      if not enemy_yard.is_super_strike:
+        MAX_BOMB_SHIP_NUM = 8
+        MIN_EMPTY_SHIP_NUM = 4
+      else:
+        MAX_BOMB_SHIP_NUM = 9
+        MIN_EMPTY_SHIP_NUM = 5
 
       ships = list(self.my_idle_ships)
       ships.sort(key=lambda s: self.manhattan_dist(enemy_yard, s))
@@ -1006,7 +1077,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       enemy_player_id = enemy_yard.player_id
       enemy_ships = [
           c.ship
-          for c in get_neighbor_cells(enemy_yard.cell, include_self=True)
+          for c in self.gradient_map.get_nearby_cells(enemy_yard.cell, max_dist=2)
           if c.ship_id and c.ship.player_id == enemy_player_id
       ]
       crash_num, can_win = can_win_bomb_war(enemy_yard.player.halite,
@@ -1036,6 +1107,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     # logger.info("--enemy_shipyards=%s" % len(enemy_shipyards))
     for _, bomb_ships, enemy_yard in enemy_shipyards:
+      if enemy_yard.is_super_strike:
+        logger.info(f"bomb at shipyard = {enemy_yard.id} {enemy_yard.position}, is_super_strike={enemy_yard.is_super_strike}"
+                    f" home_yard_dist={enemy_yard.home_yard_dist} halite={int(enemy_yard.halite)}")
       for bomb_ship in bomb_ships:
         self.assign_task(bomb_ship, enemy_yard.cell, ShipTask.ATTACK_SHIPYARD)
         bomb_ship.is_strike_attack = True
@@ -1076,7 +1150,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       if self.num_shipyards == 1 and self.num_ships >= MIN_CONVERT_SHIP_NUM:
         return 2
 
-      if self.num_shipyards == 2 and self.num_ships >= 18:
+      if self.num_shipyards == 2 and self.num_ships >= 17:
         return 3
 
       # Force build shipyard with 10 ships
@@ -1085,6 +1159,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return 1
 
     def shipyard_num_by_halite_ratio():
+      # TODO: use existing value
       num_halite_cells = 0
       for cell in self.halite_cells:
         min_dist, _ = self.get_nearest_home_yard(cell)
@@ -1217,8 +1292,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           continue
 
         if (self.strike_success_position and
-            self.step - self.strike_success_step <= 10 and self.manhattan_dist(
-                cell, self.board[self.strike_success_position]) <= 2):
+            self.step - self.strike_success_step <= STRIKE_CALL_FOR_SHIPYARD_STEPS
+            and self.manhattan_dist(cell, self.board[self.strike_success_position]) <= 2):
           min_dist, _ = self.get_nearest_home_yard(cell)
           if min_dist <= 5:
             continue
@@ -1530,10 +1605,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         expect_ship_num += 1
         ship_contibue_steps += ship_steps
 
-      logger.info(f"step={self.step} total_halite={total_halite}, total_required_time={total_required_time}"
-                  f" total_ship_time={total_ship_time}"
-                  f" avg_step_gain={avg_step_gain}, target_steps={target_steps},"
-                  f" expect_ship_num={expect_ship_num}")
+      # logger.info(f"step={self.step} total_halite={total_halite}, total_required_time={total_required_time}"
+                  # f" total_ship_time={total_ship_time}"
+                  # f" avg_step_gain={avg_step_gain}, target_steps={target_steps},"
+                  # f" expect_ship_num={expect_ship_num}")
 
       # Enough number of ships
       if total_ship_time >= total_required_time:
@@ -1550,7 +1625,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return
 
     max_spawn_num = None
-    if self.step >= 280:
+    if self.step >= 300:
       max_spawn_num = expect_spawn_ship_num()
 
     random.shuffle(self.shipyards)
