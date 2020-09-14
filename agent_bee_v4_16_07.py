@@ -6,19 +6,17 @@ v4_16_07 <- v4_16_06
 * build ship to maximize halite return from step 280 to step 320.
 * discount_factor use 0.8 when step <= 40
 
-
 132
 {'agent_bee_v4_1_1.py': array([32.58, 32.58, 22.73, 12.12]),
  'agent_bee_v4_16_07.py': array([50.  , 34.85, 11.36,  3.79]),
  'agent_bee_v4_8_3.py': array([12.12, 21.97, 34.09, 31.82]),
  'agent_bee_v4_2_1.py': array([ 5.3 , 10.61, 31.82, 52.27])}
 
-
- 36 (280-320)
- {'agent_bee_v4_8_3.py': array([11.11, 25.  , 30.56, 33.33]),
-  'agent_bee_v4_16_07.py': array([41.67, 30.56, 16.67, 11.11]),
-  'agent_bee_v4_1_1.py': array([36.11, 36.11, 19.44,  8.33]),
-  'agent_bee_v4_2_1.py': array([11.11,  8.33, 33.33, 47.22])}
+346 [280, 320]
+  {'agent_bee_v4_8_3.py': array([15.32, 16.76, 28.32, 39.6 ]),
+  'agent_bee_v4_16_07.py': array([42.49, 29.77, 19.94,  7.8 ]),
+  'agent_bee_v4_2_1.py': array([11.27, 15.9 , 29.19, 43.64]),
+  'agent_bee_v4_1_1.py': array([30.92, 37.57, 22.54,  8.96])}
 
 890 (300-320)
 {'agent_bee_v4_1_1.py': array([31.24, 35.51, 23.82,  9.44]),
