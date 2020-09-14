@@ -6,6 +6,11 @@ v4_16_08 <- v4_16_07
 * Super strike at target without distance limit.
 * Convert 3rd shipyard when s >= 17
 
+525
+{'agent_bee_v4_16_08.py': array([44.19, 31.05, 16.  ,  8.76]),
+ 'agent_bee_v4_1_1.py': array([33.9 , 35.62, 22.29,  8.19]),
+ 'agent_bee_v4_2_1.py': array([ 8.38, 14.86, 30.29, 46.48]),
+ 'agent_bee_v4_8_3.py': array([13.52, 18.48, 31.43, 36.57])}
 """
 
 import sys
