@@ -8,6 +8,7 @@ v4_16_08 <- v4_16_07
 
 """
 
+import sys
 import random
 import timeit
 import logging
@@ -18,7 +19,7 @@ import numpy as np
 import scipy.optimize
 from kaggle_environments.envs.halite.helpers import *
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -1108,7 +1109,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     # logger.info("--enemy_shipyards=%s" % len(enemy_shipyards))
     for _, bomb_ships, enemy_yard in enemy_shipyards:
       if enemy_yard.is_super_strike:
-        logger.info(f"bomb at shipyard = {enemy_yard.id} {enemy_yard.position}, is_super_strike={enemy_yard.is_super_strike}"
+        logger.info(f"S={self.step} bomb at shipyard = {enemy_yard.id} {enemy_yard.position}, is_super_strike={enemy_yard.is_super_strike}"
                     f" home_yard_dist={enemy_yard.home_yard_dist} halite={int(enemy_yard.halite)}")
       for bomb_ship in bomb_ships:
         self.assign_task(bomb_ship, enemy_yard.cell, ShipTask.ATTACK_SHIPYARD)
