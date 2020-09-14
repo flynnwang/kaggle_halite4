@@ -573,10 +573,11 @@ class GradientMap(StrategyBase):
   def __init__(self):
     self.board = None
     self.enemy_gradient = None
+    self.nearby_positions_cache = {}
 
-  def get_nearby_cells(self, center: Cell, max_dist):
+  def _get_nearby_positions(self, center: Cell, max_dist):
     visited = set()
-    nearby_cells = []
+    nearby_positions = []
 
     def dfs(c: Cell):
       if c.position in visited:
@@ -585,12 +586,21 @@ class GradientMap(StrategyBase):
 
       if self.manhattan_dist(c, center) > max_dist:
         return
-      nearby_cells.append(c)
+      nearby_positions.append(c.position)
       for next_cell in get_neighbor_cells(c):
         dfs(next_cell)
 
     dfs(center)
-    return nearby_cells
+    return nearby_positions
+
+  def get_nearby_cells(self, center: Cell, max_dist):
+    key = (center.position, max_dist)
+    if key in self.nearby_positions_cache:
+      positions = self.nearby_positions_cache[key]
+    else:
+      positions = self._get_nearby_positions(center, max_dist)
+      self.nearby_positions_cache[key] = positions
+    return (self.board[p] for p in positions)
 
   def compute_gradient(self, center_cells, max_dist, value_func):
     gradient = np.zeros((self.sz, self.sz))
