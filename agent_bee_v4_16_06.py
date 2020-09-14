@@ -1169,28 +1169,19 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # Maximize the halite conver by shipyard.
       score = 0
 
-      # Fake the cell as shipyard.
-      shipyards = self.shipyards + [candidate_cell]
-      for cell in self.halite_cells:
+      cells = self.gradient_map.get_nearby_cells(candidate_cell, max_dist=SHIPYARD_LOOSE_COVER_DIST)
+      for cell in cells:
         if cell.position == candidate_cell.position:
           continue
 
-        covered = 0
-        dist_yards = [(self.manhattan_dist(y, cell), y) for y in shipyards]
-        dist_yards = sorted(dist_yards, key=lambda x: x[0])
-        dist_yards = [
-            (d, y) for (d, y) in dist_yards if d <= SHIPYARD_LOOSE_COVER_DIST
-        ]
+        if cell.halite <= 0:
+          continue
 
-        if dist_yards:
-          score += 0.1
-
-        # Strongly covered cell
-        if len(dist_yards) >= 3:
+        score += 0.1
+        covered = len(cell.covering_shipyards) + 1
+        if covered >= 3:
           score += 2
-        elif len(dist_yards) >= 2:
-          score += 0.5
-        if dist_yards and dist_yards[0][0] <= SHIPYARD_TIGHT_COVER_DIST:
+        elif covered:
           score += 0.5
       return score
 
