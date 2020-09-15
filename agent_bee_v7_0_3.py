@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-v7_0_1 <- v4_16_10
+v7_0_3 <- v7_0_2
 
-* Tracking home_to_board_mean
-* Drop block center zone
-* STRIKE_CALL_FOR_SHIPYARD_STEPS = 10
-* Revert convert by shipyard num
-* Add more near than enemy when guard shipyard
+* due with dead game
+* SUPER_STRIKE_HALITE_GAIN = 2000
+* Do not goto dist=1 enemy yard cell for halite.
+* Build shipyard towards weighted halite value
 """
 
 import sys
@@ -62,7 +61,7 @@ SUPER_STRIKE_COOLDOWN = 40
 SUPER_STRIKE_ATTACK_MIN_DIST = 6 # use large value...
 SUPER_MIN_STRIKE_SHIP_NUM = 28
 SUPER_STRIKE_MIN_NO_WORK_SHIP_NUM = 10
-SUPER_STRIKE_HALITE_GAIN = 3500
+SUPER_STRIKE_HALITE_GAIN = 2000
 
 # For building shipyard after a successful strike
 STRIKE_CALL_FOR_SHIPYARD_STEPS = 10
@@ -722,6 +721,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     self.num_covered_halite_cells = 0
     self.strike_ship_num = 0
     self.call_for_shipyard = False
+    self.mean_halite_value = 0
+    self.ship_to_enemy_ratio = 1
 
   def update(self, board):
     """Updates board state at each step."""
@@ -777,10 +778,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
   def halite_cover_ratio(self):
     return self.num_covered_halite_cells / len(self.halite_cells)
 
-  def init_halite_cells(self):
-    HOME_GROWN_CELL_MIN_HALITE = 80
-    MAX_STEP_FACTOR = 1
+  def is_dead_game(self):
+    return self.step > 150 and self.mean_halite_value < 50
 
+  def init_halite_cells(self):
     max_enemy_ship_num = max(len(p.ship_ids) for p in self.board.opponents)
     self.ship_to_enemy_ratio = self.num_ships / (max_enemy_ship_num + 0.1)
 
@@ -803,7 +804,24 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         discount_factor = 0.5
 
       board_halite_value = self.mean_halite_value * discount_factor
-      return min(board_halite_value, 499)
+
+      if (self.is_dead_game()
+          and self.step < NEAR_ENDING_PHRASE_STEP
+          and self.ship_to_enemy_ratio > 1.1
+          and is_home_grown_cell(cell)):
+        # logger.info(f"S={self.step} is dead game!")
+        board_halite_value = max(board_halite_value,
+                                 200 * self.ship_to_enemy_ratio)
+
+      # Ignore dist = 1 halite
+      enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
+      if enemy_yard and enemy_yard_dist <= 1:
+        ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
+        if (alley_yard and enemy_yard_dist < ally_yard_dist):
+          # if the cell is nearer to the enemy yard.
+          return 1000
+
+      return min(board_halite_value, 450)
 
     # Init halite cells
     self.halite_cells = []
@@ -1255,14 +1273,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if cell.halite <= 0:
           continue
 
-        score += 0.1
+        wt = 0.1
         covered = len(cell.covering_shipyards) + 1
-
         if covered >= 3:
-          score += 0.4
-
-        if covered == 2:
-          score += 0.2
+          wt = 0.3
+        elif covered == 2:
+          wt = 0.2
+        score += wt * cell.halite
       return score
 
     def is_center_zone(cell):
