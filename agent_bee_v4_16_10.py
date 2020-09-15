@@ -1492,18 +1492,18 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           not ship.is_followed):
         return MIN_WEIGHT
 
-      # Retreat ship in danger.
-      # if (ship.is_in_danger and
-          # ship.task_type not in (ShipTask.ATTACK_SHIP, ShipTask.ATTACK_SHIPYARD)):
-        # # TODO: how about ship.halite > 0 but is attacking. should it retreat?
-        # return -1000 * ship.enemy_gradient[next_position.x, next_position.y]
-
       wt = 0
-
-      # add weight for the cell that's nearer to the destination.
       dist = manhattan_dist(next_position, target_cell.position, self.c.size)
-      ship_dist = self.manhattan_dist(ship, target_cell)
-      wt = ship_dist - dist
+
+      # Retreat ship in danger.
+      if (ship.is_in_danger and
+          ship.task_type not in (ShipTask.ATTACK_SHIP, ShipTask.ATTACK_SHIPYARD)):
+        # TODO: how about ship.halite > 0 but is attacking. should it retreat?
+        wt -= ship.enemy_gradient[next_position.x, next_position.y]
+      else:
+        # add weight for the cell that's nearer to the destination.
+        ship_dist = self.manhattan_dist(ship, target_cell)
+        wt = ship_dist - dist
 
       # When attacking, do not stay on halite cell
       if (ship.task_type in (ShipTask.ATTACK_SHIP, ShipTask.ATTACK_SHIPYARD) and
@@ -1518,7 +1518,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # Try not move onto halite cells.
       if next_cell.halite > 0 and next_position != target_cell.position:
         halite_gradient = self.halite_gradient[next_position.x, next_position.y]
-        wt -= halite_gradient * 0.5
+        wt -= halite_gradient * 0.1
 
       # If collecting halite
       if ((ship.task_type == ShipTask.GOTO_HALITE or
