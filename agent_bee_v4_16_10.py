@@ -29,6 +29,20 @@ v4_16_10 <- v4_16_09
  'agent_bee_v4_2_1.py': array([ 5.56, 16.67, 22.22, 55.56]),
  'agent_bee_v4_8_3.py': array([33.33, 22.22, 27.78, 16.67])}
 
+
+: MIN_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=5
+325
+{'agent_bee_v4_16_10.py': array([75.69, 19.08,  4.62,  0.62]),
+ 'agent_bee_v4_1_1.py': array([14.15, 55.08, 24.92,  5.85]),
+ 'agent_bee_v4_2_1.py': array([ 4.  , 14.15, 39.38, 42.46]),
+ 'agent_bee_v4_8_3.py': array([ 6.15, 11.69, 31.08, 51.08])}
+
+602: MIN_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=6
+{'agent_bee_v4_16_10.py': array([79.73, 15.28,  4.49,  0.5 ]),
+ 'agent_bee_v4_2_1.py': array([ 2.99, 15.28, 33.72, 48.01]),
+ 'agent_bee_v4_1_1.py': array([13.46, 54.49, 24.58,  7.48]),
+ 'agent_bee_v4_8_3.py': array([ 3.82, 14.95, 37.21, 44.02])}
+
 : MIN_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=7
 239
 {'agent_bee_v4_16_10.py': array([81.59, 11.72,  6.69,  0.  ]),
@@ -41,24 +55,18 @@ v4_16_10 <- v4_16_09
  'agent_bee_v4_1_1.py': array([10.4 , 58.1 , 22.94,  8.56]),
  'agent_bee_v4_8_3.py': array([ 3.36, 14.98, 39.45, 42.2 ])}
 
-602: MIN_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=6
-{'agent_bee_v4_16_10.py': array([79.73, 15.28,  4.49,  0.5 ]),
- 'agent_bee_v4_2_1.py': array([ 2.99, 15.28, 33.72, 48.01]),
- 'agent_bee_v4_1_1.py': array([13.46, 54.49, 24.58,  7.48]),
- 'agent_bee_v4_8_3.py': array([ 3.82, 14.95, 37.21, 44.02])}
-
 321: MIN_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=8
 {'agent_bee_v4_16_10.py': array([81.31, 12.77,  4.67,  1.25]),
  'agent_bee_v4_2_1.py': array([ 3.43, 14.95, 38.32, 43.3 ]),
  'agent_bee_v4_1_1.py': array([10.9 , 57.01, 21.5 , 10.59]),
  'agent_bee_v4_8_3.py': array([ 4.36, 15.26, 35.51, 44.86])}0
 
-: MIN_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=5
-325
-{'agent_bee_v4_16_10.py': array([75.69, 19.08,  4.62,  0.62]),
- 'agent_bee_v4_1_1.py': array([14.15, 55.08, 24.92,  5.85]),
- 'agent_bee_v4_2_1.py': array([ 4.  , 14.15, 39.38, 42.46]),
- 'agent_bee_v4_8_3.py': array([ 6.15, 11.69, 31.08, 51.08])}
+320
+: MIN_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=INF(999)
+{'agent_bee_v4_16_10.py': array([87.5 , 10.31,  1.88,  0.31]),
+ 'agent_bee_v4_8_3.py': array([ 2.5 , 17.19, 33.44, 46.88]),
+ 'agent_bee_v4_1_1.py': array([ 6.56, 60.  , 25.62,  7.81]),
+ 'agent_bee_v4_2_1.py': array([ 3.44, 12.5 , 39.06, 45.  ])}
 
  1084: MIN_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=7 with ignore initial
  {'agent_bee_v4_16_10.py': array([78.78, 16.14,  4.61,  0.46]),
@@ -1971,19 +1979,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
-    CHECK_TRAP_DIST = 7
-
     for ship_idx, ship in enumerate(ships):
       for poi_idx, cell in enumerate(halites):
-        dist = self.manhattan_dist(ship, cell)
-
-        if (ship.halite == 0 and dist <= CHECK_TRAP_DIST
-            or ship.halite > 0):
-          # Do not go to halite with too many enemy around.
-          enemy_count = self.gradient_map.count_nearby_true_enemy(cell, ship)
-          if enemy_count >= MIN_ENEMY_TO_RUN:
-            continue
-
+        # Do not go to halite with too many enemy around.
+        enemy_count = self.gradient_map.count_nearby_true_enemy(cell, ship)
+        if enemy_count >= MIN_ENEMY_TO_RUN:
+          continue
         yield ship_idx, poi_idx
 
   def get_rescue_escape_ship_pairs(self, ships):
