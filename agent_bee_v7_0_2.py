@@ -33,7 +33,7 @@ MIN_WEIGHT = -99999
 
 BEGINNING_PHRASE_END_STEP = 60
 CLOSING_PHRASE_STEP = 300
-NEAR_ENDING_PHRASE_STEP = 350
+NEAR_ENDING_PHRASE_STEP = 360
 
 # If my halite is less than this, do not build ship or shipyard anymore.
 MIN_HALITE_TO_BUILD_SHIPYARD = 1000
@@ -62,7 +62,7 @@ SUPER_STRIKE_COOLDOWN = 40
 SUPER_STRIKE_ATTACK_MIN_DIST = 6 # use large value...
 SUPER_MIN_STRIKE_SHIP_NUM = 28
 SUPER_STRIKE_MIN_NO_WORK_SHIP_NUM = 10
-SUPER_STRIKE_HALITE_GAIN = 700
+SUPER_STRIKE_HALITE_GAIN = 3500
 
 # For building shipyard after a successful strike
 STRIKE_CALL_FOR_SHIPYARD_STEPS = 10
@@ -793,11 +793,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
               cell.covering_shipyards[0][0] <= home_extend_dist())
 
     def keep_halite_value(cell):
+
       discount_factor = 1.0
       if self.step < 150:
         discount_factor = 0.8
       if 150 <= self.step < 250:
         discount_factor = 0.8 + (self.step - 150) / 100 * 0.2
+      if self.step >= NEAR_ENDING_PHRASE_STEP:
+        discount_factor = 0.5
 
       board_halite_value = self.mean_halite_value * discount_factor
       return min(board_halite_value, 499)
@@ -1573,7 +1576,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     # When leading, convert as much as possible.
     def max_ship_num():
-      return max(0, (self.me_halite - 3000) // 2000) + 35
+      return max(0, (self.me_halite - 3000) // 2000) + 50
 
     def spawn(yard):
       self.cost_halite += self.c.spawn_cost
