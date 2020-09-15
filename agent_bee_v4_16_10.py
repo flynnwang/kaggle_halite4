@@ -9,6 +9,27 @@ v4_16_10 <- v4_16_09
  'agent_bee_v4_8_3.py': array([ 9.09, 32.73, 36.36, 21.82]),
  'agent_bee_v4_2_1.py': array([ 9.09, 12.73, 25.45, 52.73]),
  'agent_bee_v4_1_1.py': array([41.82, 29.09, 21.82,  7.27])}
+
+ 20: true enemy with CHECK_TRAP_DIST=5 for both types of ships
+ {'agent_bee_v4_8_3.py': array([15., 15., 30., 40.]),
+  'agent_bee_v4_1_1.py': array([40., 35., 20.,  5.]),
+  'agent_bee_v4_16_10.py': array([25., 30., 20., 25.]),
+  'agent_bee_v4_2_1.py': array([20., 20., 30., 30.])}
+
+# check for h=0 ship but not for halite ship
+12: MAX_ENEMY_TO_RUN=2, NEARBY_ENEMY_DIST=4, CHECK_TRAP_DIST=5
+ 'agent_bee_v4_1_1.py': array([50.  , 33.33, 16.67,  0.  ]),
+ 'agent_bee_v4_2_1.py': array([25.  , 16.67, 33.33, 25.  ]),
+ 'agent_bee_v4_8_3.py': array([16.67, 33.33, 33.33, 16.67]),
+ 'agent_bee_v4_16_10.py': array([ 8.33, 16.67, 16.67, 58.33])}
+
+18: MAX_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=4, CHECK_TRAP_DIST=7
+{'agent_bee_v4_1_1.py': array([27.78, 27.78, 33.33, 11.11]),
+ 'agent_bee_v4_16_10.py': array([33.33, 33.33, 16.67, 16.67]),
+ 'agent_bee_v4_2_1.py': array([ 5.56, 16.67, 22.22, 55.56]),
+ 'agent_bee_v4_8_3.py': array([33.33, 22.22, 27.78, 16.67])}
+
+: MAX_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=7
 """
 
 import sys
@@ -651,7 +672,7 @@ class GradientMap(StrategyBase):
     return self.compute_gradient(nearby_enemy_cells(), max_dist, enemy_value)
 
   def count_nearby_true_enemy(self, halite_cell, ship):
-    NEARBY_ENEMY_DIST = 4
+    NEARBY_ENEMY_DIST = 3
 
     def get_nearby_enemies():
       if halite_cell.position in self.nearby_enemies:
@@ -1090,7 +1111,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       enemy_player_id = enemy_yard.player_id
       enemy_ships = [
           c.ship
-          for c in self.gradient_map.get_nearby_cells(enemy_yard.cell, max_dist=2)
+          for c in self.gradient_map.get_nearby_cells(enemy_yard.cell,
+                                                      max_dist=2)
           if c.ship_id and c.ship.player_id == enemy_player_id
       ]
       crash_num, can_win = can_win_bomb_war(enemy_yard.player.halite,
@@ -1886,13 +1908,15 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
-    MAX_ENEMY_TO_RUN = 2
-    CHECK_TRAP_DIST = 5
+    MAX_ENEMY_TO_RUN = 3
+    CHECK_TRAP_DIST = 7
 
     for ship_idx, ship in enumerate(ships):
       for poi_idx, cell in enumerate(halites):
         dist = self.manhattan_dist(ship, cell)
-        if dist <= CHECK_TRAP_DIST:
+
+        if (ship.halite == 0 and dist <= CHECK_TRAP_DIST
+            or ship.halite > 0):
           # Do not go to halite with too many enemy around.
           enemy_count = self.gradient_map.count_nearby_true_enemy(cell, ship)
           if enemy_count >= MAX_ENEMY_TO_RUN:
