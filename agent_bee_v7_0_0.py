@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
+
 """
 v7_0_0 <- v4_16_10
 
+* Grow by ship num and step num
 * Discount 0.7, min halite 50
-* Always enable enemy_carry, poi_to_yard / 3
-* fine tune keep_halite_value, start grow if shiypard >= 4
-* shipyard convert maximize toward convered cells.
-* Super strike, grow dist by (s - 23) // 6
+* poi_to_yard / 2
+* Use triple convert
+* Super strike, margin=1, cooldown 40
+* Normal strike cooldown 10
+* Skip center zone only when shipyard num <= 4
 """
 
 import sys
@@ -779,7 +782,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
   def init_halite_cells(self):
     HOME_GROWN_CELL_MIN_HALITE = 80
-    MAX_STEP_FACTOR = 2
+    MAX_STEP_FACTOR = 2.5
 
     max_enemy_ship_num = max(len(p.ship_ids) for p in self.board.opponents)
     self.ship_to_enemy_ratio = self.num_ships / (max_enemy_ship_num + 0.1)
@@ -794,7 +797,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
     def keep_halite_value(cell):
       discount_factor = 0.7
-      if self.step < 30:
+      if self.step < 40:
         discount_factor = 0.8
 
       board_halite_value = self.mean_halite_value * discount_factor
@@ -806,32 +809,25 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return threshold
 
       if is_home_grown_cell(cell):
-        home_halite_value = board_halite_value * max(1.0, self.ship_to_enemy_ratio)
+        ship_factor = self.num_ships / 10
 
-        if (self.halite_cover_ratio > MIN_COVER_RATIO or
-            self.ship_to_enemy_ratio > 1.1 or
-            self.num_shipyards >= 4 or
-            self.step >= 260):
-          home_halite_value = self.mean_halite_value * self.ship_to_enemy_ratio
-          F = self.num_ships / 10 + 1
-          home_halite_value = max(home_halite_value,
-                                  F * HOME_GROWN_CELL_MIN_HALITE)
+        step_factor = max(self.step - BEGINNING_PHRASE_END_STEP, 0) / 180 * MAX_STEP_FACTOR
+        step_factor = min(MAX_STEP_FACTOR, step_factor)
 
-        START_GROW_YARD_NUM = 3
-        # Grow by shipyard
-        grow_by_shipyard = max(0, self.num_shipyards - START_GROW_YARD_NUM) * 30
-        home_halite_value += grow_by_shipyard
+        cover_factor = 0
+        if self.num_ships >= 25:
+          num_covered = len(cell.convering_shipyards)
+          cover_factor += num_covered / 3
 
-        if self.num_shipyards > START_GROW_YARD_NUM:
-          if len(cell.covering_shipyards) == 2:
-            home_halite_value += 10 * max(0, self.num_shipyards - START_GROW_YARD_NUM)
-          if len(cell.covering_shipyards) == 3:
-            home_halite_value += 20 * max(0, self.num_shipyards - START_GROW_YARD_NUM)
-
+        keep_factor = ship_factor + cover_factor + step_factor + 1
+        home_halite_value = HOME_GROWN_CELL_MIN_HALITE * keep_factor
 
         # Harvest for more ships.
-        # if 240 <= self.step <= 265 and self.num_ships >= 23:
-          # home_halite_value = self.mean_halite_value
+        if 240 < self.step < 265:
+          home_halite_value = max(self.mean_halite_value, 100)
+
+        if self.step < 85:
+          home_halite_value = board_halite_value
 
         home_halite_value = max(home_halite_value, 50)
         threshold = max(home_halite_value, threshold)
@@ -972,10 +968,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return halite
 
     def super_strike_attack_dist():
-      # return SUPER_STRIKE_ATTACK_MIN_DIST
-      base = SUPER_STRIKE_ATTACK_MIN_DIST
-      boost = max(0, self.num_ships - SUPER_MIN_STRIKE_SHIP_NUM) // 6
-      return base + boost
+      return SUPER_STRIKE_ATTACK_MIN_DIST
+      # base = SUPER_STRIKE_ATTACK_MIN_DIST
+      # boost = max(0, self.num_ships - SUPER_MIN_STRIKE_SHIP_NUM) // 6
+      # return base + boost
 
     def no_work_ship_num():
       available_home_halite_cell = (self.home_halite_cell_num
@@ -1152,7 +1148,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     MAX_SHIP_TO_SHIPYARD_DIST = 8
     SKIP_CENTER_AXIS_DIST = 4
 
-    HALITE_CELL_PER_SHIP = 3.1
+    HALITE_CELL_PER_SHIP = 3.0
     if self.is_beginning_phrase:
       HALITE_CELL_PER_SHIP = 2.8
     # TODO(wangfei): use higher value
@@ -1279,13 +1275,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           # score += cell.halite
       # return score
 
-      MAX_COVER_HALITE = 3
-
-      # Maximize the halite conver by shipyard.
-      score = 0
-
-      cells = self.gradient_map.get_nearby_cells(candidate_cell,
-                                                 max_dist=SHIPYARD_LOOSE_COVER_DIST)
+      cells = self.gradient_map.get_nearby_cells(candidate_cell, max_dist=SHIPYARD_LOOSE_COVER_DIST)
       for cell in cells:
         if cell.position == candidate_cell.position:
           continue
@@ -1293,12 +1283,13 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         if cell.halite <= 0:
           continue
 
-        score += 0.1
         covered = len(cell.covering_shipyards) + 1
-        if covered:
-          score += 0.1
         if covered >= 3:
-          score += 0.2
+          score = 1
+        elif covered == 2:
+          score = 0.5
+        else:
+          score = 0.1
       return score
 
     def is_center_zone(cell):
@@ -1805,9 +1796,19 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     if opt_steps < min_mine:
       opt_steps = min_mine
 
+    boost_enemy_carry = False
+    if (ship and (ship.halite < 10
+                  or (self.step <= 85 and ship.halite < 50)
+                  or (self.step >= NEAR_ENDING_PHRASE_STEP))
+        and poi.halite > 100):
+      boost_enemy_carry = True
+
+    if not boost_enemy_carry:
+      enemy_carry = 0
+
     total_halite = (carry + enemy_carry +
                     (1 - HALITE_RETENSION_BY_DIST[opt_steps]) * halite_left)
-    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 3)
+    return total_halite / (ship_to_poi + opt_steps + poi_to_yard / 2)
 
   def get_trapped_enemy_ships(self, max_attack_num):
     """A enemy is trapped if there're at least one ship in each quadrant."""
