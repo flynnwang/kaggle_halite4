@@ -17,19 +17,19 @@ v4_16_10 <- v4_16_09
   'agent_bee_v4_2_1.py': array([20., 20., 30., 30.])}
 
 # check for h=0 ship but not for halite ship
-12: MAX_ENEMY_TO_RUN=2, NEARBY_ENEMY_DIST=4, CHECK_TRAP_DIST=5
+12: MIN_ENEMY_TO_RUN=2, NEARBY_ENEMY_DIST=4, CHECK_TRAP_DIST=5
  'agent_bee_v4_1_1.py': array([50.  , 33.33, 16.67,  0.  ]),
  'agent_bee_v4_2_1.py': array([25.  , 16.67, 33.33, 25.  ]),
  'agent_bee_v4_8_3.py': array([16.67, 33.33, 33.33, 16.67]),
  'agent_bee_v4_16_10.py': array([ 8.33, 16.67, 16.67, 58.33])}
 
-18: MAX_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=4, CHECK_TRAP_DIST=7
+18: MIN_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=4, CHECK_TRAP_DIST=7
 {'agent_bee_v4_1_1.py': array([27.78, 27.78, 33.33, 11.11]),
  'agent_bee_v4_16_10.py': array([33.33, 33.33, 16.67, 16.67]),
  'agent_bee_v4_2_1.py': array([ 5.56, 16.67, 22.22, 55.56]),
  'agent_bee_v4_8_3.py': array([33.33, 22.22, 27.78, 16.67])}
 
-: MAX_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=7
+: MIN_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=7
 239
 {'agent_bee_v4_16_10.py': array([81.59, 11.72,  6.69,  0.  ]),
  'agent_bee_v4_2_1.py': array([ 2.51, 13.81, 34.31, 49.37]),
@@ -41,14 +41,26 @@ v4_16_10 <- v4_16_09
  'agent_bee_v4_1_1.py': array([10.4 , 58.1 , 22.94,  8.56]),
  'agent_bee_v4_8_3.py': array([ 3.36, 14.98, 39.45, 42.2 ])}
 
-: MAX_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=5
+602: MIN_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=6
+{'agent_bee_v4_16_10.py': array([79.73, 15.28,  4.49,  0.5 ]),
+ 'agent_bee_v4_2_1.py': array([ 2.99, 15.28, 33.72, 48.01]),
+ 'agent_bee_v4_1_1.py': array([13.46, 54.49, 24.58,  7.48]),
+ 'agent_bee_v4_8_3.py': array([ 3.82, 14.95, 37.21, 44.02])}
+
+321: MIN_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=8
+{'agent_bee_v4_16_10.py': array([81.31, 12.77,  4.67,  1.25]),
+ 'agent_bee_v4_2_1.py': array([ 3.43, 14.95, 38.32, 43.3 ]),
+ 'agent_bee_v4_1_1.py': array([10.9 , 57.01, 21.5 , 10.59]),
+ 'agent_bee_v4_8_3.py': array([ 4.36, 15.26, 35.51, 44.86])}0
+
+: MIN_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=5
 325
 {'agent_bee_v4_16_10.py': array([75.69, 19.08,  4.62,  0.62]),
  'agent_bee_v4_1_1.py': array([14.15, 55.08, 24.92,  5.85]),
  'agent_bee_v4_2_1.py': array([ 4.  , 14.15, 39.38, 42.46]),
  'agent_bee_v4_8_3.py': array([ 6.15, 11.69, 31.08, 51.08])}
 
- 1084: MAX_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=7 with ignore initial
+ 1084: MIN_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=7 with ignore initial
  {'agent_bee_v4_16_10.py': array([78.78, 16.14,  4.61,  0.46]),
   'agent_bee_v4_1_1.py': array([12.08, 54.15, 27.31,  6.46]),
   'agent_bee_v4_8_3.py': array([ 3.69, 16.42, 37.27, 42.62]),
@@ -99,6 +111,8 @@ MIN_BOMB_ENEMY_SHIPYARD_DIST = 4
 
 ALLEY_SUPPORT_DIST = 5
 MAX_SUPPORT_NUM = 2
+
+MIN_ENEMY_TO_RUN = 3
 
 STRIKE_COOLDOWN_STEPS = 15
 
@@ -672,7 +686,8 @@ class GradientMap(StrategyBase):
                          center_cell,
                          max_dist=2,
                          broadcast_dist=1,
-                         halite=999999):
+                         halite=999999,
+                         normalize=False):
     """The amount enemy can hurt me."""
 
     def nearby_enemy_cells():
@@ -692,9 +707,12 @@ class GradientMap(StrategyBase):
         return enemy_cost(dist)
       return 0
 
-    return self.compute_gradient(nearby_enemy_cells(), max_dist, enemy_value)
+    g = self.compute_gradient(nearby_enemy_cells(), max_dist, enemy_value)
+    if normalize:
+      g = g / (np.max(g) + 0.1)
+    return g
 
-  def count_nearby_true_enemy(self, halite_cell, ship):
+  def count_nearby_true_enemy(self, halite_cell, ship, with_cell_halite=True):
     NEARBY_ENEMY_DIST = 3
 
     def get_nearby_enemies():
@@ -706,7 +724,9 @@ class GradientMap(StrategyBase):
       self.nearby_enemies[halite_cell.position] = enemies
       return enemies
 
-    next_step_halite = ship.halite + self.c.collect_rate * halite_cell.halite
+    next_step_halite = ship.halite
+    if with_cell_halite:
+      next_step_halite += self.c.collect_rate * halite_cell.halite
     return sum(1 for enemy in get_nearby_enemies()
                if enemy.halite < next_step_halite)
 
@@ -730,7 +750,7 @@ class GradientMap(StrategyBase):
 
     g = self.compute_gradient(all_halite_cells(), max_dist, halite_value)
     if normalize:
-      g = g / np.max(g)
+      g = g / (np.max(g) + 0.1)
     return g
 
 
@@ -1464,7 +1484,16 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           not hasattr(ship, "followers")):
         return MIN_WEIGHT
 
-      # If stay at current location, prefer not stay...
+
+      # Retreat ship in danger.
+      if (ship.is_in_danger and
+          ship.task_type not in (ShipTask.ATTACK_SHIP, ShipTask.ATTACK_SHIPYARD)):
+        # TODO: how about ship.halite > 0 but is attacking. should it retreat?
+        return -1000 * ship.enemy_gradient[next_position.x, next_position.y]
+
+      wt = 0
+
+      # add weight for the cell that's nearer to the destination.
       dist = manhattan_dist(next_position, target_cell.position, self.c.size)
       ship_dist = self.manhattan_dist(ship, target_cell)
       wt = ship_dist - dist
@@ -1602,6 +1631,17 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     position_to_index = get_position_to_index()
     C = np.ones((len(ships), len(next_positions))) * MIN_WEIGHT
     for ship_idx, ship in enumerate(ships):
+      ship.is_in_danger = False
+      enemy_count = self.gradient_map.count_nearby_true_enemy(ship.cell, ship,
+                                                              with_cell_halite=False)
+      ship.enemy_gradient = self.gradient_map.get_enemy_gradient(ship.cell,
+                                                                 halite=ship.halite,
+                                                                 broadcast_dist=3,
+                                                                 max_dist=3,
+                                                                 normalize=True)
+      if enemy_count >= MIN_ENEMY_TO_RUN:
+        ship.is_in_danger = True
+
       for move in POSSIBLE_MOVES:
         next_position = make_move(ship.position, move, self.c.size)
         for poi_idx in position_to_index[next_position]:
@@ -1931,7 +1971,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       # yield enemy
 
   def get_ship_halite_pairs(self, ships, halites):
-    MAX_ENEMY_TO_RUN = 3
     CHECK_TRAP_DIST = 7
 
     for ship_idx, ship in enumerate(ships):
@@ -1942,7 +1981,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             or ship.halite > 0):
           # Do not go to halite with too many enemy around.
           enemy_count = self.gradient_map.count_nearby_true_enemy(cell, ship)
-          if enemy_count >= MAX_ENEMY_TO_RUN:
+          if enemy_count >= MIN_ENEMY_TO_RUN:
             continue
 
         yield ship_idx, poi_idx
