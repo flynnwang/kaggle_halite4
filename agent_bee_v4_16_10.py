@@ -1489,15 +1489,14 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       yard = next_cell.shipyard
       if (yard and yard.player_id == self.me.id and
           yard.next_action == ShipyardAction.SPAWN and
-          not hasattr(ship, "followers")):
+          not ship.is_followed):
         return MIN_WEIGHT
 
-
       # Retreat ship in danger.
-      if (ship.is_in_danger and
-          ship.task_type not in (ShipTask.ATTACK_SHIP, ShipTask.ATTACK_SHIPYARD)):
-        # TODO: how about ship.halite > 0 but is attacking. should it retreat?
-        return -1000 * ship.enemy_gradient[next_position.x, next_position.y]
+      # if (ship.is_in_danger and
+          # ship.task_type not in (ShipTask.ATTACK_SHIP, ShipTask.ATTACK_SHIPYARD)):
+        # # TODO: how about ship.halite > 0 but is attacking. should it retreat?
+        # return -1000 * ship.enemy_gradient[next_position.x, next_position.y]
 
       wt = 0
 
@@ -1639,17 +1638,6 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     position_to_index = get_position_to_index()
     C = np.ones((len(ships), len(next_positions))) * MIN_WEIGHT
     for ship_idx, ship in enumerate(ships):
-      ship.is_in_danger = False
-      enemy_count = self.gradient_map.count_nearby_true_enemy(ship.cell, ship,
-                                                              with_cell_halite=False)
-      ship.enemy_gradient = self.gradient_map.get_enemy_gradient(ship.cell,
-                                                                 halite=ship.halite,
-                                                                 broadcast_dist=3,
-                                                                 max_dist=3,
-                                                                 normalize=True)
-      if enemy_count >= MIN_ENEMY_TO_RUN:
-        ship.is_in_danger = True
-
       for move in POSSIBLE_MOVES:
         next_position = make_move(ship.position, move, self.c.size)
         for poi_idx in position_to_index[next_position]:
@@ -2117,7 +2105,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
             v += ship.halite
 
           # If have follower, let the followed ship back.
-          if hasattr(ship, 'followers'):
+          if ship.is_followed or ship.is_in_danger:
             v += self.c.spawn_cost
 
           # Force send ship home.
@@ -2239,17 +2227,28 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     """If a ship is followed by enemy, send it back home."""
     for ship in self.ships:
       ship.is_followed = False
+      ship.is_in_danger = False
+      ship.enemy_gradient = None
 
     for ship in self.my_idle_ships:
+      # Update follower info.
       ship.is_followed = self.follower_detector.is_followed(ship)
-      if not ship.is_followed:
-        continue
+      if ship.is_followed:
+        ship.followers = self.follower_detector.get_followers(ship)
 
-      # _, yard = self.get_nearest_home_yard(ship.cell)
-      # if not yard:
-      # continue
+      # Update enemy surranding.
+      enemy_count = self.gradient_map.count_nearby_true_enemy(ship.cell, ship,
+                                                              with_cell_halite=False)
+      if enemy_count >= MIN_ENEMY_TO_RUN:
+        ship.enemy_gradient = self.gradient_map.get_enemy_gradient(ship.cell,
+                                                                  halite=ship.halite,
+                                                                  broadcast_dist=3,
+                                                                  max_dist=3,
+                                                                  normalize=True)
+        ship.is_in_danger = True
 
-      ship.followers = self.follower_detector.get_followers(ship)
+
+      # Not assign task explicitly, but using optimal assignment for it.
       # self.assign_task(ship, yard.cell, ShipTask.RETURN)
       # print('ship(%s) at %s is followed by enemy(%s) at %s by %s times' %
       # (ship.id, ship.position, ship.follower.id, ship.follower.position,
