@@ -833,6 +833,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         # if 240 <= self.step <= 265 and self.num_ships >= 23:
           # home_halite_value = self.mean_halite_value
 
+        home_halite_value = max(home_halite_value, 50)
         threshold = max(home_halite_value, threshold)
 
       return min(threshold, 480)
