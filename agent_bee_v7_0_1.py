@@ -5,7 +5,10 @@ v7_0_1 <- v4_16_10
 * Add enemy_carry back, poi_to_yard / 2
 * home_halite_value, min 50
 * Add more halite by shipyard, 100/75/50, start grow at step 280/s>=30/y>=6
-* strike cooldown 10/40
+* strike step 18/23/31
+* middle zone skip dist 5
+* drop super strike
+* convert shipyard boost convered cells
 """
 
 import sys
@@ -959,9 +962,9 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
         return True
 
       # TODO(wangfei): use dynamic factor.
-      # 18-4, 24-5, 32-6
+      # 18-4, 23-5, 31-6
       bomb_dist = (self.strike_ship_num -
-                   16) // 8 + MIN_BOMB_ENEMY_SHIPYARD_DIST
+                   16) // 7 + MIN_BOMB_ENEMY_SHIPYARD_DIST
       return (bomb_dist >= enemy_yard_dist
               and is_enemy_weak(enemy_yard, factor=2)
               and self.step - self.strike_success_step > STRIKE_COOLDOWN_STEPS)
@@ -974,10 +977,10 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
       return halite
 
     def super_strike_attack_dist():
-      return SUPER_STRIKE_ATTACK_MIN_DIST
-      # base = SUPER_STRIKE_ATTACK_MIN_DIST
-      # boost = max(0, self.num_ships - SUPER_MIN_STRIKE_SHIP_NUM) // 6
-      # return base + boost
+      # return SUPER_STRIKE_ATTACK_MIN_DIST
+      base = SUPER_STRIKE_ATTACK_MIN_DIST
+      boost = max(0, self.num_ships - SUPER_MIN_STRIKE_SHIP_NUM) // 6
+      return base + boost
 
     def no_work_ship_num():
       available_home_halite_cell = (self.home_halite_cell_num
@@ -1040,6 +1043,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           enemy_yard.is_super_strike = False
           yield enemy_yard
 
+      # Drop super strike
+      return
       if has_candidate:
         return
 
@@ -1067,7 +1072,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
           i, j = i + 1, j + 1
 
       # Add 1 to account for bombing the shipyard.
-      return j, j + 1 < len(bomb_ships)
+      return j, j < len(bomb_ships)
 
     def select_bomb_ships(enemy_yard):
       MAX_BOMB_SHIP_HALITE = 30
@@ -1152,7 +1157,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
     MANHATTAN_DIST_RANGE2 = range(6, 7 + 1)
     AXIS_DIST_RANGE2 = range(1, 6 + 1)
     MAX_SHIP_TO_SHIPYARD_DIST = 8
-    SKIP_CENTER_AXIS_DIST = 3
+    SKIP_CENTER_AXIS_DIST = 5
 
     HALITE_CELL_PER_SHIP = 3.1
     if self.is_beginning_phrase:
@@ -1297,10 +1302,12 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
         score += 0.1
         covered = len(cell.covering_shipyards) + 1
+
         if covered >= 3:
-          score += 0.1
-        elif covered:
-          score += 0.1
+          score += 0.4
+
+        if covered == 2:
+          score += 0.2
       return score
 
     def is_center_zone(cell):
