@@ -816,7 +816,7 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
         cover_factor = 0
         if self.num_ships >= 25:
-          num_covered = len(cell.convering_shipyards)
+          num_covered = len(cell.covering_shipyards)
           cover_factor += num_covered / 3
 
         keep_factor = ship_factor + cover_factor + step_factor + 1
