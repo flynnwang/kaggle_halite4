@@ -815,11 +815,8 @@ class ShipStrategy(InitializeFirstShipyard, StrategyBase):
 
       # Ignore dist = 1 halite
       enemy_yard_dist, enemy_yard = self.get_nearest_enemy_yard(cell)
-      if enemy_yard and enemy_yard_dist <= 1:
-        ally_yard_dist, alley_yard = self.get_nearest_home_yard(cell)
-        if (alley_yard and enemy_yard_dist < ally_yard_dist):
-          # if the cell is nearer to the enemy yard.
-          return 1000
+      if enemy_yard and enemy_yard_dist <= 1 and enemy_yard.cell.ship_id:
+        return 1000
 
       return min(board_halite_value, 450)
 
