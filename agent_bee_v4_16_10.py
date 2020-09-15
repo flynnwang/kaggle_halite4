@@ -30,6 +30,29 @@ v4_16_10 <- v4_16_09
  'agent_bee_v4_8_3.py': array([33.33, 22.22, 27.78, 16.67])}
 
 : MAX_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=7
+239
+{'agent_bee_v4_16_10.py': array([81.59, 11.72,  6.69,  0.  ]),
+ 'agent_bee_v4_2_1.py': array([ 2.51, 13.81, 34.31, 49.37]),
+ 'agent_bee_v4_8_3.py': array([ 4.6 , 13.81, 37.66, 43.93]),
+ 'agent_bee_v4_1_1.py': array([11.3 , 60.67, 21.34,  6.69])}
+327
+{'agent_bee_v4_16_10.py': array([83.18, 11.62,  4.28,  0.92]),
+ 'agent_bee_v4_2_1.py': array([ 3.06, 15.29, 33.33, 48.32]),
+ 'agent_bee_v4_1_1.py': array([10.4 , 58.1 , 22.94,  8.56]),
+ 'agent_bee_v4_8_3.py': array([ 3.36, 14.98, 39.45, 42.2 ])}
+
+: MAX_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=5
+325
+{'agent_bee_v4_16_10.py': array([75.69, 19.08,  4.62,  0.62]),
+ 'agent_bee_v4_1_1.py': array([14.15, 55.08, 24.92,  5.85]),
+ 'agent_bee_v4_2_1.py': array([ 4.  , 14.15, 39.38, 42.46]),
+ 'agent_bee_v4_8_3.py': array([ 6.15, 11.69, 31.08, 51.08])}
+
+ 1084: MAX_ENEMY_TO_RUN=3, NEARBY_ENEMY_DIST=3, CHECK_TRAP_DIST=7 with ignore initial
+ {'agent_bee_v4_16_10.py': array([78.78, 16.14,  4.61,  0.46]),
+  'agent_bee_v4_1_1.py': array([12.08, 54.15, 27.31,  6.46]),
+  'agent_bee_v4_8_3.py': array([ 3.69, 16.42, 37.27, 42.62]),
+  'agent_bee_v4_2_1.py': array([ 5.44, 13.28, 30.81, 50.46])}
 """
 
 import sys
