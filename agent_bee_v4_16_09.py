@@ -3,12 +3,15 @@
 v4_16_09 <- v4_16_08
 
 * Build more shipyard, and skip center zone
-* has_enemy_shipyard_nearby dist = 4
-* grow less by shipyard
 * SUPER_MIN_STRIKE_SHIP_NUM=23
 * boost enemy carry when poi.halite > 100
-* maximize number of nearby cells
+* convert ship maximize number of nearby cells
 
+395
+{'agent_bee_v4_16_09.py': array([52.15, 29.11, 15.7 ,  3.04]),
+ 'agent_bee_v4_1_1.py': array([29.37, 34.94, 24.81, 10.89]),
+ 'agent_bee_v4_2_1.py': array([ 7.59, 19.75, 30.38, 42.28]),
+ 'agent_bee_v4_8_3.py': array([10.89, 16.2 , 29.11, 43.8 ])}
 """
 
 import sys
