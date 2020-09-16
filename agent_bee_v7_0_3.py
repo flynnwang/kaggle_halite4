@@ -6,6 +6,12 @@ v7_0_3 <- v7_0_2
 * SUPER_STRIKE_HALITE_GAIN = 2000
 * Do not goto dist=1 enemy yard cell for halite.
 * Build shipyard towards weighted halite value
+
+464
+{'agent_bee_v7_0_3.py': array([71.77, 20.47,  6.25,  1.51]),
+ 'agent_bee_v4_1_1.py': array([15.3 , 55.39, 23.92,  5.39]),
+ 'agent_bee_v4_8_3.py': array([ 4.96,  9.91, 34.7 , 50.43]),
+ 'agent_bee_v4_2_1.py': array([ 7.97, 14.22, 35.13, 42.67])}
 """
 
 import sys
